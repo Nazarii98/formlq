@@ -3,35 +3,11 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { getUserResults, TestResult } from "@/lib/tests";
+import { formatDate, formatDuration, scoreColor } from "@/lib/format";
+import { SpinnerPage } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import { ChevronRight, Clock, Target } from "lucide-react";
-import { Timestamp } from "firebase/firestore";
 import Link from "next/link";
-
-function formatDate(ts: Timestamp | null): string {
-  if (!ts) return "—";
-  return ts.toDate().toLocaleString("uk", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function formatTime(seconds: number): string {
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  if (m === 0) return `${s}с`;
-  return `${m}хв ${s}с`;
-}
-
-function scoreColor(score: number) {
-  if (score >= 180) return { text: "text-green-600 dark:text-green-400", bg: "bg-green-500/10" };
-  if (score >= 160) return { text: "text-blue-600 dark:text-blue-400",  bg: "bg-blue-500/10"  };
-  if (score >= 140) return { text: "text-amber-600 dark:text-amber-400", bg: "bg-amber-500/10" };
-  return                  { text: "text-red-500 dark:text-red-400",     bg: "bg-red-500/10"   };
-}
 
 function ResultCard({ result }: { result: TestResult }) {
   const { text, bg } = scoreColor(result.nmtScore);
@@ -62,7 +38,7 @@ function ResultCard({ result }: { result: TestResult }) {
           </span>
           <span className="flex items-center gap-1">
             <Clock size={11} />
-            {formatTime(result.timeSpent)}
+            {formatDuration(result.timeSpent)}
           </span>
         </div>
 
@@ -88,9 +64,7 @@ export default function HistoryPage() {
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       {loading ? (
-        <div className="flex justify-center py-16">
-          <div className="w-6 h-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-        </div>
+        <SpinnerPage />
       ) : results.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border/50 py-20 text-center space-y-2">
           <p className="text-3xl">📋</p>

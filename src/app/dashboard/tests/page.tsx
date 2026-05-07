@@ -5,6 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { getPublishedTests, TestDoc } from "@/lib/tests";
 import Link from "next/link";
 import { ChevronRight, FileText } from "lucide-react";
+import { SpinnerPage } from "@/components/ui/spinner";
 
 function TestCard({ test, index }: { test: TestDoc; index: number }) {
   return (
@@ -51,11 +52,7 @@ export default function TestsPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      {loading ? (
-        <div className="flex justify-center py-16">
-          <div className="w-6 h-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-        </div>
-      ) : tests.length === 0 ? (
+      {loading ? <SpinnerPage /> : tests.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border/50 py-20 text-center space-y-2">
           <p className="text-3xl">📝</p>
           <p className="font-medium">Тести ще не додані</p>

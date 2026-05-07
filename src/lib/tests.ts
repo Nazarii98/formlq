@@ -84,6 +84,7 @@ export interface QuestionResult {
   points: number;
   userAnswer: string;
   isCorrect: boolean;
+  explanation?: string;
   // MCQ
   options?: QuestionOption[];
   correctOptionId?: string;

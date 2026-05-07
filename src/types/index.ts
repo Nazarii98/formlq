@@ -1,3 +1,5 @@
+import type { Timestamp } from "firebase/firestore";
+
 export type UserRole = "student" | "editor";
 
 export interface UserProfile {
@@ -5,9 +7,9 @@ export interface UserProfile {
   email: string;
   displayName: string;
   photoURL?: string;
-  createdAt: Date;
+  createdAt: Timestamp | null;
   streak: number;
-  lastActivity: Date;
+  lastActivity: Timestamp | null;
   totalXP: number;
   role: UserRole;
 }

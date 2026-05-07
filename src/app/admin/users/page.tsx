@@ -3,22 +3,13 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { getAllUsers, updateUserRole } from "@/lib/users";
+import { timeAgo } from "@/lib/format";
+import { SpinnerPage } from "@/components/ui/spinner";
 import { useHeader } from "@/context/HeaderContext";
 import { UserProfile } from "@/types";
 import { cn } from "@/lib/utils";
 import { Flame, Crown, Search, ChevronRight } from "lucide-react";
 import { useRouter } from "next/navigation";
-
-function timeAgo(date: Date | { seconds: number } | null | undefined): string {
-  if (!date) return "—";
-  const d = date instanceof Date ? date : new Date((date as { seconds: number }).seconds * 1000);
-  const diff = Math.floor((Date.now() - d.getTime()) / 1000);
-  if (diff < 60) return "щойно";
-  if (diff < 3600) return `${Math.floor(diff / 60)} хв тому`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)} год тому`;
-  if (diff < 2592000) return `${Math.floor(diff / 86400)} дн тому`;
-  return d.toLocaleDateString("uk");
-}
 
 export default function AdminUsersPage() {
   const { user: currentUser } = useAuth();
@@ -36,11 +27,7 @@ export default function AdminUsersPage() {
 
   useEffect(() => {
     getAllUsers().then((u) => {
-      setUsers(u.sort((a, b) => {
-        const ta = (a.createdAt as unknown as { seconds: number })?.seconds ?? 0;
-        const tb = (b.createdAt as unknown as { seconds: number })?.seconds ?? 0;
-        return tb - ta;
-      }));
+      setUsers(u.sort((a, b) => (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0)));
       setLoading(false);
     });
   }, []);
@@ -104,7 +91,7 @@ export default function AdminUsersPage() {
             <Flame size={11} className={u.streak > 0 ? "text-orange-500" : ""} />
             <span className={u.streak > 0 ? "text-orange-500 font-medium" : ""}>{u.streak}</span>
           </div>
-          <span className="text-muted-foreground/50">{timeAgo(u.createdAt as never)}</span>
+          <span className="text-muted-foreground/50">{u.createdAt ? timeAgo(u.createdAt.toDate()) : "—"}</span>
         </div>
 
         {/* Role toggle */}
@@ -139,11 +126,7 @@ export default function AdminUsersPage() {
         />
       </div>
 
-      {loading ? (
-        <div className="flex justify-center py-16">
-          <div className="w-6 h-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-        </div>
-      ) : (
+      {loading ? <SpinnerPage /> : (
         <div className="space-y-4">
           {editors.length > 0 && (
             <div className="space-y-2">

@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 import { Trash2, Pencil, Plus, Check, X, GripVertical, Eye, EyeOff } from "lucide-react";
+import { getDayIndex } from "@/lib/format";
+import { SpinnerPage } from "@/components/ui/spinner";
 
 const EMOJI_SUGGESTIONS = ["📐", "🔢", "📏", "🎯", "⏱️", "📊", "🔄", "📉", "🧮", "📌", "🔺", "💡", "📈", "🎲", "🔵", "🔁", "✏️", "🧠", "📋", "⭐"];
 
@@ -157,10 +159,6 @@ function NewTipForm({ onAdd }: { onAdd: (data: Omit<Tip, "id">) => void }) {
   );
 }
 
-function getDayIndex() {
-  return Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
-}
-
 export default function AdminTipsPage() {
   const [tips, setTips] = useState<Tip[]>([]);
   const [loading, setLoading] = useState(true);
@@ -212,21 +210,26 @@ export default function AdminTipsPage() {
   }
 
   const dayIdx = getDayIndex();
-  const todayIdx = tips.length > 0 ? dayIdx % tips.length : -1;
-  const tomorrowIdx = tips.length > 0 ? (dayIdx + 1) % tips.length : -1;
+  const baseIdx = tips.length > 0 ? dayIdx % tips.length : -1;
+  let todayIdx = -1;
+  for (let i = 0; i < tips.length; i++) {
+    const idx = (baseIdx + i) % tips.length;
+    if (tips[idx].active) { todayIdx = idx; break; }
+  }
+  let tomorrowIdx = -1;
+  for (let i = 1; i < tips.length; i++) {
+    const idx = (todayIdx + i) % tips.length;
+    if (tips[idx].active) { tomorrowIdx = idx; break; }
+  }
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      {loading ? (
-        <div className="flex justify-center py-16">
-          <div className="w-6 h-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-        </div>
-      ) : (
+      {loading ? <SpinnerPage /> : (
         <div className="space-y-2">
           {tips.map((tip, i) => {
             const badge: "today" | "tomorrow" | undefined =
-              i === todayIdx && tip.active ? "today"
-              : i === tomorrowIdx && tip.active ? "tomorrow"
+              i === todayIdx ? "today"
+              : i === tomorrowIdx ? "tomorrow"
               : undefined;
             return (
               <TipRow

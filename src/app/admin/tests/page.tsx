@@ -7,10 +7,8 @@ import { getAllTests, updateTest, createTest, deleteTest, TestDoc } from "@/lib/
 import { cn } from "@/lib/utils";
 import { Pencil, Trash2, Plus, FileText, GripVertical, Eye, EyeOff } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-
-function getDayIndex() {
-  return Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
-}
+import { getDayIndex } from "@/lib/format";
+import { SpinnerPage } from "@/components/ui/spinner";
 
 export default function AdminTestsPage() {
   const { user } = useAuth();
@@ -85,8 +83,17 @@ export default function AdminTestsPage() {
   }
 
   const dayIdx = getDayIndex();
-  const todayIdx = tests.length > 0 ? dayIdx % tests.length : -1;
-  const tomorrowIdx = tests.length > 0 ? (dayIdx + 1) % tests.length : -1;
+  const baseIdx = tests.length > 0 ? dayIdx % tests.length : -1;
+  let todayIdx = -1;
+  for (let i = 0; i < tests.length; i++) {
+    const idx = (baseIdx + i) % tests.length;
+    if (tests[idx].published) { todayIdx = idx; break; }
+  }
+  let tomorrowIdx = -1;
+  for (let i = 1; i < tests.length; i++) {
+    const idx = (todayIdx + i) % tests.length;
+    if (tests[idx].published) { tomorrowIdx = idx; break; }
+  }
 
   return (
     <div className="max-w-2xl mx-auto space-y-4">
@@ -101,11 +108,7 @@ export default function AdminTestsPage() {
         </button>
       </div>
 
-      {loading ? (
-        <div className="flex justify-center py-16">
-          <div className="w-6 h-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-        </div>
-      ) : tests.length === 0 ? (
+      {loading ? <SpinnerPage /> : tests.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border/50 py-20 text-center space-y-2">
           <p className="text-3xl">📝</p>
           <p className="font-medium">Тестів ще немає</p>
@@ -115,8 +118,8 @@ export default function AdminTestsPage() {
         <div className="space-y-2">
           {tests.map((test, i) => {
             const badge: "today" | "tomorrow" | undefined =
-              i === todayIdx && test.published ? "today"
-              : i === tomorrowIdx && test.published ? "tomorrow"
+              i === todayIdx ? "today"
+              : i === tomorrowIdx ? "tomorrow"
               : undefined;
             const isDragging = dragIndex === i;
             const isDragOver = dragOverIndex === i && dragIndex !== i;

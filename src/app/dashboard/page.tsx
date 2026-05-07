@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useAuth } from "@/context/AuthContext";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -15,6 +15,7 @@ import { doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useColorTheme } from "@/context/ThemeContext";
 import { ChevronRight } from "lucide-react";
+import { formatDuration } from "@/lib/format";
 import {
   AreaChart,
   Area,
@@ -35,8 +36,11 @@ function DailyTip() {
       const dayOfYear = Math.floor(
         (Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000
       );
-      const picked = tips[dayOfYear % tips.length];
-      if (picked?.active) setTip(picked);
+      const baseIdx = dayOfYear % tips.length;
+      for (let i = 0; i < tips.length; i++) {
+        const t = tips[(baseIdx + i) % tips.length];
+        if (t.active) { setTip(t); break; }
+      }
     });
   }, []);
 
@@ -219,13 +223,6 @@ function buildChartData(
   return firstReal > 0 ? points.slice(firstReal) : points;
 }
 
-function formatTime(s: number) {
-  const m = Math.floor(s / 60);
-  const sec = s % 60;
-  if (m === 0) return `${sec}с`;
-  return `${m}хв ${sec}с`;
-}
-
 function CustomTooltip({
   active,
   payload,
@@ -253,7 +250,7 @@ function CustomTooltip({
         </p>
         {pt.totalTime > 0 && (
           <p className="text-xs text-muted-foreground">
-            Час: <span className="font-semibold text-foreground">{formatTime(pt.totalTime)}</span>
+            Час: <span className="font-semibold text-foreground">{formatDuration(pt.totalTime)}</span>
           </p>
         )}
       </div>
@@ -284,31 +281,21 @@ const THEME_COLORS: Record<string, string> = {
 };
 
 function ProgressSection({ results }: { results: TestResult[] }) {
-  const [range, setRange] = useState<Range>(() => {
-    const days = new Set(results.filter(r => r.completedAt).map(r => {
-      const d = r.completedAt!.toDate();
-      return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-    })).size;
-    return days > 1 ? "week" : "day";
-  });
+  const { distinctDays, distinctWeeks, distinctMonths } = useMemo(() => {
+    const withDate = results.filter((r) => r.completedAt);
+    return {
+      distinctDays:   new Set(withDate.map((r) => { const d = r.completedAt!.toDate(); return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`; })).size,
+      distinctWeeks:  new Set(withDate.map((r) => { const d = r.completedAt!.toDate(); return `${d.getFullYear()}-${d.getMonth()}-${Math.floor(d.getDate() / 7)}`; })).size,
+      distinctMonths: new Set(withDate.map((r) => { const d = r.completedAt!.toDate(); return `${d.getFullYear()}-${d.getMonth()}`; })).size,
+    };
+  }, [results]);
+
+  const [range, setRange] = useState<Range>(() => (distinctDays > 1 ? "week" : "day"));
   const [monthStep, setMonthStep] = useState<MonthStep>("week");
   const { colorTheme } = useColorTheme();
   const primary = THEME_COLORS[colorTheme] ?? THEME_COLORS.violet;
-  const data = buildChartData(results, range, monthStep);
+  const data = useMemo(() => buildChartData(results, range, monthStep), [results, range, monthStep]);
   const hasData = data.some((d) => d.score !== null);
-
-  const distinctDays = new Set(results.filter(r => r.completedAt).map(r => {
-    const d = r.completedAt!.toDate();
-    return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-  })).size;
-  const distinctWeeks = new Set(results.filter(r => r.completedAt).map(r => {
-    const d = r.completedAt!.toDate();
-    return `${d.getFullYear()}-${Math.floor(d.getDate() / 7)}-${d.getMonth()}`;
-  })).size;
-  const distinctMonths = new Set(results.filter(r => r.completedAt).map(r => {
-    const d = r.completedAt!.toDate();
-    return `${d.getFullYear()}-${d.getMonth()}`;
-  })).size;
   const showStepSelector = range === "month" && (distinctWeeks > 1 || distinctMonths > 1);
 
   const availableRanges = RANGE_LABELS.filter(({ value }) => {

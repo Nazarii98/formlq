@@ -2,25 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { getAllUsers } from "@/lib/users";
+import { getUserById } from "@/lib/users";
 import { getUserResults, TestResult } from "@/lib/tests";
+import { formatDuration, scoreColor } from "@/lib/format";
+import { SpinnerPage } from "@/components/ui/spinner";
 import { useHeader } from "@/context/HeaderContext";
 import { UserProfile } from "@/types";
 import { cn } from "@/lib/utils";
 import { ArrowLeft, ChevronRight, Flame, Clock, Target } from "lucide-react";
 import Link from "next/link";
-
-function formatTime(s: number) {
-  const m = Math.floor(s / 60);
-  return m > 0 ? `${m} хв` : `${s} с`;
-}
-
-function scoreColor(score: number) {
-  if (score >= 180) return { text: "text-green-600 dark:text-green-400", bg: "bg-green-500/10" };
-  if (score >= 150) return { text: "text-blue-600 dark:text-blue-400", bg: "bg-blue-500/10" };
-  if (score >= 120) return { text: "text-amber-600 dark:text-amber-400", bg: "bg-amber-500/10" };
-  return { text: "text-red-500", bg: "bg-red-500/10" };
-}
 
 export default function AdminUserHistoryPage() {
   const { uid } = useParams<{ uid: string }>();
@@ -31,8 +21,7 @@ export default function AdminUserHistoryPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([getAllUsers(), getUserResults(uid)]).then(([users, res]) => {
-      const u = users.find((u) => u.uid === uid) ?? null;
+    Promise.all([getUserById(uid), getUserResults(uid)]).then(([u, res]) => {
       setProfile(u);
       setResults(res);
       setLoading(false);
@@ -44,13 +33,7 @@ export default function AdminUserHistoryPage() {
     return () => setHeader("", "");
   }, [profile, setHeader]);
 
-  if (loading) {
-    return (
-      <div className="flex justify-center py-16">
-        <div className="w-6 h-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-      </div>
-    );
-  }
+  if (loading) return <SpinnerPage />;
 
   const best = results.length ? Math.max(...results.map((r) => r.nmtScore)) : null;
   const avg = results.length ? Math.round(results.reduce((s, r) => s + r.nmtScore, 0) / results.length) : null;
@@ -125,7 +108,7 @@ export default function AdminUserHistoryPage() {
                       {r.timeSpent && (
                         <>
                           <span>·</span>
-                          <span className="flex items-center gap-0.5"><Clock size={10} />{formatTime(r.timeSpent)}</span>
+                          <span className="flex items-center gap-0.5"><Clock size={10} />{formatDuration(r.timeSpent)}</span>
                         </>
                       )}
                       {date && <><span>·</span><span>{date}</span></>}
@@ -142,7 +125,7 @@ export default function AdminUserHistoryPage() {
 
       {results.length > 0 && (
         <p className="text-xs text-center text-muted-foreground">
-          Загальний час: {formatTime(totalTime)}
+          Загальний час: {formatDuration(totalTime)}
         </p>
       )}
     </div>

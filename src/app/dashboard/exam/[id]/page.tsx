@@ -23,15 +23,10 @@ import { doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { formatTimer } from "@/lib/format";
 import confetti from "canvas-confetti";
 
 const EXAM_DURATION = 150 * 60;
-
-function formatTime(s: number) {
-  const m = Math.floor(s / 60);
-  const sec = s % 60;
-  return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
-}
 
 function isAnswered(q: TestQuestion, answer: string | undefined): boolean {
   if (!answer) return false;
@@ -151,7 +146,7 @@ export default function ExamPage() {
           correct = Object.entries(q.correctPairs).every(([k, v]) => p[k] === v);
         } catch { correct = false; }
       }
-      const base = { id: q.id, type: q.type, text: q.text, points: q.points, userAnswer, isCorrect: correct };
+      const base = { id: q.id, type: q.type, text: q.text, points: q.points, userAnswer, isCorrect: correct, explanation: q.explanation };
       if (q.type === "mcq") return { ...base, options: q.options, correctOptionId: q.correctOptionId };
       if (q.type === "open") return { ...base, correctAnswer: q.correctAnswer };
       return { ...base, leftItems: q.leftItems, rightOptions: q.rightOptions, correctPairs: q.correctPairs };
@@ -296,7 +291,7 @@ export default function ExamPage() {
             <p className="text-muted-foreground text-sm">балів НМТ (з 200)</p>
             <div className="flex justify-center gap-4 pt-3 text-sm text-muted-foreground">
               <span>Сирий бал: <b className="text-foreground">{rawScore}/{maxRaw}</b></span>
-              <span>Час: <b className="text-foreground">{formatTime(EXAM_DURATION - timeLeft)}</b></span>
+              <span>Час: <b className="text-foreground">{formatTimer(EXAM_DURATION - timeLeft)}</b></span>
             </div>
           </div>
 
@@ -429,7 +424,7 @@ export default function ExamPage() {
             "tabular-nums font-bold text-lg font-mono",
             timeLeft < 600 ? "text-red-500" : timeLeft < 1800 ? "text-amber-500" : ""
           )}>
-            ⏱ {formatTime(timeLeft)}
+            ⏱ {formatTimer(timeLeft)}
           </span>
           <Button size="sm" variant="outline" onClick={handleSubmit}>Завершити</Button>
         </div>
