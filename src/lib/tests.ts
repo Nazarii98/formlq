@@ -118,6 +118,12 @@ export async function saveTestResult(data: Omit<TestResult, "id" | "completedAt"
   return ref.id;
 }
 
+export async function getResult(id: string): Promise<TestResult | null> {
+  const snap = await getDoc(doc(db, "testResults", id));
+  if (!snap.exists()) return null;
+  return { id: snap.id, ...snap.data() } as TestResult;
+}
+
 export async function getUserResults(userId: string): Promise<TestResult[]> {
   const q = query(collection(db, "testResults"), where("userId", "==", userId));
   const snap = await getDocs(q);

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { Navbar } from "@/components/Navbar";
+import { useExamGuard } from "@/context/ExamGuardContext";
 import { Button } from "@/components/ui/button";
 import {
   getTest,
@@ -16,8 +16,11 @@ import {
   rawToNMT,
   maxRawScore,
   saveTestResult,
+  getUserResults,
   QuestionResult,
 } from "@/lib/tests";
+import { doc, updateDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
@@ -55,7 +58,8 @@ function isCorrect(q: TestQuestion, answer: string | undefined): boolean {
 
 export default function ExamPage() {
   const { id } = useParams<{ id: string }>();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, refreshProfile } = useAuth();
+  const { setGuarded } = useExamGuard();
   const router = useRouter();
 
   const [test, setTest] = useState<TestDoc | null>(null);
@@ -70,6 +74,18 @@ export default function ExamPage() {
   useEffect(() => {
     if (!authLoading && !user) router.push("/login");
   }, [user, authLoading, router]);
+
+  useEffect(() => {
+    setGuarded(phase === "exam");
+    return () => setGuarded(false);
+  }, [phase]);
+
+  useEffect(() => {
+    if (phase !== "exam") return;
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [phase]);
 
   useEffect(() => {
     if (!user) return;
@@ -140,6 +156,28 @@ export default function ExamPage() {
       questions: buildQuestionResults(qs, currentAnswers),
       scoreTable: test.scoreTable ?? [],
     });
+
+    // recalc streak
+    const allResults = await getUserResults(user.uid);
+    const activeDays = new Set(
+      allResults
+        .filter((r) => r.completedAt)
+        .map((r) => {
+          const d = r.completedAt!.toDate();
+          return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+        })
+    );
+    let streak = 0;
+    const now = new Date();
+    for (let i = 0; i < 365; i++) {
+      const d = new Date(now);
+      d.setDate(now.getDate() - i);
+      const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+      if (activeDays.has(key)) streak++;
+      else break;
+    }
+    await updateDoc(doc(db, "users", user.uid), { streak });
+    await refreshProfile();
   }
 
   function handleSubmit() {
@@ -177,26 +215,25 @@ export default function ExamPage() {
     const openPoints = questions.filter((q) => q.type === "open").reduce((s, q) => s + q.points, 0);
 
     return (
-      <div className="min-h-screen bg-background">
-        <Navbar />
-        <main className="max-w-lg mx-auto px-4 py-16 space-y-8">
-          <div className="text-center space-y-3">
+      <div className="-m-6 min-h-[calc(100vh-3.5rem)] flex items-center justify-center px-6">
+        <div className="w-full max-w-lg space-y-6 py-8">
+          <div className="text-center space-y-2">
             <div className="text-5xl">📝</div>
             <h1 className="text-2xl font-bold">{test.title}</h1>
-            {test.subtitle && <p className="text-muted-foreground text-sm">{test.subtitle}</p>}
+            {test.subtitle && <p className="text-muted-foreground">{test.subtitle}</p>}
           </div>
 
           <div className="rounded-2xl border border-border/50 bg-card p-6 space-y-5">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               {[
                 [String(questions.length), "Завдань"],
+                [String(maxRaw), "Макс. балів"],
                 ["150 хв", "Часу"],
-                [`${mcqCount} × ${questions.find(q=>q.type==="mcq")?.points ?? 1} бал`, "Тест з вибором"],
-                [`${openCount} × ${questions.find(q=>q.type==="open")?.points ?? 2} бали`, "Коротка відповідь"],
-                [String(maxRaw), "Балів максимум"],
+                [`${mcqCount} × ${questions.find(q=>q.type==="mcq")?.points ?? 1}б`, "Вибір"],
+                [`${openCount} × ${questions.find(q=>q.type==="open")?.points ?? 2}б`, "Відповідь"],
                 ["100–200", "Шкала НМТ"],
               ].map(([val, label]) => (
-                <div key={label} className="rounded-xl bg-muted/50 p-3 text-center">
+                <div key={label} className="rounded-xl bg-muted/50 px-3 py-3 text-center">
                   <div className="font-bold tabular-nums">{val}</div>
                   <div className="text-xs text-muted-foreground mt-0.5">{label}</div>
                 </div>
@@ -209,7 +246,7 @@ export default function ExamPage() {
             </div>
           </div>
 
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2.5">
             <Button size="lg" className="w-full h-12 text-base" onClick={() => setPhase("exam")}>
               Почати іспит →
             </Button>
@@ -217,7 +254,7 @@ export default function ExamPage() {
               <Button variant="ghost" className="w-full text-muted-foreground">Назад</Button>
             </Link>
           </div>
-        </main>
+        </div>
       </div>
     );
   }
@@ -230,61 +267,120 @@ export default function ExamPage() {
 
     return (
       <div className="min-h-screen bg-background">
-        <Navbar />
-        <main className="max-w-md mx-auto px-4 py-12 space-y-6">
-          <div className="text-center space-y-1">
+        <main className="max-w-2xl mx-auto px-4 py-8 space-y-6">
+          {/* Score header */}
+          <div className="rounded-2xl border border-border/50 bg-card p-6 text-center space-y-1">
             <div className="text-4xl mb-2">{emoji}</div>
-            <div className="text-4xl font-bold text-primary tabular-nums">{nmtScore}</div>
+            <div className="text-5xl font-bold tabular-nums">{nmtScore}</div>
             <p className="text-muted-foreground text-sm">балів НМТ (з 200)</p>
+            <div className="flex justify-center gap-4 pt-3 text-sm text-muted-foreground">
+              <span>Сирий бал: <b className="text-foreground">{rawScore}/{maxRaw}</b></span>
+              <span>Час: <b className="text-foreground">{formatTime(EXAM_DURATION - timeLeft)}</b></span>
+            </div>
           </div>
 
-          <div className="rounded-2xl border border-border/50 bg-card p-5 space-y-4">
-            <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Результати</p>
-            <div className="flex flex-wrap gap-2">
-              {questions.map((q, i) => {
-                const correct = isCorrect(q, answers[q.id]);
-                const answered = isAnswered(q, answers[q.id]);
-                return (
-                  <div
-                    key={q.id}
-                    title={`Завд. ${i + 1}: ${correct ? "правильно" : answered ? "неправильно" : "не відповіли"}`}
-                    className={cn(
-                      "w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold border",
-                      correct
-                        ? "bg-primary/15 border-primary/40 text-primary"
-                        : answered
-                        ? "bg-red-500/15 border-red-500/40 text-red-500"
-                        : "bg-muted border-border/50 text-muted-foreground"
-                    )}
-                  >
+          {/* Quick map */}
+          <div className="flex flex-wrap gap-1.5">
+            {questions.map((q, i) => {
+              const correct = isCorrect(q, answers[q.id]);
+              const answered = isAnswered(q, answers[q.id]);
+              return (
+                <a key={q.id} href={`#q-${i}`}>
+                  <div className={cn(
+                    "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border transition-all",
+                    correct ? "bg-green-500/15 border-green-500/40 text-green-600 dark:text-green-400"
+                    : answered ? "bg-red-500/15 border-red-500/40 text-red-500"
+                    : "bg-muted border-border/50 text-muted-foreground"
+                  )}>
                     {i + 1}
                   </div>
-                );
-              })}
-            </div>
-
-            <div className="border-t border-border/50 pt-4 space-y-3 text-sm">
-              <div className="flex justify-between font-semibold text-base">
-                <span>Сума балів</span>
-                <span className="tabular-nums">{rawScore} / {maxRaw}</span>
-              </div>
-              {["mcq", "matching", "open"].map((type) => {
-                const qs = questions.filter((q) => q.type === type);
-                if (!qs.length) return null;
-                const correct = qs.filter((q) => isCorrect(q, answers[q.id]));
-                const earned = correct.reduce((s, q) => s + q.points, 0);
-                const total = qs.reduce((s, q) => s + q.points, 0);
-                return (
-                  <div key={type} className="flex justify-between text-muted-foreground">
-                    <span>{type === "mcq" ? "Тест з вибором" : type === "matching" ? "Відповідність" : "Коротка відповідь"}</span>
-                    <span className="tabular-nums">{earned} / {total}</span>
-                  </div>
-                );
-              })}
-            </div>
+                </a>
+              );
+            })}
           </div>
 
-          <div className="flex gap-3">
+          {/* Question breakdown */}
+          <div className="space-y-3">
+            {questions.map((q, i) => {
+              const correct = isCorrect(q, answers[q.id]);
+              const userAnswer = answers[q.id] ?? "";
+
+              let userLabel = "—";
+              let correctLabel = "";
+
+              if (q.type === "mcq") {
+                const uOpt = (q as MCQQuestion).options.find((o) => o.id === userAnswer);
+                const cOpt = (q as MCQQuestion).options.find((o) => o.id === (q as MCQQuestion).correctOptionId);
+                userLabel = uOpt ? `${uOpt.id}. ${uOpt.text}` : userAnswer || "—";
+                correctLabel = cOpt ? `${cOpt.id}. ${cOpt.text}` : "";
+              } else if (q.type === "open") {
+                userLabel = userAnswer || "—";
+                correctLabel = (q as OpenQuestion).correctAnswer;
+              } else if (q.type === "matching") {
+                try {
+                  const parsed = JSON.parse(userAnswer) as Record<string, string>;
+                  userLabel = Object.entries(parsed).map(([k, v]) => `${k}→${v}`).join(", ") || "—";
+                } catch { userLabel = "—"; }
+                correctLabel = Object.entries((q as MatchingQuestion).correctPairs).map(([k, v]) => `${k}→${v}`).join(", ");
+              }
+
+              return (
+                <div
+                  id={`q-${i}`}
+                  key={q.id}
+                  className={cn(
+                    "rounded-2xl border p-5 space-y-3",
+                    correct ? "border-green-500/30 bg-green-500/5" : "border-red-500/30 bg-red-500/5"
+                  )}
+                >
+                  {/* Header */}
+                  <div className="flex items-start gap-3">
+                    <span className={cn(
+                      "shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold mt-0.5",
+                      correct ? "bg-green-500/20 text-green-600 dark:text-green-400" : "bg-red-500/20 text-red-500"
+                    )}>
+                      {correct ? "✓" : "✗"}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-muted-foreground mb-1">Завдання {i + 1} · {q.points} б</p>
+                      <p className="text-sm text-foreground leading-relaxed">{q.text || "—"}</p>
+                    </div>
+                  </div>
+
+                  {/* Answers */}
+                  <div className="pl-9 space-y-1.5 text-sm">
+                    <div className="flex gap-2">
+                      <span className="text-muted-foreground shrink-0 w-20">Ваша:</span>
+                      <span className={correct ? "text-green-600 dark:text-green-400" : "text-red-500"}>{userLabel}</span>
+                    </div>
+                    {!correct && correctLabel && (
+                      <div className="flex gap-2">
+                        <span className="text-muted-foreground shrink-0 w-20">Правильна:</span>
+                        <span className="text-green-600 dark:text-green-400">{correctLabel}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Explanation */}
+                  {q.explanation && (
+                    <div className="pl-9">
+                      <details className="group">
+                        <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors list-none flex items-center gap-1 select-none">
+                          <span className="group-open:rotate-90 transition-transform inline-block">›</span>
+                          Пояснення
+                        </summary>
+                        <p className="mt-2 text-sm text-foreground/80 leading-relaxed border-l-2 border-border pl-3">
+                          {q.explanation}
+                        </p>
+                      </details>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="flex gap-3 pb-4">
             <Button variant="outline" className="flex-1" onClick={handleRestart}>Ще раз</Button>
             <Link href="/dashboard" className="flex-1">
               <Button className="w-full">На головну</Button>
@@ -302,7 +398,6 @@ export default function ExamPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navbar />
       <main className="max-w-3xl mx-auto px-4 py-5 space-y-4">
         {/* Top bar */}
         <div className="flex items-center justify-between gap-3">

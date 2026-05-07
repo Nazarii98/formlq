@@ -44,13 +44,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </span>
           <div className="flex items-center gap-3">
             <div className={cn(
-              "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold",
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold transition-all",
               streak > 0
-                ? "bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400"
-                : "bg-muted text-muted-foreground"
+                ? "bg-linear-to-r from-orange-400/20 to-amber-400/20 border border-orange-400/30 text-orange-500 dark:text-orange-400 shadow-[0_0_10px_rgba(251,146,60,0.2)]"
+                : "bg-muted/60 border border-border/40 text-muted-foreground"
             )}>
-              <Flame size={15} />
-              <span>{streak}</span>
+              <Flame size={18} className={streak > 0 ? "text-orange-500 dark:text-orange-400" : "text-muted-foreground"} />
+              <span className="tabular-nums leading-none text-base">{streak}</span>
             </div>
             <ThemeSelector />
             <button

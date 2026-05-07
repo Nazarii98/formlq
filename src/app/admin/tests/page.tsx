@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { getAllTests, createTest, deleteTest, TestDoc } from "@/lib/tests";
@@ -48,9 +47,8 @@ export default function AdminTestsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
-      <main className="max-w-2xl mx-auto px-4 py-10 space-y-6">
+    <div>
+      <main className="max-w-2xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl font-bold">Тести</h1>

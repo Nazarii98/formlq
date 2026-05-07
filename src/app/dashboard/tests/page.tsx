@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { getPublishedTests, TestDoc } from "@/lib/tests";
 import Link from "next/link";
-import { ChevronRight, FileText } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 
 export default function TestsPage() {
   const { user } = useAuth();
@@ -34,21 +34,25 @@ export default function TestsPage() {
           <p className="text-sm text-muted-foreground">Зайдіть пізніше</p>
         </div>
       ) : (
-        <div className="space-y-2">
-          {tests.map((test) => (
-            <Link key={test.id} href={`/exam/${test.id}`}>
-              <div className="flex items-center gap-4 px-5 py-4 rounded-2xl border border-border/40 bg-card hover:border-primary/40 hover:bg-primary/5 transition-all group cursor-pointer">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                  <FileText size={18} className="text-primary" />
+        <div className="rounded-2xl border border-border/50 bg-card overflow-hidden divide-y divide-border/40">
+          {tests.map((test, i) => (
+            <Link key={test.id} href={`/dashboard/exam/${test.id}`}>
+              <div className="flex items-center justify-between px-5 py-3.5 hover:bg-muted/40 transition-colors group">
+                <div className="flex items-center gap-4 min-w-0">
+                  <span className="text-xs font-mono text-muted-foreground w-5 shrink-0">{i + 1}</span>
+                  <div className="min-w-0">
+                    <p className="font-medium text-sm truncate">{test.title}</p>
+                    {test.subtitle && (
+                      <p className="text-xs text-muted-foreground truncate mt-0.5">{test.subtitle}</p>
+                    )}
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-sm">{test.title}</p>
-                  {test.subtitle && <p className="text-xs text-muted-foreground mt-0.5">{test.subtitle}</p>}
-                  <p className="text-xs text-muted-foreground mt-0.5">
+                <div className="flex items-center gap-4 shrink-0 ml-4">
+                  <span className="text-xs text-muted-foreground hidden sm:block">
                     {test.questions?.length ?? 0} питань
-                  </p>
+                  </span>
+                  <ChevronRight size={15} className="text-muted-foreground group-hover:text-foreground transition-colors" />
                 </div>
-                <ChevronRight size={16} className="text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
               </div>
             </Link>
           ))}

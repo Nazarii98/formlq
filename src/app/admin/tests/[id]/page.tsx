@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
@@ -109,9 +108,8 @@ export default function TestEditorPage() {
   const totalPoints = maxRawScore(questions);
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
-      <main className="max-w-5xl mx-auto px-4 py-8 space-y-6">
+    <div>
+      <main className="max-w-5xl mx-auto space-y-6">
 
         {/* Header */}
         <div className="flex items-center justify-between gap-4 flex-wrap">

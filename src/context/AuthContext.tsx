@@ -29,6 +29,7 @@ interface AuthContextType {
   signUp: (email: string, password: string, name: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   logOut: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
@@ -98,8 +99,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await signOut(auth);
   }
 
+  async function refreshProfile() {
+    if (!auth.currentUser) return;
+    const snap = await getDoc(doc(db, "users", auth.currentUser.uid));
+    if (snap.exists()) setUserProfile(snap.data() as UserProfile);
+  }
+
   return (
-    <AuthContext.Provider value={{ user, userProfile, loading, signIn, signUp, signInWithGoogle, logOut }}>
+    <AuthContext.Provider value={{ user, userProfile, loading, signIn, signUp, signInWithGoogle, logOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );
