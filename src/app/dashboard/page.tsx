@@ -15,7 +15,7 @@ import { doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useColorTheme } from "@/context/ThemeContext";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, BookOpen } from "lucide-react";
 import { formatDuration } from "@/lib/format";
 import {
   AreaChart,
@@ -518,33 +518,22 @@ function RecommendedTest({
   }
 
   return (
-    <Link href={`/dashboard/exam/${recommended.id}`}>
-      <section className="group rounded-2xl border border-border/50 bg-card px-5 py-4 hover:border-primary/30 hover:bg-primary/5 transition-all cursor-pointer">
-        <div className="flex items-center gap-4">
-          {/* Icon */}
-          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/15 transition-colors">
-            <span className="text-2xl">📝</span>
-          </div>
-
-          {/* Content */}
-          <div className="flex-1 min-w-0 space-y-0.5">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-primary">Тест дня</span>
-              {lastDone && <span className="text-[10px] text-muted-foreground">· {lastDone}</span>}
-            </div>
-            <p className="font-semibold text-sm leading-tight truncate">{recommended.title}</p>
-            {recommended.subtitle && (
-              <p className="text-xs text-muted-foreground truncate">{recommended.subtitle}</p>
-            )}
-            <div className="flex items-center gap-3 pt-0.5 text-xs text-muted-foreground">
-              <span>{qCount} питань</span>
-              <span>~{Math.round(qCount * 2)} хв</span>
-            </div>
-          </div>
-
-          {/* Arrow */}
-          <ChevronRight size={16} className="text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0" />
+    <Link href={`/dashboard/exam/${recommended.id}`} className="block">
+      <section className="group rounded-2xl border border-border/50 bg-card px-5 py-4 flex items-center gap-4 hover:border-primary/30 hover:bg-primary/2 transition-all cursor-pointer">
+        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+          <BookOpen size={18} className="text-primary" />
         </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-primary mb-0.5">Тест дня</p>
+          <p className="font-semibold text-sm truncate">{recommended.title}</p>
+          <p className="text-xs text-muted-foreground truncate mt-0.5">
+            {[recommended.subtitle, `${qCount} питань`, `~${Math.round(qCount * 2)} хв`, lastDone ? `остання: ${lastDone}` : null]
+              .filter(Boolean).join(" · ")}
+          </p>
+        </div>
+        <span className="shrink-0 flex items-center gap-1 px-3.5 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-medium group-hover:opacity-90 transition-opacity whitespace-nowrap">
+          Почати <ChevronRight size={14} />
+        </span>
       </section>
     </Link>
   );

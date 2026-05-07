@@ -1,5 +1,15 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Nunito, Roboto, Montserrat, Unbounded, Comfortaa, Geologica, Fredoka } from "next/font/google";
+import {
+  Geist,
+  Geist_Mono,
+  Nunito,
+  Roboto,
+  Montserrat,
+  Unbounded,
+  Comfortaa,
+  Geologica,
+  Fredoka,
+} from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
@@ -51,7 +61,7 @@ const comfortaa = Comfortaa({
 const bubbleboddy = localFont({
   src: [
     { path: "../../public/fonts/BubbleboddyNeue-Regular.ttf", weight: "400" },
-    { path: "../../public/fonts/BubbleboddyNeue-Bold.ttf",    weight: "700" },
+    { path: "../../public/fonts/BubbleboddyNeue-Bold.ttf", weight: "700" },
   ],
   variable: "--font-bubbleboddy",
 });
@@ -70,7 +80,8 @@ const geologica = Geologica({
 
 export const metadata: Metadata = {
   title: "formlq — підготовка до НМТ з математики",
-  description: "Платформа для підготовки до НМТ з математики. Тренування, пробні тести, прогрес.",
+  description:
+    "Платформа для підготовки до НМТ з математики. Тренування, пробні тести, прогрес.",
 };
 
 export default function RootLayout({
@@ -84,13 +95,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} ${nunito.variable} ${roboto.variable} ${montserrat.variable} ${unbounded.variable} ${comfortaa.variable} ${geologica.variable} ${fredoka.variable} ${bubbleboddy.variable} h-full antialiased`}
       suppressHydrationWarning
     >
-      <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('color-theme');if(t)document.documentElement.setAttribute('data-theme',t);var f=localStorage.getItem('font-theme');if(f)document.documentElement.setAttribute('data-font',f);}catch(e){}})()`,
-          }}
-        />
-      </head>
+      <head></head>
       <body className="min-h-full flex flex-col">
         <QueryProvider>
           <ThemeProvider>

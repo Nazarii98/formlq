@@ -7,7 +7,11 @@ import { AppSidebar } from "@/components/AppSidebar";
 import { ThemeSelector } from "@/components/ThemeSelector";
 import { useHeader } from "@/context/HeaderContext";
 import { ReferenceDrawerProvider } from "@/context/ReferenceDrawerContext";
-import { ReferenceDrawer } from "@/components/ReferenceDrawer";
+import dynamic from "next/dynamic";
+const ReferenceDrawer = dynamic(
+  () => import("@/components/ReferenceDrawer").then((m) => ({ default: m.ReferenceDrawer })),
+  { ssr: false },
+);
 import { Flame, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 

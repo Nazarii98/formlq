@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useReferenceDrawer } from "@/context/ReferenceDrawerContext";
 import { useExamGuard } from "@/context/ExamGuardContext";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,7 @@ import { db } from "@/lib/firebase";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { formatTimer } from "@/lib/format";
+import { ResultListItem } from "@/components/exam/ResultListItem";
 import confetti from "canvas-confetti";
 
 const EXAM_DURATION = 150 * 60;
@@ -61,6 +62,14 @@ export default function ExamPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { open: drawerOpen, openDrawer } = useReferenceDrawer();
+
+  const { data: allResults = [] } = useQuery({
+    queryKey: ["results", user?.uid],
+    queryFn: () => getUserResults(user!.uid),
+    enabled: !!user,
+    staleTime: 60 * 1000,
+  });
+  const testHistory = allResults.filter((r) => r.testId === id);
 
   const [test, setTest] = useState<TestDoc | null>(null);
   const [loadingTest, setLoadingTest] = useState(true);
@@ -275,6 +284,15 @@ export default function ExamPage() {
               <Button variant="ghost" className="w-full text-muted-foreground">Назад</Button>
             </Link>
           </div>
+
+          {testHistory.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Мої спроби</p>
+              {testHistory.map((r) => (
+                <ResultListItem key={r.id} result={r} href={`/dashboard/results/${r.id}`} />
+              ))}
+            </div>
+          )}
         </div>
       </div>
     );
