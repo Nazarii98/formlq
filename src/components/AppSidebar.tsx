@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, FileText, History, BookOpen, ShieldCheck } from "lucide-react";
+import { Home, FileText, History, BookOpen, ShieldCheck, Lightbulb } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { useExamGuard } from "@/context/ExamGuardContext";
@@ -42,7 +42,12 @@ export function AppSidebar() {
         {NAV.map(({ icon: Icon, href, label }) => navBtn(href, label, Icon))}
       </nav>
 
-      {userProfile?.role === "editor" && navBtn("/admin/tests", "Адмін-панель", ShieldCheck)}
+      {userProfile?.role === "editor" && (
+        <div className="flex flex-col items-center gap-1 border-t border-border/40 pt-2">
+          {navBtn("/admin/tests", "Тести (адмін)", ShieldCheck)}
+          {navBtn("/admin/tips", "Поради (адмін)", Lightbulb)}
+        </div>
+      )}
     </aside>
   );
 }

@@ -10,6 +10,7 @@ import {
   TestDoc,
   TestResult,
 } from "@/lib/tests";
+import { getActiveTips, Tip } from "@/lib/tips";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useColorTheme } from "@/context/ThemeContext";
@@ -25,97 +26,23 @@ import {
 } from "recharts";
 
 // ── Daily Tip ─────────────────────────────────────────────────
-const TIPS = [
-  {
-    emoji: "📐",
-    text: "Площа трикутника = ½ · a · h. Запам'ятай — половина основи на висоту.",
-  },
-  {
-    emoji: "🔢",
-    text: "Сума кутів будь-якого трикутника = 180°. Перевіряй відповіді цим правилом.",
-  },
-  {
-    emoji: "📏",
-    text: "Теорема Піфагора: a² + b² = c². Гіпотенуза — завжди найдовша сторона.",
-  },
-  {
-    emoji: "🎯",
-    text: "НМТ дає 1 бал за вірну відповідь MCQ. Не залишай пусте — вгадуй з 5 варіантів.",
-  },
-  {
-    emoji: "⏱️",
-    text: "Розподіляй час: ~1 хв на просте завдання, до 3 хв на складне. Не застрявай.",
-  },
-  {
-    emoji: "📊",
-    text: "Середнє арифметичне: сума елементів / кількість. Завжди перевіряй чи відповідь в розумному діапазоні.",
-  },
-  {
-    emoji: "🔄",
-    text: "Відсоток від числа: (число · відсоток) / 100. Або множ на 0.01 · відсоток.",
-  },
-  {
-    emoji: "📉",
-    text: "Знижка 20% → множиш на 0.8. Збільшення на 20% → множиш на 1.2.",
-  },
-  {
-    emoji: "🧮",
-    text: "Дріб a/b · c/d = ac/bd. Скорочуй до множення, а не після — простіше.",
-  },
-  {
-    emoji: "📌",
-    text: "Коренення: √(a·b) = √a · √b. Спрощуй під коренем перед обчисленням.",
-  },
-  {
-    emoji: "🔺",
-    text: "Сума внутрішніх кутів n-кутника = (n-2) · 180°. Для квадрата: (4-2)·180 = 360°.",
-  },
-  {
-    emoji: "💡",
-    text: "Якщо рівняння має вигляд ax² + bx + c = 0, дискримінант D = b² - 4ac. D < 0 → немає дійсних коренів.",
-  },
-  {
-    emoji: "📈",
-    text: "Прогресія: aₙ = a₁ + (n-1)·d — арифметична. Знаєш перший елемент і різницю — знайдеш будь-який.",
-  },
-  {
-    emoji: "🎲",
-    text: "Ймовірність = кількість сприятливих / загальна кількість. Завжди від 0 до 1.",
-  },
-  {
-    emoji: "🔵",
-    text: "Довжина кола = 2πr. Площа круга = πr². π ≈ 3.14 — для НМТ цього достатньо.",
-  },
-  {
-    emoji: "📐",
-    text: "sin 30° = 0.5, cos 60° = 0.5, tg 45° = 1. Ці значення виходять на НМТ найчастіше.",
-  },
-  {
-    emoji: "🔁",
-    text: "Перед перевіркою підстав відповідь назад в умову. 30 сек, зате без дурних помилок.",
-  },
-  {
-    emoji: "✏️",
-    text: "Малюй схему до кожної задачі на геометрію. Навіть груба схема допомагає побачити розв'язок.",
-  },
-  {
-    emoji: "🧠",
-    text: "Спочатку розв'яжи легкі завдання, потім повертайся до складних. Не витрачай час в порядку номерів.",
-  },
-  {
-    emoji: "📋",
-    text: "Уважно читай умову двічі. Більшість помилок — від неправильно прочитаного питання, не від незнання.",
-  },
-];
-
 function DailyTip() {
-  const dayOfYear = Math.floor(
-    (Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) /
-      86400000,
-  );
-  const tip = TIPS[dayOfYear % TIPS.length];
+  const [tip, setTip] = useState<Tip | null>(null);
+
+  useEffect(() => {
+    getActiveTips().then((tips) => {
+      if (!tips.length) return;
+      const dayOfYear = Math.floor(
+        (Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000
+      );
+      setTip(tips[dayOfYear % tips.length]);
+    });
+  }, []);
+
+  if (!tip) return null;
+
   return (
-    <section className="rounded-2xl border border-dashed border-border/50 bg-muted/20 px-6 py-5 text-sm flex items-start gap-3">
+    <section className="rounded-2xl border border-border/50 bg-card px-6 py-5 text-sm flex items-start gap-3">
       <span className="text-2xl mt-0.5 shrink-0">{tip.emoji}</span>
       <div>
         <p className="font-medium text-muted-foreground text-xs uppercase tracking-wide mb-1">
