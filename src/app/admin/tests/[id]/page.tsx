@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -36,6 +36,10 @@ export default function TestEditorPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const savedSnapshot = useRef("");
+
+  const snapshot = () => JSON.stringify({ title, subtitle, published, questions, scoreTable });
+  const isDirty = !saved && snapshot() !== savedSnapshot.current;
 
   useEffect(() => {
     getTest(id).then((test) => {
@@ -44,7 +48,15 @@ export default function TestEditorPage() {
       setSubtitle(test.subtitle);
       setPublished(test.published);
       setQuestions(test.questions ?? []);
-      setScoreTable(test.scoreTable?.length ? test.scoreTable : NMT_2025_TABLE);
+      const table = test.scoreTable?.length ? test.scoreTable : NMT_2025_TABLE;
+      setScoreTable(table);
+      savedSnapshot.current = JSON.stringify({
+        title: test.title,
+        subtitle: test.subtitle,
+        published: test.published,
+        questions: test.questions ?? [],
+        scoreTable: table,
+      });
       setLoading(false);
     });
   }, [id, router]);
@@ -52,6 +64,7 @@ export default function TestEditorPage() {
   const save = useCallback(async () => {
     setSaving(true);
     await updateTest(id, { title, subtitle, published, questions, scoreTable });
+    savedSnapshot.current = JSON.stringify({ title, subtitle, published, questions, scoreTable });
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
@@ -130,7 +143,7 @@ export default function TestEditorPage() {
               {published ? "✓ Опубліковано" : "Чернетка"}
             </Badge>
           </div>
-          <Button size="sm" onClick={save} disabled={saving} className="min-w-[100px]">
+          <Button size="sm" onClick={save} disabled={saving || !isDirty} className="min-w-[100px]">
             {saving ? "Збереження..." : saved ? "✓ Збережено" : "Зберегти"}
           </Button>
         </div>
@@ -325,11 +338,6 @@ export default function TestEditorPage() {
           />
         )}
 
-        <div className="flex justify-end pb-8">
-          <Button onClick={save} disabled={saving} className="min-w-[120px]">
-            {saving ? "Збереження..." : saved ? "✓ Збережено" : "Зберегти тест"}
-          </Button>
-        </div>
       </main>
     </div>
   );
@@ -561,8 +569,14 @@ function ScoreTableEditor({
             Тестовий бал → Бал за шкалою 100–200. Максимум тесту: {maxRaw} балів.
           </p>
         </div>
-        <Button variant="outline" size="sm" className="text-xs" onClick={resetToNMT2025}>
-          ↺ НМТ-2025
+        <Button
+          variant="outline"
+          size="sm"
+          className="text-xs"
+          onClick={resetToNMT2025}
+          disabled={JSON.stringify(sorted) === JSON.stringify([...NMT_2025_TABLE].sort((a, b) => a.raw - b.raw))}
+        >
+          ↺ Скинути
         </Button>
       </div>
 

@@ -23,6 +23,7 @@ import { doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import confetti from "canvas-confetti";
 
 const EXAM_DURATION = 150 * 60;
 
@@ -95,6 +96,26 @@ export default function ExamPage() {
       setLoadingTest(false);
     });
   }, [id, user, router]);
+
+  useEffect(() => {
+    if (phase !== "results" || !test) return;
+    const rawScore = calcRawScore(test.questions ?? [], answers);
+    const nmtScore = rawToNMT(rawScore, test.scoreTable ?? []);
+    const duration = nmtScore >= 180 ? 4000 : nmtScore >= 150 ? 2500 : 1500;
+    const end = Date.now() + duration;
+    const colors = nmtScore >= 180
+      ? ["#f59e0b", "#fbbf24", "#fde68a", "#ffffff"]
+      : nmtScore >= 150
+      ? ["#6366f1", "#818cf8", "#a5b4fc", "#ffffff"]
+      : ["#64748b", "#94a3b8", "#cbd5e1", "#ffffff"];
+
+    function frame() {
+      confetti({ particleCount: 3, angle: 60, spread: 55, origin: { x: 0 }, colors });
+      confetti({ particleCount: 3, angle: 120, spread: 55, origin: { x: 1 }, colors });
+      if (Date.now() < end) requestAnimationFrame(frame);
+    }
+    frame();
+  }, [phase]);
 
   useEffect(() => {
     if (phase !== "exam") return;

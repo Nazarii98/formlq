@@ -119,6 +119,8 @@ interface ChartPoint {
   label: string;
   score: number | null;
   count: number;
+  totalTime: number;
+  best: number | null;
 }
 
 function buildChartData(
@@ -143,10 +145,12 @@ function buildChartData(
         const t = r.completedAt.toDate().getTime();
         return t >= start.getTime() && t < end.getTime();
       });
+      const best = bucket.length ? Math.max(...bucket.map((r) => r.nmtScore)) : null;
       const avg = bucket.length
         ? Math.round(bucket.reduce((s, r) => s + r.nmtScore, 0) / bucket.length)
         : null;
-      points.push({ label, score: avg, count: bucket.length });
+      const totalTime = bucket.reduce((s, r) => s + (r.timeSpent ?? 0), 0);
+      points.push({ label, score: best, count: bucket.length, totalTime, best: avg });
     }
   } else if (range === "week") {
     // last 7 days, step = 1 day
@@ -156,16 +160,18 @@ function buildChartData(
       d.setHours(0, 0, 0, 0);
       const nextD = new Date(d);
       nextD.setDate(d.getDate() + 1);
-      const label = `${d.getDate()}.${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const label = d.toLocaleString("uk", { day: "numeric", month: "short" });
       const bucket = results.filter((r) => {
         if (!r.completedAt) return false;
         const t = r.completedAt.toDate().getTime();
         return t >= d.getTime() && t < nextD.getTime();
       });
+      const best = bucket.length ? Math.max(...bucket.map((r) => r.nmtScore)) : null;
       const avg = bucket.length
         ? Math.round(bucket.reduce((s, r) => s + r.nmtScore, 0) / bucket.length)
         : null;
-      points.push({ label, score: avg, count: bucket.length });
+      const totalTime = bucket.reduce((s, r) => s + (r.timeSpent ?? 0), 0);
+      points.push({ label, score: best, count: bucket.length, totalTime, best: avg });
     }
   } else if (monthStep === "week") {
     // last 8 weeks, step = 1 week
@@ -175,16 +181,18 @@ function buildChartData(
       weekStart.setHours(0, 0, 0, 0);
       const weekEnd = new Date(weekStart);
       weekEnd.setDate(weekStart.getDate() + 7);
-      const label = `${weekStart.getDate()}.${String(weekStart.getMonth() + 1).padStart(2, "0")}`;
+      const label = weekStart.toLocaleString("uk", { day: "numeric", month: "short" });
       const bucket = results.filter((r) => {
         if (!r.completedAt) return false;
         const t = r.completedAt.toDate().getTime();
         return t >= weekStart.getTime() && t < weekEnd.getTime();
       });
+      const best = bucket.length ? Math.max(...bucket.map((r) => r.nmtScore)) : null;
       const avg = bucket.length
         ? Math.round(bucket.reduce((s, r) => s + r.nmtScore, 0) / bucket.length)
         : null;
-      points.push({ label, score: avg, count: bucket.length });
+      const totalTime = bucket.reduce((s, r) => s + (r.timeSpent ?? 0), 0);
+      points.push({ label, score: best, count: bucket.length, totalTime, best: avg });
     }
   } else {
     // last 6 months, step = 1 month
@@ -197,15 +205,24 @@ function buildChartData(
         const rd = r.completedAt.toDate();
         return `${rd.getFullYear()}-${rd.getMonth()}` === key;
       });
+      const best = bucket.length ? Math.max(...bucket.map((r) => r.nmtScore)) : null;
       const avg = bucket.length
         ? Math.round(bucket.reduce((s, r) => s + r.nmtScore, 0) / bucket.length)
         : null;
-      points.push({ label, score: avg, count: bucket.length });
+      const totalTime = bucket.reduce((s, r) => s + (r.timeSpent ?? 0), 0);
+      points.push({ label, score: best, count: bucket.length, totalTime, best: avg });
     }
   }
 
   const firstReal = points.findIndex((p) => p.score !== null);
   return firstReal > 0 ? points.slice(firstReal) : points;
+}
+
+function formatTime(s: number) {
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  if (m === 0) return `${sec}с`;
+  return `${m}хв ${sec}с`;
 }
 
 function CustomTooltip({
@@ -214,15 +231,31 @@ function CustomTooltip({
   label,
 }: {
   active?: boolean;
-  payload?: { value: number }[];
+  payload?: { value: number; payload: ChartPoint }[];
   label?: string;
 }) {
   if (!active || !payload?.length || payload[0]?.value == null) return null;
+  const pt = payload[0].payload;
   return (
-    <div className="rounded-xl border border-border/60 bg-card px-3 py-2 shadow-lg text-sm">
-      {label && <p className="text-muted-foreground text-xs mb-1">{label}</p>}
-      <p className="font-bold text-primary text-base">{payload[0].value}</p>
-      <p className="text-[10px] text-muted-foreground">балів НМТ</p>
+    <div className="rounded-xl border border-border/60 bg-card px-3 py-2.5 shadow-lg text-sm space-y-1.5 min-w-[140px]">
+      {label && <p className="text-muted-foreground text-xs">{label}</p>}
+      <div>
+        <p className="font-bold text-primary text-lg leading-none">{payload[0].value}</p>
+        <p className="text-[10px] text-muted-foreground">найкращий бал НМТ</p>
+      </div>
+      {pt.best !== null && pt.best !== payload[0].value && (
+        <p className="text-xs text-muted-foreground">Середній: <span className="font-semibold text-foreground">{pt.best}</span></p>
+      )}
+      <div className="border-t border-border/40 pt-1.5 space-y-0.5">
+        <p className="text-xs text-muted-foreground">
+          Спроб: <span className="font-semibold text-foreground">{pt.count}</span>
+        </p>
+        {pt.totalTime > 0 && (
+          <p className="text-xs text-muted-foreground">
+            Час: <span className="font-semibold text-foreground">{formatTime(pt.totalTime)}</span>
+          </p>
+        )}
+      </div>
     </div>
   );
 }
@@ -247,19 +280,39 @@ const THEME_COLORS: Record<string, string> = {
 };
 
 function ProgressSection({ results }: { results: TestResult[] }) {
-  const [range, setRange] = useState<Range>("week");
+  const [range, setRange] = useState<Range>(() => {
+    const days = new Set(results.filter(r => r.completedAt).map(r => {
+      const d = r.completedAt!.toDate();
+      return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+    })).size;
+    return days > 1 ? "week" : "day";
+  });
   const [monthStep, setMonthStep] = useState<MonthStep>("week");
   const { colorTheme } = useColorTheme();
   const primary = THEME_COLORS[colorTheme] ?? THEME_COLORS.violet;
   const data = buildChartData(results, range, monthStep);
   const hasData = data.some((d) => d.score !== null);
 
-  const allScores = results.map((r) => r.nmtScore);
-  const best = allScores.length ? Math.max(...allScores) : null;
-  const last = results[0]?.nmtScore ?? null;
-  const avg = allScores.length
-    ? Math.round(allScores.reduce((a, b) => a + b, 0) / allScores.length)
-    : null;
+  const distinctDays = new Set(results.filter(r => r.completedAt).map(r => {
+    const d = r.completedAt!.toDate();
+    return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+  })).size;
+  const distinctWeeks = new Set(results.filter(r => r.completedAt).map(r => {
+    const d = r.completedAt!.toDate();
+    return `${d.getFullYear()}-${Math.floor(d.getDate() / 7)}-${d.getMonth()}`;
+  })).size;
+  const distinctMonths = new Set(results.filter(r => r.completedAt).map(r => {
+    const d = r.completedAt!.toDate();
+    return `${d.getFullYear()}-${d.getMonth()}`;
+  })).size;
+  const showStepSelector = range === "month" && (distinctWeeks > 1 || distinctMonths > 1);
+
+  const availableRanges = RANGE_LABELS.filter(({ value }) => {
+    if (value === "day") return true;
+    if (value === "week") return distinctDays > 1;
+    if (value === "month") return distinctWeeks > 1;
+    return false;
+  });
 
   const visibleScores = data
     .map((d) => d.score)
@@ -280,7 +333,7 @@ function ProgressSection({ results }: { results: TestResult[] }) {
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <h2 className="font-semibold text-base">Прогрес</h2>
         <div className="flex items-center gap-2 flex-wrap justify-end">
-          {range === "month" && (
+          {showStepSelector && (
             <div className="flex gap-1 bg-muted/40 p-1 rounded-xl">
               {MONTH_STEP_LABELS.map(({ value, label }) => (
                 <button
@@ -298,8 +351,9 @@ function ProgressSection({ results }: { results: TestResult[] }) {
               ))}
             </div>
           )}
+          {availableRanges.length > 1 && (
           <div className="flex gap-1 bg-muted/40 p-1 rounded-xl">
-            {RANGE_LABELS.map(({ value, label }) => (
+            {availableRanges.map(({ value, label }) => (
               <button
                 key={value}
                 onClick={() => setRange(value)}
@@ -314,27 +368,9 @@ function ProgressSection({ results }: { results: TestResult[] }) {
               </button>
             ))}
           </div>
+          )}
         </div>
       </div>
-
-      {/* Stats pills */}
-      {allScores.length > 0 && (
-        <div className="flex gap-2 flex-wrap">
-          {[
-            { label: "Найкращий", value: best },
-            { label: "Останній", value: last },
-            { label: "Середній", value: avg },
-          ].map(({ label, value }) => (
-            <div
-              key={label}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/8 border border-primary/15 text-xs"
-            >
-              <span className="text-muted-foreground">{label}:</span>
-              <span className="font-bold text-primary">{value}</span>
-            </div>
-          ))}
-        </div>
-      )}
 
       {/* Chart */}
       {!hasData ? (
@@ -606,6 +642,29 @@ export default function DashboardPage() {
         <section className="rounded-2xl border border-border/50 bg-card p-5">
           <MiniCalendar activeDays={activeDays} />
         </section>
+
+        {/* Score stats */}
+        {results.length > 0 && (() => {
+          const scores = results.map((r) => r.nmtScore);
+          const best = Math.max(...scores);
+          const last = scores[0];
+          const avg = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+          return (
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { label: "Найкращий", value: best, emoji: "🏆" },
+                { label: "Останній", value: last, emoji: "📋" },
+                { label: "Середній", value: avg, emoji: "📊" },
+              ].map(({ label, value, emoji }) => (
+                <div key={label} className="rounded-2xl border border-border/50 bg-card px-2 py-3 text-center">
+                  <p className="text-base mb-0.5">{emoji}</p>
+                  <p className="text-lg font-bold tabular-nums text-primary">{value}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">{label}</p>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
 
         <section className="space-y-3">
           <h2 className="font-semibold text-base">Події</h2>

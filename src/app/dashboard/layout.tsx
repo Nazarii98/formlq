@@ -1,16 +1,26 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { AppSidebar } from "@/components/AppSidebar";
 import { ThemeSelector } from "@/components/ThemeSelector";
+import { useHeader } from "@/context/HeaderContext";
 import { Flame, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, userProfile, loading, logOut } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
+  const { title, subtitle } = useHeader();
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const handler = () => setScrolled(window.scrollY > 4);
+    window.addEventListener("scroll", handler, { passive: true });
+    return () => window.removeEventListener("scroll", handler);
+  }, []);
 
   useEffect(() => {
     if (!loading && !user) router.push("/login");
@@ -32,41 +42,68 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const streak = userProfile?.streak ?? 0;
   const firstName = (userProfile?.displayName ?? user.displayName ?? "Учень").split(" ")[0];
+  const isHome = pathname === "/dashboard";
 
   return (
     <div className="min-h-screen bg-background flex">
       <AppSidebar />
       <div className="ml-16 flex-1 flex flex-col min-h-screen">
-        {/* Top bar */}
-        <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b border-border/50 px-6 h-14 flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">
-            Привіт, <span className="font-semibold text-foreground">{firstName}</span>
-          </span>
-          <div className="flex items-center gap-3">
-            <div className={cn(
-              "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold transition-all",
-              streak > 0
-                ? "bg-linear-to-r from-orange-400/20 to-amber-400/20 border border-orange-400/30 text-orange-500 dark:text-orange-400 shadow-[0_0_10px_rgba(251,146,60,0.2)]"
-                : "bg-muted/60 border border-border/40 text-muted-foreground"
-            )}>
-              <Flame size={18} className={streak > 0 ? "text-orange-500 dark:text-orange-400" : "text-muted-foreground"} />
-              <span className="tabular-nums leading-none text-base">{streak}</span>
+        <header className={cn(
+          "sticky top-0 z-30 px-6 h-16 flex items-center justify-between transition-all duration-200",
+          "bg-background/85 backdrop-blur-md",
+          scrolled
+            ? "border-b border-border/40 shadow-[0_1px_16px_color-mix(in_oklch,var(--primary)_8%,transparent)]"
+            : "border-b border-transparent",
+        )}>
+          {isHome ? (
+            <div className="flex flex-col justify-center">
+              <span className="text-xs text-muted-foreground leading-tight">Вітаємо</span>
+              <span className="text-lg font-semibold leading-tight">{firstName}</span>
             </div>
+          ) : (
+            <div className="flex items-baseline gap-2 min-w-0">
+              <span className="font-semibold text-lg leading-tight truncate">{title}</span>
+              {subtitle && (
+                <span className="text-sm text-muted-foreground leading-tight truncate hidden sm:block">{subtitle}</span>
+              )}
+            </div>
+          )}
+
+          <div className="flex items-center gap-2">
+            {/* Streak */}
+            <div className={cn(
+              "flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-sm font-semibold transition-all",
+              streak > 0
+                ? "bg-orange-500/10 text-orange-500 dark:text-orange-400"
+                : "bg-muted/50 text-muted-foreground",
+            )}>
+              <Flame size={16} className={streak > 0 ? "text-orange-500 dark:text-orange-400" : "text-muted-foreground"} />
+              <span className="tabular-nums leading-none">{streak}</span>
+            </div>
+
             <ThemeSelector />
-            <button
-              onClick={handleLogout}
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
-              title="Вийти"
-            >
-              <LogOut size={16} />
-            </button>
+
+            {/* Logout with tooltip */}
+            <div className="relative group">
+              <button
+                onClick={handleLogout}
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
+              >
+                <LogOut size={16} />
+              </button>
+              <div className="pointer-events-none absolute right-0 top-[calc(100%+6px)] z-50
+                flex items-center px-2.5 py-1.5 rounded-lg
+                bg-popover border border-border/50 shadow-md
+                text-xs font-medium text-foreground whitespace-nowrap
+                opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0
+                transition-all duration-150">
+                Вийти
+              </div>
+            </div>
           </div>
         </header>
 
-        {/* Page content */}
-        <main className="flex-1 p-6">
-          {children}
-        </main>
+        <main className="flex-1 p-6">{children}</main>
       </div>
     </div>
   );

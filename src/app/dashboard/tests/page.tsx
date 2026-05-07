@@ -4,7 +4,40 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { getPublishedTests, TestDoc } from "@/lib/tests";
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, FileText } from "lucide-react";
+
+function TestCard({ test, index }: { test: TestDoc; index: number }) {
+  return (
+    <Link href={`/dashboard/exam/${test.id}`} className="block">
+      <div className="rounded-2xl border border-border/50 bg-card px-5 py-4 flex items-center gap-4 hover:bg-muted/30 hover:border-border/80 transition-all group">
+        {/* Index */}
+        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+          <span className="text-xs font-bold text-primary tabular-nums">{index + 1}</span>
+        </div>
+
+        {/* Info */}
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-sm truncate">{test.title}</p>
+          {test.subtitle && (
+            <p className="text-xs text-muted-foreground truncate mt-0.5">{test.subtitle}</p>
+          )}
+        </div>
+
+        {/* Meta */}
+        <div className="flex items-center gap-3 shrink-0">
+          <div className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground">
+            <FileText size={11} />
+            <span>{test.questions?.length ?? 0} питань</span>
+          </div>
+          <ChevronRight
+            size={16}
+            className="text-muted-foreground group-hover:text-foreground group-hover:translate-x-0.5 transition-all"
+          />
+        </div>
+      </div>
+    </Link>
+  );
+}
 
 export default function TestsPage() {
   const { user } = useAuth();
@@ -18,11 +51,6 @@ export default function TestsPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-xl font-bold">Тести НМТ</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">Пробні варіанти для підготовки</p>
-      </div>
-
       {loading ? (
         <div className="flex justify-center py-16">
           <div className="w-6 h-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
@@ -34,27 +62,9 @@ export default function TestsPage() {
           <p className="text-sm text-muted-foreground">Зайдіть пізніше</p>
         </div>
       ) : (
-        <div className="rounded-2xl border border-border/50 bg-card overflow-hidden divide-y divide-border/40">
+        <div className="space-y-2">
           {tests.map((test, i) => (
-            <Link key={test.id} href={`/dashboard/exam/${test.id}`}>
-              <div className="flex items-center justify-between px-5 py-3.5 hover:bg-muted/40 transition-colors group">
-                <div className="flex items-center gap-4 min-w-0">
-                  <span className="text-xs font-mono text-muted-foreground w-5 shrink-0">{i + 1}</span>
-                  <div className="min-w-0">
-                    <p className="font-medium text-sm truncate">{test.title}</p>
-                    {test.subtitle && (
-                      <p className="text-xs text-muted-foreground truncate mt-0.5">{test.subtitle}</p>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-4 shrink-0 ml-4">
-                  <span className="text-xs text-muted-foreground hidden sm:block">
-                    {test.questions?.length ?? 0} питань
-                  </span>
-                  <ChevronRight size={15} className="text-muted-foreground group-hover:text-foreground transition-colors" />
-                </div>
-              </div>
-            </Link>
+            <TestCard key={test.id} test={test} index={i} />
           ))}
         </div>
       )}

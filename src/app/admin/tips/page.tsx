@@ -1,23 +1,27 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { getTips, createTip, updateTip, deleteTip, Tip } from "@/lib/tips";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Trash2, Pencil, Plus, Check, X, ChevronUp, ChevronDown } from "lucide-react";
+import { Trash2, Pencil, Plus, Check, X, GripVertical, Eye, EyeOff } from "lucide-react";
 
 const EMOJI_SUGGESTIONS = ["📐", "🔢", "📏", "🎯", "⏱️", "📊", "🔄", "📉", "🧮", "📌", "🔺", "💡", "📈", "🎲", "🔵", "🔁", "✏️", "🧠", "📋", "⭐"];
 
-
-function TipRow({ tip, badge, onSave, onDelete, onMoveUp, onMoveDown, isFirst, isLast }: {
+function TipRow({
+  tip, badge, onSave, onDelete,
+  onDragStart, onDragEnter, onDragEnd,
+  isDragging, isDragOver,
+}: {
   tip: Tip;
   badge?: "today" | "tomorrow";
   onSave: (id: string, data: Partial<Tip>) => void;
   onDelete: (id: string) => void;
-  onMoveUp: () => void;
-  onMoveDown: () => void;
-  isFirst: boolean;
-  isLast: boolean;
+  onDragStart: () => void;
+  onDragEnter: () => void;
+  onDragEnd: () => void;
+  isDragging: boolean;
+  isDragOver: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [emoji, setEmoji] = useState(tip.emoji);
@@ -40,31 +44,11 @@ function TipRow({ tip, badge, onSave, onDelete, onMoveUp, onMoveDown, isFirst, i
       <div className="rounded-2xl border border-primary/30 bg-card p-4 space-y-3">
         <div className="flex gap-2 flex-wrap">
           {EMOJI_SUGGESTIONS.map((e) => (
-            <button
-              key={e}
-              onClick={() => setEmoji(e)}
-              className={cn(
-                "w-8 h-8 rounded-lg text-lg flex items-center justify-center transition-all",
-                emoji === e ? "bg-primary/20 ring-2 ring-primary" : "hover:bg-muted"
-              )}
-            >
-              {e}
-            </button>
+            <button key={e} onClick={() => setEmoji(e)} className={cn("w-8 h-8 rounded-lg text-lg flex items-center justify-center transition-all", emoji === e ? "bg-primary/20 ring-2 ring-primary" : "hover:bg-muted")}>{e}</button>
           ))}
-          <input
-            value={emoji}
-            onChange={(e) => setEmoji(e.target.value)}
-            className="w-14 h-8 rounded-lg border border-border/60 bg-muted/30 text-center text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-            maxLength={4}
-            placeholder="або"
-          />
+          <input value={emoji} onChange={(e) => setEmoji(e.target.value)} className="w-14 h-8 rounded-lg border border-border/60 bg-muted/30 text-center text-sm focus:outline-none focus:ring-2 focus:ring-primary" maxLength={4} placeholder="або" />
         </div>
-        <textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          className="w-full rounded-xl border border-border/60 bg-muted/30 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
-          rows={3}
-        />
+        <textarea value={text} onChange={(e) => setText(e.target.value)} className="w-full rounded-xl border border-border/60 bg-muted/30 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none" rows={3} />
         <div className="flex gap-2">
           <Button size="sm" onClick={save} className="gap-1"><Check size={14} /> Зберегти</Button>
           <Button size="sm" variant="ghost" onClick={cancel} className="gap-1"><X size={14} /> Скасувати</Button>
@@ -74,50 +58,62 @@ function TipRow({ tip, badge, onSave, onDelete, onMoveUp, onMoveDown, isFirst, i
   }
 
   return (
-    <div className={cn(
-      "rounded-2xl border bg-card px-4 py-3 flex items-center gap-3 group transition-all",
-      tip.active ? "border-border/50" : "border-border/30 opacity-50"
-    )}>
-      <div className="flex flex-col gap-0.5 shrink-0 self-center">
-        <button onClick={onMoveUp} disabled={isFirst} className="w-5 h-5 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-all disabled:opacity-20 disabled:cursor-default">
-          <ChevronUp size={13} />
-        </button>
-        <button onClick={onMoveDown} disabled={isLast} className="w-5 h-5 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-all disabled:opacity-20 disabled:cursor-default">
-          <ChevronDown size={13} />
-        </button>
+    <div
+      draggable
+      onDragStart={onDragStart}
+      onDragEnter={onDragEnter}
+      onDragEnd={onDragEnd}
+      onDragOver={(e) => e.preventDefault()}
+      className={cn(
+        "rounded-2xl border bg-card px-4 py-3 flex items-center gap-3 group transition-all select-none relative overflow-hidden",
+        !tip.active && "border-border/30 opacity-50",
+        badge === "today" && "border-primary/40 bg-primary/5",
+        badge === "tomorrow" && "border-border/50",
+        !badge && tip.active && "border-border/50",
+        isDragging && "opacity-40 scale-[0.98]",
+        isDragOver && "border-primary/50 bg-primary/5 shadow-[0_0_0_2px_color-mix(in_oklch,var(--primary)_20%,transparent)]",
+      )}
+    >
+
+      {/* Drag handle */}
+      <div className="shrink-0 text-muted-foreground/30 group-hover:text-muted-foreground/70 transition-colors cursor-grab active:cursor-grabbing">
+        <GripVertical size={16} />
       </div>
+
       <span className="text-2xl shrink-0">{tip.emoji}</span>
-      <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
+
+      <div className="flex-1 min-w-0">
+        <p className="text-sm leading-relaxed text-foreground/80">{tip.text}</p>
+      </div>
+
+      <div className="relative shrink-0 ml-auto flex items-center" style={{ minWidth: "fit-content" }}>
+        {/* Badge — visible by default, hides on hover */}
         {badge && (
           <span className={cn(
-            "shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full",
+            "text-[10px] font-semibold px-2.5 py-1 rounded-full whitespace-nowrap transition-all duration-150",
+            "group-hover:opacity-0 group-hover:scale-90 group-hover:pointer-events-none",
             badge === "today" ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
           )}>
             {badge === "today" ? "Сьогодні" : "Завтра"}
           </span>
         )}
-        <p className="text-sm leading-relaxed text-foreground/80">{tip.text}</p>
-      </div>
-      <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button
-          onClick={() => onSave(tip.id, { active: !tip.active })}
-          title={tip.active ? "Деактивувати" : "Активувати"}
-          className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-all text-xs font-bold"
-        >
-          {tip.active ? "✓" : "○"}
-        </button>
-        <button
-          onClick={() => setEditing(true)}
-          className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
-        >
-          <Pencil size={13} />
-        </button>
-        <button
-          onClick={() => onDelete(tip.id)}
-          className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-all"
-        >
-          <Trash2 size={13} />
-        </button>
+        {/* Buttons — hidden by default, appear on hover */}
+        <div className={cn(
+          "flex items-center gap-1 transition-all duration-150",
+          badge
+            ? "absolute right-0 opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100"
+            : "opacity-0 group-hover:opacity-100"
+        )}>
+          <button onClick={() => onSave(tip.id, { active: !tip.active })} title={tip.active ? "Деактивувати" : "Активувати"} className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-all">
+            {tip.active ? <Eye size={13} /> : <EyeOff size={13} />}
+          </button>
+          <button onClick={() => setEditing(true)} className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-all">
+            <Pencil size={13} />
+          </button>
+          <button onClick={() => onDelete(tip.id)} className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-all">
+            <Trash2 size={13} />
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -131,17 +127,12 @@ function NewTipForm({ onAdd }: { onAdd: (data: Omit<Tip, "id">) => void }) {
   function submit() {
     if (!text.trim()) return;
     onAdd({ emoji, text: text.trim(), active: true });
-    setText("");
-    setEmoji("💡");
-    setOpen(false);
+    setText(""); setEmoji("💡"); setOpen(false);
   }
 
   if (!open) {
     return (
-      <button
-        onClick={() => setOpen(true)}
-        className="w-full rounded-2xl border border-dashed border-border/50 py-3 flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground hover:border-border transition-all"
-      >
+      <button onClick={() => setOpen(true)} className="w-full rounded-2xl border border-dashed border-border/50 py-3 flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground hover:border-border transition-all">
         <Plus size={16} /> Додати пораду
       </button>
     );
@@ -152,32 +143,11 @@ function NewTipForm({ onAdd }: { onAdd: (data: Omit<Tip, "id">) => void }) {
       <p className="text-sm font-medium">Нова порада</p>
       <div className="flex gap-2 flex-wrap">
         {EMOJI_SUGGESTIONS.map((e) => (
-          <button
-            key={e}
-            onClick={() => setEmoji(e)}
-            className={cn(
-              "w-8 h-8 rounded-lg text-lg flex items-center justify-center transition-all",
-              emoji === e ? "bg-primary/20 ring-2 ring-primary" : "hover:bg-muted"
-            )}
-          >
-            {e}
-          </button>
+          <button key={e} onClick={() => setEmoji(e)} className={cn("w-8 h-8 rounded-lg text-lg flex items-center justify-center transition-all", emoji === e ? "bg-primary/20 ring-2 ring-primary" : "hover:bg-muted")}>{e}</button>
         ))}
-        <input
-          value={emoji}
-          onChange={(e) => setEmoji(e.target.value)}
-          className="w-14 h-8 rounded-lg border border-border/60 bg-muted/30 text-center text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-          maxLength={4}
-          placeholder="або"
-        />
+        <input value={emoji} onChange={(e) => setEmoji(e.target.value)} className="w-14 h-8 rounded-lg border border-border/60 bg-muted/30 text-center text-sm focus:outline-none focus:ring-2 focus:ring-primary" maxLength={4} placeholder="або" />
       </div>
-      <textarea
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        placeholder="Текст поради..."
-        className="w-full rounded-xl border border-border/60 bg-muted/30 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
-        rows={3}
-      />
+      <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="Текст поради..." className="w-full rounded-xl border border-border/60 bg-muted/30 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none" rows={3} />
       <div className="flex gap-2">
         <Button size="sm" onClick={submit} className="gap-1"><Plus size={14} /> Додати</Button>
         <Button size="sm" variant="ghost" onClick={() => setOpen(false)} className="gap-1"><X size={14} /> Скасувати</Button>
@@ -193,6 +163,8 @@ function getDayIndex() {
 export default function AdminTipsPage() {
   const [tips, setTips] = useState<Tip[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   useEffect(() => {
     getTips().then((t) => { setTips(t); setLoading(false); });
@@ -214,35 +186,30 @@ export default function AdminTipsPage() {
     setTips((prev) => prev.filter((t) => t.id !== id));
   }
 
-  async function handleMove(index: number, direction: "up" | "down") {
-    const next = direction === "up" ? index - 1 : index + 1;
-    if (next < 0 || next >= tips.length) return;
-    const newTips = [...tips];
-    [newTips[index], newTips[next]] = [newTips[next], newTips[index]];
-    const updated = newTips.map((t, i) => ({ ...t, order: i }));
+  async function handleDragEnd() {
+    if (dragIndex === null || dragOverIndex === null || dragIndex === dragOverIndex) {
+      setDragIndex(null);
+      setDragOverIndex(null);
+      return;
+    }
+    const next = [...tips];
+    const [moved] = next.splice(dragIndex, 1);
+    next.splice(dragOverIndex, 0, moved);
+    const updated = next.map((t, i) => ({ ...t, order: i }));
     setTips(updated);
-    await Promise.all([
-      updateTip(updated[index].id, { order: index }),
-      updateTip(updated[next].id, { order: next }),
-    ]);
+    setDragIndex(null);
+    setDragOverIndex(null);
+    await Promise.all(updated.map((t, i) => updateTip(t.id, { order: i })));
   }
 
   const active = tips.filter((t) => t.active).length;
   const dayIdx = getDayIndex();
   const todayIdx = active > 0 ? dayIdx % active : -1;
   const tomorrowIdx = active > 0 ? (dayIdx + 1) % active : -1;
-
   let activeCount = 0;
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-xl font-bold">Поради дня</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">
-          {active} активних · щодня показується одна по черзі
-        </p>
-      </div>
-
       {loading ? (
         <div className="flex justify-center py-16">
           <div className="w-6 h-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
@@ -263,10 +230,11 @@ export default function AdminTipsPage() {
                 badge={badge}
                 onSave={handleSave}
                 onDelete={handleDelete}
-                onMoveUp={() => handleMove(i, "up")}
-                onMoveDown={() => handleMove(i, "down")}
-                isFirst={i === 0}
-                isLast={i === tips.length - 1}
+                onDragStart={() => setDragIndex(i)}
+                onDragEnter={() => setDragOverIndex(i)}
+                onDragEnd={handleDragEnd}
+                isDragging={dragIndex === i}
+                isDragOver={dragOverIndex === i && dragIndex !== i}
               />
             );
           })}

@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 
-export type ColorTheme = "violet" | "blue" | "green" | "rose" | "orange";
+export type ColorTheme = "violet" | "blue" | "green" | "rose" | "orange" | "teal" | "amber" | "indigo";
 
 interface ThemeContextType {
   colorTheme: ColorTheme;
