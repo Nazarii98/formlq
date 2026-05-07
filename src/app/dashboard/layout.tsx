@@ -26,6 +26,17 @@ export default function DashboardLayout({
     return () => window.removeEventListener("scroll", handler);
   }, []);
 
+  // Prefetch PDF in idle time so reference page loads instantly on first visit
+  useEffect(() => {
+    const id = requestIdleCallback(() => {
+      const link = document.createElement("link");
+      link.rel = "prefetch";
+      link.href = "/dovidka.pdf";
+      document.head.appendChild(link);
+    });
+    return () => cancelIdleCallback(id);
+  }, []);
+
   useEffect(() => {
     if (!loading && !user) router.push("/login");
   }, [user, loading, router]);
