@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Nunito, Roboto, Montserrat, Unbounded, Comfortaa, Geologica } from "next/font/google";
+import { Geist, Geist_Mono, Nunito, Roboto, Montserrat, Unbounded, Comfortaa, Geologica, Fredoka } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
 import { ThemeProvider } from "@/context/ThemeContext";
@@ -47,6 +48,20 @@ const comfortaa = Comfortaa({
   weight: ["400", "500", "700"],
 });
 
+const bubbleboddy = localFont({
+  src: [
+    { path: "../../public/fonts/BubbleboddyNeue-Regular.ttf", weight: "400" },
+    { path: "../../public/fonts/BubbleboddyNeue-Bold.ttf",    weight: "700" },
+  ],
+  variable: "--font-bubbleboddy",
+});
+
+const fredoka = Fredoka({
+  variable: "--font-fredoka",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+});
+
 const geologica = Geologica({
   variable: "--font-geologica",
   subsets: ["latin", "cyrillic"],
@@ -66,7 +81,7 @@ export default function RootLayout({
   return (
     <html
       lang="uk"
-      className={`${geistSans.variable} ${geistMono.variable} ${nunito.variable} ${roboto.variable} ${montserrat.variable} ${unbounded.variable} ${comfortaa.variable} ${geologica.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${nunito.variable} ${roboto.variable} ${montserrat.variable} ${unbounded.variable} ${comfortaa.variable} ${geologica.variable} ${fredoka.variable} ${bubbleboddy.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <head>

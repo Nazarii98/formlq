@@ -1,15 +1,16 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useRef, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { getAllTests, updateTest, createTest, deleteTest } from "@/lib/tests";
 import { getDayIndex } from "@/lib/format";
 import { SpinnerPage } from "@/components/ui/spinner";
+import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import { Pencil, Trash2, Plus, FileText, GripVertical, Eye, EyeOff } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
 import type { TestDoc } from "@/lib/tests";
 
 export default function AdminTestsPage() {
@@ -18,8 +19,10 @@ export default function AdminTestsPage() {
   const queryClient = useQueryClient();
 
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-  const [dragIndex, setDragIndex] = useState<number | null>(null);
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [dragSrcIdx, setDragSrcIdx] = useState<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+  const dragSrcRef = useRef<number | null>(null);
+  const dragOverRef = useRef<number | null>(null);
 
   const { data: rawTests = [], isLoading } = useQuery({
     queryKey: ["all-tests"],
@@ -28,8 +31,7 @@ export default function AdminTestsPage() {
     select: (t) => [...t].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
   });
 
-  const [localTests, setLocalTests] = useState<TestDoc[] | null>(null);
-  const tests = localTests ?? rawTests;
+  const tests = rawTests;
 
   const createMutation = useMutation({
     mutationFn: (uid: string) => createTest(uid),
@@ -52,19 +54,43 @@ export default function AdminTestsPage() {
     queryClient.invalidateQueries({ queryKey: ["published-tests"] });
   }
 
-  async function handleDragEnd() {
-    if (dragIndex === null || dragOverIndex === null || dragIndex === dragOverIndex) {
-      setDragIndex(null); setDragOverIndex(null); return;
-    }
+  async function performReorder(src: number, dst: number) {
     const next = [...tests];
-    const [moved] = next.splice(dragIndex, 1);
-    next.splice(dragOverIndex, 0, moved);
+    const [moved] = next.splice(src, 1);
+    next.splice(dst, 0, moved);
     const updated = next.map((t, i) => ({ ...t, order: i }));
-    setLocalTests(updated);
-    setDragIndex(null); setDragOverIndex(null);
+    queryClient.setQueryData(["all-tests"], updated);
     await Promise.all(updated.map((t, i) => updateTest(t.id, { order: i })));
     queryClient.invalidateQueries({ queryKey: ["all-tests"] });
-    setLocalTests(null);
+  }
+
+  function handleDragStart(i: number) {
+    dragSrcRef.current = i;
+    setDragSrcIdx(i);
+  }
+
+  function handleDragEnter(i: number, e: React.DragEvent) {
+    if ((e.currentTarget as Node).contains(e.relatedTarget as Node)) return;
+    if (dragOverRef.current !== i) {
+      dragOverRef.current = i;
+      setDragOverIdx(i);
+    }
+  }
+
+  function handleDrop(i: number) {
+    const src = dragSrcRef.current;
+    dragSrcRef.current = null;
+    dragOverRef.current = null;
+    setDragSrcIdx(null);
+    setDragOverIdx(null);
+    if (src !== null && src !== i) performReorder(src, i);
+  }
+
+  function handleDragEnd() {
+    dragSrcRef.current = null;
+    dragOverRef.current = null;
+    setDragSrcIdx(null);
+    setDragOverIdx(null);
   }
 
   async function confirmDelete() {
@@ -101,35 +127,31 @@ export default function AdminTestsPage() {
       </div>
 
       {isLoading ? <SpinnerPage /> : tests.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-border/50 py-20 text-center space-y-2">
-          <p className="text-3xl">📝</p>
-          <p className="font-medium">Тестів ще немає</p>
-          <p className="text-sm text-muted-foreground">Створіть перший тест</p>
-        </div>
+        <EmptyState emoji="📝" title="Тестів ще немає" description="Створіть перший тест" />
       ) : (
         <div className="space-y-2">
           {tests.map((test, i) => {
             const badge: "today" | "tomorrow" | undefined =
               i === todayIdx ? "today" : i === tomorrowIdx ? "tomorrow" : undefined;
-            const isDragging = dragIndex === i;
-            const isDragOver = dragOverIndex === i && dragIndex !== i;
+            const isSrc = dragSrcIdx === i;
+            const isOver = dragOverIdx === i && dragSrcIdx !== i;
 
             return (
               <div
                 key={test.id}
                 draggable
-                onDragStart={() => setDragIndex(i)}
-                onDragEnter={() => setDragOverIndex(i)}
-                onDragEnd={handleDragEnd}
+                onDragStart={() => handleDragStart(i)}
+                onDragEnter={(e) => handleDragEnter(i, e)}
                 onDragOver={(e) => e.preventDefault()}
+                onDrop={() => handleDrop(i)}
+                onDragEnd={handleDragEnd}
                 className={cn(
                   "rounded-2xl border bg-card px-4 py-3 flex items-center gap-3 group transition-all select-none relative overflow-hidden",
                   !test.published && "border-border/30 opacity-60",
-                  badge === "today" && "border-primary/40 bg-primary/5",
-                  badge === "tomorrow" && "border-border/50",
-                  !badge && test.published && "border-border/50",
-                  isDragging && "opacity-40 scale-[0.98]",
-                  isDragOver && "border-primary/50 bg-primary/5 shadow-[0_0_0_2px_color-mix(in_oklch,var(--primary)_20%,transparent)]",
+                  badge === "today" && !isOver && "border-primary/40 bg-primary/5",
+                  !badge && test.published && !isOver && "border-border/50",
+                  isSrc && "opacity-40",
+                  isOver && "border-primary/50 bg-primary/5 shadow-[0_0_0_2px_color-mix(in_oklch,var(--primary)_20%,transparent)]",
                 )}
               >
                 <div className="shrink-0 text-muted-foreground/30 group-hover:text-muted-foreground/70 transition-colors cursor-grab active:cursor-grabbing">

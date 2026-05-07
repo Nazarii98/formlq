@@ -6,6 +6,7 @@ import { SpinnerPage } from "@/components/ui/spinner";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { ChevronRight, FileText } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import type { TestDoc } from "@/lib/tests";
 
 function TestCard({ test, index }: { test: TestDoc; index: number }) {
@@ -48,11 +49,7 @@ export default function TestsPage() {
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       {isLoading ? <SpinnerPage /> : tests.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-border/50 py-20 text-center space-y-2">
-          <p className="text-3xl">📝</p>
-          <p className="font-medium">Тести ще не додані</p>
-          <p className="text-sm text-muted-foreground">Зайдіть пізніше</p>
-        </div>
+        <EmptyState emoji="📝" title="Тести ще не додані" description="Зайдіть пізніше" />
       ) : (
         <div className="space-y-2">
           {tests.map((test, i) => <TestCard key={test.id} test={test} index={i} />)}

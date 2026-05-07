@@ -6,16 +6,12 @@ import { getUserById } from "@/lib/users";
 import { getUserResults } from "@/lib/tests";
 import { formatDuration, scoreColor } from "@/lib/format";
 import { SpinnerPage } from "@/components/ui/spinner";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ResultListItem } from "@/components/exam/ResultListItem";
 import { useHeader } from "@/context/HeaderContext";
 import { cn } from "@/lib/utils";
-import { ArrowLeft, ChevronRight, Flame, Clock, Target } from "lucide-react";
-import Link from "next/link";
+import { ArrowLeft, Flame } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-
-function formatShortDate(ts: { toDate(): Date } | null): string {
-  if (!ts) return "";
-  return ts.toDate().toLocaleDateString("uk", { day: "numeric", month: "short", year: "numeric" });
-}
 
 export default function AdminUserHistoryPage() {
   const { uid } = useParams<{ uid: string }>();
@@ -87,38 +83,12 @@ export default function AdminUserHistoryPage() {
       )}
 
       {results.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-border/50 py-16 text-center text-sm text-muted-foreground">
-          Ще немає пройдених тестів
-        </div>
+        <EmptyState emoji="📋" title="Ще немає пройдених тестів" />
       ) : (
         <div className="flex flex-col gap-2">
-          {results.map((r) => {
-            const { text, bg } = scoreColor(r.nmtScore);
-            const date = formatShortDate(r.completedAt);
-            return (
-              <Link key={r.id} href={`/admin/users/${uid}/results/${r.id}`} className="block">
-                <div className="rounded-2xl border border-border/50 bg-card px-4 py-3 flex items-center gap-4 hover:bg-muted/30 hover:border-border/80 transition-all group cursor-pointer">
-                  <div className={cn("w-12 h-12 rounded-xl flex flex-col items-center justify-center shrink-0", bg)}>
-                    <span className={cn("text-lg font-bold leading-none tabular-nums", text)}>{r.nmtScore}</span>
-                    <span className={cn("text-[9px] font-medium leading-none mt-0.5", text)}>НМТ</span>
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold truncate">{r.testTitle || "Без назви"}</p>
-                    <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
-                      <span>{r.rawScore}/{r.maxRaw} балів</span>
-                      {r.timeSpent && (
-                        <><span>·</span><span className="flex items-center gap-0.5"><Clock size={10} />{formatDuration(r.timeSpent)}</span></>
-                      )}
-                      {date && <><span>·</span><span>{date}</span></>}
-                    </div>
-                  </div>
-
-                  <ChevronRight size={15} className="text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
-                </div>
-              </Link>
-            );
-          })}
+          {results.map((r) => (
+            <ResultListItem key={r.id} result={r} href={`/admin/users/${uid}/results/${r.id}`} />
+          ))}
         </div>
       )}
 

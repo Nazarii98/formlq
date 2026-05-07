@@ -8,6 +8,7 @@ import { useHeader } from "@/context/HeaderContext";
 import { UserProfile } from "@/types";
 import { cn } from "@/lib/utils";
 import { Flame, Crown, Search, ChevronRight } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
@@ -149,10 +150,7 @@ export default function AdminUsersPage() {
           )}
 
           {filtered.length === 0 && (
-            <div className="rounded-2xl border border-dashed border-border/50 py-20 text-center space-y-2">
-              <p className="text-3xl">👤</p>
-              <p className="font-medium">Нічого не знайдено</p>
-            </div>
+            <EmptyState emoji="👤" title="Нічого не знайдено" />
           )}
         </div>
       )}

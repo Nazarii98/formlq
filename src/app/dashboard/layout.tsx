@@ -71,7 +71,7 @@ export default function DashboardLayout({
           <header
             className={cn(
               "sticky top-0 z-30 px-6 h-16 flex items-center justify-between transition-all duration-200",
-              "bg-background/85 backdrop-blur-md",
+              "bg-background/85 backdrop-blur-sm",
               scrolled
                 ? "border-b border-border/40 shadow-[0_1px_16px_color-mix(in_oklch,var(--primary)_8%,transparent)]"
                 : "border-b border-transparent",

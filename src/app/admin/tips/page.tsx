@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getTips, createTip, updateTip, deleteTip, Tip } from "@/lib/tips";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -13,18 +13,19 @@ const EMOJI_SUGGESTIONS = ["📐", "🔢", "📏", "🎯", "⏱️", "📊", "�
 
 function TipRow({
   tip, badge, onSave, onDelete,
-  onDragStart, onDragEnter, onDragEnd,
-  isDragging, isDragOver,
+  onDragStart, onDragEnter, onDrop, onDragEnd,
+  isSrc, isOver,
 }: {
   tip: Tip;
   badge?: "today" | "tomorrow";
   onSave: (id: string, data: Partial<Tip>) => void;
   onDelete: (id: string) => void;
   onDragStart: () => void;
-  onDragEnter: () => void;
+  onDragEnter: (e: React.DragEvent) => void;
+  onDrop: () => void;
   onDragEnd: () => void;
-  isDragging: boolean;
-  isDragOver: boolean;
+  isSrc: boolean;
+  isOver: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [emoji, setEmoji] = useState(tip.emoji);
@@ -65,59 +66,55 @@ function TipRow({
       draggable
       onDragStart={onDragStart}
       onDragEnter={onDragEnter}
-      onDragEnd={onDragEnd}
       onDragOver={(e) => e.preventDefault()}
+      onDrop={onDrop}
+      onDragEnd={onDragEnd}
       className={cn(
         "rounded-2xl border bg-card px-4 py-3 flex items-center gap-3 group transition-all select-none relative overflow-hidden",
         !tip.active && "border-border/30 opacity-50",
-        badge === "today" && "border-primary/40 bg-primary/5",
-        badge === "tomorrow" && "border-border/50",
-        !badge && tip.active && "border-border/50",
-        isDragging && "opacity-40 scale-[0.98]",
-        isDragOver && "border-primary/50 bg-primary/5 shadow-[0_0_0_2px_color-mix(in_oklch,var(--primary)_20%,transparent)]",
+        badge === "today" && !isOver && "border-primary/40 bg-primary/5",
+        !badge && tip.active && !isOver && "border-border/50",
+        isSrc && "opacity-40",
+        isOver && "border-primary/50 bg-primary/5 shadow-[0_0_0_2px_color-mix(in_oklch,var(--primary)_20%,transparent)]",
       )}
-    >
-
-      {/* Drag handle */}
-      <div className="shrink-0 text-muted-foreground/30 group-hover:text-muted-foreground/70 transition-colors cursor-grab active:cursor-grabbing">
-        <GripVertical size={16} />
-      </div>
-
-      <span className="text-2xl shrink-0">{tip.emoji}</span>
-
-      <div className="flex-1 min-w-0">
-        <p className="text-sm leading-relaxed text-foreground/80">{tip.text}</p>
-      </div>
-
-      <div className="relative shrink-0 ml-auto flex items-center" style={{ minWidth: "fit-content" }}>
-        {/* Badge — visible by default, hides on hover */}
-        {badge && (
-          <span className={cn(
-            "text-[10px] font-semibold px-2.5 py-1 rounded-full whitespace-nowrap transition-all duration-150",
-            "group-hover:opacity-0 group-hover:scale-90 group-hover:pointer-events-none",
-            badge === "today" ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
-          )}>
-            {badge === "today" ? "Сьогодні" : "Завтра"}
-          </span>
-        )}
-        {/* Buttons — hidden by default, appear on hover */}
-        <div className={cn(
-          "flex items-center gap-1 transition-all duration-150",
-          badge
-            ? "absolute right-0 opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100"
-            : "opacity-0 group-hover:opacity-100"
-        )}>
-          <button onClick={() => onSave(tip.id, { active: !tip.active })} title={tip.active ? "Деактивувати" : "Активувати"} className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-all">
-            {tip.active ? <Eye size={13} /> : <EyeOff size={13} />}
-          </button>
-          <button onClick={() => setEditing(true)} className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-all">
-            <Pencil size={13} />
-          </button>
-          <button onClick={() => onDelete(tip.id)} className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-all">
-            <Trash2 size={13} />
-          </button>
+      >
+        <div className="shrink-0 text-muted-foreground/30 group-hover:text-muted-foreground/70 transition-colors cursor-grab active:cursor-grabbing">
+          <GripVertical size={16} />
         </div>
-      </div>
+
+        <span className="text-2xl shrink-0">{tip.emoji}</span>
+
+        <div className="flex-1 min-w-0">
+          <p className="text-sm leading-relaxed text-foreground/80">{tip.text}</p>
+        </div>
+
+        <div className="relative shrink-0 ml-auto flex items-center" style={{ minWidth: "fit-content" }}>
+          {badge && (
+            <span className={cn(
+              "text-[10px] font-semibold px-2.5 py-1 rounded-full whitespace-nowrap transition-all duration-150",
+              "group-hover:opacity-0 group-hover:scale-90 group-hover:pointer-events-none",
+              badge === "today" ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground",
+            )}>
+              {badge === "today" ? "Сьогодні" : "Завтра"}
+            </span>
+          )}
+          <div className={cn(
+            "flex items-center gap-1 transition-all duration-150",
+            badge
+              ? "absolute right-0 opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100"
+              : "opacity-0 group-hover:opacity-100",
+          )}>
+            <button onClick={() => onSave(tip.id, { active: !tip.active })} title={tip.active ? "Деактивувати" : "Активувати"} className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-all">
+              {tip.active ? <Eye size={13} /> : <EyeOff size={13} />}
+            </button>
+            <button onClick={() => setEditing(true)} className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-all">
+              <Pencil size={13} />
+            </button>
+            <button onClick={() => onDelete(tip.id)} className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-all">
+              <Trash2 size={13} />
+            </button>
+          </div>
+        </div>
     </div>
   );
 }
@@ -162,8 +159,9 @@ function NewTipForm({ onAdd }: { onAdd: (data: Omit<Tip, "id">) => void }) {
 export default function AdminTipsPage() {
   const [tips, setTips] = useState<Tip[]>([]);
   const [loading, setLoading] = useState(true);
-  const [dragIndex, setDragIndex] = useState<number | null>(null);
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [dragSrcIdx, setDragSrcIdx] = useState<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+  const dragSrcRef = useRef<number | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -181,10 +179,6 @@ export default function AdminTipsPage() {
     setTips((prev) => prev.map((t) => t.id === id ? { ...t, ...data } : t));
   }
 
-  async function handleDelete(id: string) {
-    setConfirmDeleteId(id);
-  }
-
   async function confirmDelete() {
     if (!confirmDeleteId) return;
     const id = confirmDeleteId;
@@ -193,20 +187,34 @@ export default function AdminTipsPage() {
     setTips((prev) => prev.filter((t) => t.id !== id));
   }
 
-  async function handleDragEnd() {
-    if (dragIndex === null || dragOverIndex === null || dragIndex === dragOverIndex) {
-      setDragIndex(null);
-      setDragOverIndex(null);
-      return;
-    }
+  function handleDragStart(i: number) {
+    dragSrcRef.current = i;
+    setDragSrcIdx(i);
+  }
+
+  function handleDragEnter(i: number, e: React.DragEvent) {
+    if ((e.currentTarget as Node).contains(e.relatedTarget as Node)) return;
+    if (dragOverIdx !== i) setDragOverIdx(i);
+  }
+
+  function handleDrop(i: number) {
+    const src = dragSrcRef.current;
+    dragSrcRef.current = null;
+    setDragSrcIdx(null);
+    setDragOverIdx(null);
+    if (src === null || src === i) return;
     const next = [...tips];
-    const [moved] = next.splice(dragIndex, 1);
-    next.splice(dragOverIndex, 0, moved);
-    const updated = next.map((t, i) => ({ ...t, order: i }));
+    const [moved] = next.splice(src, 1);
+    next.splice(i, 0, moved);
+    const updated = next.map((t, idx) => ({ ...t, order: idx }));
     setTips(updated);
-    setDragIndex(null);
-    setDragOverIndex(null);
-    await Promise.all(updated.map((t, i) => updateTip(t.id, { order: i })));
+    Promise.all(updated.map((t, idx) => updateTip(t.id, { order: idx })));
+  }
+
+  function handleDragEnd() {
+    dragSrcRef.current = null;
+    setDragSrcIdx(null);
+    setDragOverIdx(null);
   }
 
   const dayIdx = getDayIndex();
@@ -228,21 +236,20 @@ export default function AdminTipsPage() {
         <div className="space-y-2">
           {tips.map((tip, i) => {
             const badge: "today" | "tomorrow" | undefined =
-              i === todayIdx ? "today"
-              : i === tomorrowIdx ? "tomorrow"
-              : undefined;
+              i === todayIdx ? "today" : i === tomorrowIdx ? "tomorrow" : undefined;
             return (
               <TipRow
                 key={tip.id}
                 tip={tip}
                 badge={badge}
                 onSave={handleSave}
-                onDelete={handleDelete}
-                onDragStart={() => setDragIndex(i)}
-                onDragEnter={() => setDragOverIndex(i)}
+                onDelete={(id) => setConfirmDeleteId(id)}
+                onDragStart={() => handleDragStart(i)}
+                onDragEnter={(e) => handleDragEnter(i, e)}
+                onDrop={() => handleDrop(i)}
                 onDragEnd={handleDragEnd}
-                isDragging={dragIndex === i}
-                isDragOver={dragOverIndex === i && dragIndex !== i}
+                isSrc={dragSrcIdx === i}
+                isOver={dragOverIdx === i && dragSrcIdx !== i}
               />
             );
           })}

@@ -83,9 +83,14 @@ export function ReferenceDrawer() {
   }, [open, closeDrawer]);
 
   function scrollToPage(p: number) {
-    if (!scrollRef.current) return;
-    if (p === 1) { scrollRef.current.scrollTo({ top: 0, behavior: "smooth" }); return; }
-    pageRefs.current[p - 1]?.scrollIntoView({ behavior: "smooth", block: "start" });
+    const container = scrollRef.current;
+    if (!container) return;
+    if (p === 1) { container.scrollTo({ top: 0, behavior: "smooth" }); return; }
+    const el = pageRefs.current[p - 1];
+    if (!el) return;
+    const containerRect = container.getBoundingClientRect();
+    const elRect = el.getBoundingClientRect();
+    container.scrollTo({ top: container.scrollTop + elRect.top - containerRect.top, behavior: "smooth" });
   }
 
   function zoom(delta: number) {
@@ -116,7 +121,7 @@ export function ReferenceDrawer() {
         {/* Header */}
         <div className={cn(
           "flex items-center justify-between px-5 py-3.5 shrink-0 transition-all duration-200",
-          "bg-background/85 backdrop-blur-md",
+          "bg-background/85 backdrop-blur-sm",
           scrolled
             ? "border-b border-border/40 shadow-[0_1px_16px_color-mix(in_oklch,var(--primary)_8%,transparent)]"
             : "border-b border-transparent",
@@ -163,7 +168,7 @@ export function ReferenceDrawer() {
         {/* Controls */}
         <div className={cn(
           "shrink-0 px-4 py-2.5 flex items-center justify-center gap-1 transition-all duration-200",
-          "bg-background/85 backdrop-blur-md",
+          "bg-background/85 backdrop-blur-sm",
           atBottom
             ? "border-t border-transparent"
             : "border-t border-border/40 shadow-[0_-1px_16px_color-mix(in_oklch,var(--primary)_8%,transparent)]",
