@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from "lucide-react";
 import "react-pdf/dist/Page/AnnotationLayer.css";
@@ -11,11 +11,33 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url,
 ).toString();
 
+// Session-level cache: ArrayBuffer parsed by pdfjs once, reused on re-navigation.
+let cachedData: ArrayBuffer | null = null;
+let fetchPromise: Promise<ArrayBuffer> | null = null;
+
+function preloadPdf(): Promise<ArrayBuffer> {
+  if (!fetchPromise) {
+    fetchPromise = fetch("/dovidka.pdf")
+      .then((r) => r.arrayBuffer())
+      .then((buf) => { cachedData = buf; return buf; })
+      .catch(() => { fetchPromise = null; return Promise.reject(); });
+  }
+  return fetchPromise;
+}
+
+// Triggered when Next.js prefetches this page's JS bundle (on sidebar hover).
+if (typeof window !== "undefined") void preloadPdf();
+
+type PdfFile = string | { data: ArrayBuffer };
+
 export default function ReferencePage() {
   const [numPages, setNumPages] = useState(0);
   const [page, setPage] = useState(1);
   const [scale, setScale] = useState(1.0);
   const [containerWidth, setContainerWidth] = useState(0);
+  const [pdfFile, setPdfFile] = useState<PdfFile>(
+    cachedData ? { data: cachedData } : "/dovidka.pdf",
+  );
   const containerRef = useRef<HTMLDivElement>(null);
   const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
 
@@ -28,7 +50,15 @@ export default function ReferencePage() {
     return () => ro.disconnect();
   }, []);
 
-  // Track current visible page via IntersectionObserver
+  // If cache wasn't ready at mount, wait for it and switch to cached version
+  useEffect(() => {
+    if (cachedData) return;
+    preloadPdf()
+      .then((buf) => setPdfFile({ data: buf }))
+      .catch(() => {});
+  }, []);
+
+  // Track visible page via IntersectionObserver
   useEffect(() => {
     if (!numPages) return;
     const observers: IntersectionObserver[] = [];
@@ -36,7 +66,7 @@ export default function ReferencePage() {
       if (!el) return;
       const io = new IntersectionObserver(
         ([entry]) => { if (entry.isIntersecting) setPage(i + 1); },
-        { threshold: 0.5 }
+        { threshold: 0.5 },
       );
       io.observe(el);
       observers.push(io);
@@ -45,11 +75,8 @@ export default function ReferencePage() {
   }, [numPages, scale]);
 
   function scrollToPage(p: number) {
-    if (p === 1) {
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    } else {
-      pageRefs.current[p - 1]?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
+    if (p === 1) window.scrollTo({ top: 0, behavior: "smooth" });
+    else pageRefs.current[p - 1]?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   function zoom(delta: number) {
@@ -61,13 +88,9 @@ export default function ReferencePage() {
   return (
     <div ref={containerRef} className="-mx-6 -mb-6 relative overflow-x-auto">
       <Document
-        file="/dovidka.pdf"
+        file={pdfFile}
         onLoadSuccess={({ numPages }) => setNumPages(numPages)}
-        loading={
-          <div className="flex items-center justify-center py-32">
-            <div className="w-6 h-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-          </div>
-        }
+        loading={null}
         className="flex flex-col items-center gap-4 py-6 px-6 pb-24"
       >
         {Array.from({ length: numPages }, (_, i) => (
@@ -77,13 +100,14 @@ export default function ReferencePage() {
               width={pageWidth}
               renderTextLayer
               renderAnnotationLayer
+              loading={null}
               className="rounded-xl overflow-hidden shadow-lg"
             />
           </div>
         ))}
       </Document>
 
-      {/* Floating bottom controls */}
+      {/* Floating controls */}
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1 px-3 py-2 rounded-2xl border border-border/50 bg-background/90 backdrop-blur-md shadow-lg">
         <button
           onClick={() => scrollToPage(Math.max(1, page - 1))}
