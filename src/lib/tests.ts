@@ -74,6 +74,7 @@ export interface TestDoc {
   updatedAt: Timestamp | null;
   questions: TestQuestion[];
   scoreTable: ScoreRow[];
+  order?: number;
 }
 
 export interface QuestionResult {

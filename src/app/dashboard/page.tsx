@@ -10,7 +10,7 @@ import {
   TestDoc,
   TestResult,
 } from "@/lib/tests";
-import { getActiveTips, Tip } from "@/lib/tips";
+import { getTips, Tip } from "@/lib/tips";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useColorTheme } from "@/context/ThemeContext";
@@ -30,12 +30,13 @@ function DailyTip() {
   const [tip, setTip] = useState<Tip | null>(null);
 
   useEffect(() => {
-    getActiveTips().then((tips) => {
+    getTips().then((tips) => {
       if (!tips.length) return;
       const dayOfYear = Math.floor(
         (Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000
       );
-      setTip(tips[dayOfYear % tips.length]);
+      const picked = tips[dayOfYear % tips.length];
+      if (picked?.active) setTip(picked);
     });
   }, []);
 
@@ -277,6 +278,9 @@ const THEME_COLORS: Record<string, string> = {
   green: "oklch(0.50 0.20 155)",
   rose: "oklch(0.54 0.26 10)",
   orange: "oklch(0.60 0.22 45)",
+  teal: "oklch(0.52 0.18 185)",
+  amber: "oklch(0.62 0.18 75)",
+  indigo: "oklch(0.50 0.26 268)",
 };
 
 function ProgressSection({ results }: { results: TestResult[] }) {
@@ -508,63 +512,56 @@ function RecommendedTest({
     );
   }
 
+  const lastDone = lastDoneMap.has(recommended.id)
+    ? new Date(lastDoneMap.get(recommended.id)!).toLocaleDateString("uk", { day: "numeric", month: "short" })
+    : null;
+  const qCount = recommended.questions?.length ?? 0;
+
   if (doneToday) {
     return (
-      <section className="rounded-2xl border border-border/50 bg-card px-6 py-5 flex items-center gap-4">
-        <span className="text-4xl">🔥</span>
-        <div className="flex-1">
-          <p className="font-semibold text-sm">
-            Молодець, сьогодні вже займався!
-          </p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Повертайся завтра щоб підтримати серію
-          </p>
+      <section className="rounded-2xl border border-border/50 bg-card px-5 py-4 flex items-center gap-4">
+        <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center text-xl shrink-0">🔥</div>
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-sm">Молодець, сьогодні вже займався!</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Повертайся завтра щоб підтримати серію</p>
         </div>
-        <Link href={`/dashboard/exam/${recommended.id}`}>
-          <div className="shrink-0 px-4 py-2 rounded-xl border border-border/50 text-sm font-medium hover:bg-muted transition-colors cursor-pointer">
-            Ще раз
-          </div>
+        <Link href={`/dashboard/exam/${recommended.id}`} className="shrink-0 px-3.5 py-2 rounded-xl border border-border/60 text-sm font-medium hover:bg-muted transition-colors">
+          Ще раз
         </Link>
       </section>
     );
   }
 
   return (
-    <section className="space-y-2">
-      <h2 className="font-semibold text-base">Тест дня</h2>
-      <Link href={`/dashboard/exam/${recommended.id}`}>
-        <div className="rounded-2xl border border-border/40 bg-card px-5 py-4 hover:bg-muted/40 transition-colors group cursor-pointer flex items-center justify-between gap-4">
-          <div className="min-w-0">
-            <p className="font-semibold text-sm truncate">
-              {recommended.title}
-            </p>
-            {recommended.subtitle && (
-              <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                {recommended.subtitle}
-              </p>
-            )}
-            <p className="text-xs text-muted-foreground mt-1">
-              {recommended.questions?.length ?? 0} питань
-              {lastDoneMap.has(recommended.id) && (
-                <span className="ml-2">
-                  · востаннє{" "}
-                  {new Date(
-                    lastDoneMap.get(recommended.id)!,
-                  ).toLocaleDateString("uk", {
-                    day: "numeric",
-                    month: "short",
-                  })}
-                </span>
-              )}
-            </p>
+    <Link href={`/dashboard/exam/${recommended.id}`}>
+      <section className="group rounded-2xl border border-border/50 bg-card px-5 py-4 hover:border-primary/30 hover:bg-primary/5 transition-all cursor-pointer">
+        <div className="flex items-center gap-4">
+          {/* Icon */}
+          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/15 transition-colors">
+            <span className="text-2xl">📝</span>
           </div>
-          <ChevronRight
-            size={16}
-            className="text-muted-foreground group-hover:text-foreground transition-colors shrink-0"
-          />
+
+          {/* Content */}
+          <div className="flex-1 min-w-0 space-y-0.5">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-primary">Тест дня</span>
+              {lastDone && <span className="text-[10px] text-muted-foreground">· {lastDone}</span>}
+            </div>
+            <p className="font-semibold text-sm leading-tight truncate">{recommended.title}</p>
+            {recommended.subtitle && (
+              <p className="text-xs text-muted-foreground truncate">{recommended.subtitle}</p>
+            )}
+            <div className="flex items-center gap-3 pt-0.5 text-xs text-muted-foreground">
+              <span>{qCount} питань</span>
+              <span>~{Math.round(qCount * 2)} хв</span>
+            </div>
+          </div>
+
+          {/* Arrow */}
+          <ChevronRight size={16} className="text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0" />
         </div>
-      </Link>
-    </section>
+      </section>
+    </Link>
   );
 }
 

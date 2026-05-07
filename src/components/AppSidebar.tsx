@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { Home, FileText, History, BookOpen, ShieldCheck, Lightbulb } from "lucide-react";
+import { Home, FileText, History, BookOpen, ShieldCheck, Lightbulb, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { useExamGuard } from "@/context/ExamGuardContext";
@@ -16,6 +16,7 @@ const NAV = [
 const ADMIN_NAV = [
   { icon: ShieldCheck, href: "/admin/tests", label: "Тести" },
   { icon: Lightbulb,   href: "/admin/tips",  label: "Поради" },
+  { icon: Users,       href: "/admin/users", label: "Користувачі" },
 ];
 
 export function AppSidebar() {

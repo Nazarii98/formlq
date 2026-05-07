@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Nunito, Roboto, Montserrat, Unbounded, Comfortaa, Geologica } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
 import { ThemeProvider } from "@/context/ThemeContext";
@@ -16,6 +16,42 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const nunito = Nunito({
+  variable: "--font-nunito",
+  subsets: ["latin", "cyrillic"],
+  weight: ["400", "500", "600", "700"],
+});
+
+const roboto = Roboto({
+  variable: "--font-roboto",
+  subsets: ["latin", "cyrillic"],
+  weight: ["400", "500", "700"],
+});
+
+const montserrat = Montserrat({
+  variable: "--font-montserrat",
+  subsets: ["latin", "cyrillic"],
+  weight: ["400", "500", "600", "700"],
+});
+
+const unbounded = Unbounded({
+  variable: "--font-unbounded",
+  subsets: ["latin", "cyrillic"],
+  weight: ["400", "500", "700"],
+});
+
+const comfortaa = Comfortaa({
+  variable: "--font-comfortaa",
+  subsets: ["latin", "cyrillic"],
+  weight: ["400", "500", "700"],
+});
+
+const geologica = Geologica({
+  variable: "--font-geologica",
+  subsets: ["latin", "cyrillic"],
+  weight: ["400", "500", "600", "700"],
+});
+
 export const metadata: Metadata = {
   title: "formlq — підготовка до НМТ з математики",
   description: "Платформа для підготовки до НМТ з математики. Тренування, пробні тести, прогрес.",
@@ -29,13 +65,13 @@ export default function RootLayout({
   return (
     <html
       lang="uk"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${nunito.variable} ${roboto.variable} ${montserrat.variable} ${unbounded.variable} ${comfortaa.variable} ${geologica.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('color-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})()`,
+            __html: `(function(){try{var t=localStorage.getItem('color-theme');if(t)document.documentElement.setAttribute('data-theme',t);var f=localStorage.getItem('font-theme');if(f)document.documentElement.setAttribute('data-font',f);}catch(e){}})()`,
           }}
         />
       </head>

@@ -2,11 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useAuth } from "@/context/AuthContext";
-import { getResult, getTest, TestResult, QuestionResult } from "@/lib/tests";
-import { Button } from "@/components/ui/button";
-import Link from "next/link";
+import { getResult, TestResult, QuestionResult } from "@/lib/tests";
+import { useHeader } from "@/context/HeaderContext";
 import { cn } from "@/lib/utils";
+import { ArrowLeft } from "lucide-react";
 
 function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60);
@@ -51,13 +50,13 @@ function QuestionCard({ q, index }: { q: QuestionResult; index: number }) {
         </span>
         <div className="flex-1 min-w-0">
           <p className="text-xs text-muted-foreground mb-1">Завдання {index + 1} · {q.points} б</p>
-          <p className="text-sm text-foreground leading-relaxed">{q.text || "—"}</p>
+          <p className="text-sm leading-relaxed">{q.text || "—"}</p>
         </div>
       </div>
 
       <div className="pl-9 space-y-1.5 text-sm">
         <div className="flex gap-2">
-          <span className="text-muted-foreground shrink-0 whitespace-nowrap">Ваша:</span>
+          <span className="text-muted-foreground shrink-0 whitespace-nowrap">Відповідь:</span>
           <span className={q.isCorrect ? "text-green-600 dark:text-green-400" : "text-red-500"}>{userLabel}</span>
         </div>
         {!q.isCorrect && correctLabel && (
@@ -67,63 +66,52 @@ function QuestionCard({ q, index }: { q: QuestionResult; index: number }) {
           </div>
         )}
       </div>
-
-      {q.explanation && (
-        <div className="pl-9">
-          <details className="group">
-            <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors list-none flex items-center gap-1 select-none">
-              <span className="group-open:rotate-90 transition-transform inline-block">›</span>
-              Пояснення
-            </summary>
-            <p className="mt-2 text-sm text-foreground/80 leading-relaxed border-l-2 border-border pl-3">
-              {q.explanation}
-            </p>
-          </details>
-        </div>
-      )}
     </div>
   );
 }
 
-export default function ResultPage() {
-  const { id } = useParams<{ id: string }>();
-  const { user, loading: authLoading } = useAuth();
+export default function AdminResultPage() {
+  const { uid, resultId } = useParams<{ uid: string; resultId: string }>();
   const router = useRouter();
+  const { setHeader } = useHeader();
   const [result, setResult] = useState<TestResult | null>(null);
-  const [testAvailable, setTestAvailable] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!authLoading && !user) { router.push("/login"); return; }
-  }, [user, authLoading, router]);
-
-  useEffect(() => {
-    if (!user) return;
-    getResult(id).then(async (r) => {
-      if (!r || r.userId !== user.uid) { router.replace("/dashboard/history"); return; }
+    getResult(resultId).then((r) => {
       setResult(r);
-      const test = await getTest(r.testId);
-      setTestAvailable(!!test && test.published === true);
       setLoading(false);
     });
-  }, [id, user, router]);
+  }, [resultId]);
 
-  if (authLoading || loading) {
+  useEffect(() => {
+    if (result) setHeader(result.testTitle || "Результат", "Перегляд адміном");
+    return () => setHeader("", "");
+  }, [result, setHeader]);
+
+  if (loading) {
     return (
-      <div className="flex justify-center py-24">
-        <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+      <div className="flex justify-center py-16">
+        <div className="w-6 h-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
       </div>
     );
   }
 
-  if (!result) return null;
+  if (!result) return <p className="text-center text-muted-foreground py-16">Результат не знайдено</p>;
 
   const emoji = result.nmtScore >= 180 ? "🏆" : result.nmtScore >= 160 ? "🎉" : result.nmtScore >= 140 ? "👍" : "💪";
   const questions = result.questions ?? [];
 
   return (
     <div className="max-w-2xl mx-auto space-y-6 pb-8">
-      {/* Score header */}
+      <button
+        onClick={() => router.push(`/admin/users/${uid}`)}
+        className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <ArrowLeft size={14} /> Назад до історії
+      </button>
+
+      {/* Score */}
       <div className="rounded-2xl border border-border/50 bg-card p-6 text-center space-y-1">
         <div className="text-4xl mb-2">{emoji}</div>
         <div className="text-5xl font-bold tabular-nums">{result.nmtScore}</div>
@@ -134,7 +122,10 @@ export default function ResultPage() {
         </div>
         {result.completedAt && (
           <p className="text-xs text-muted-foreground pt-1">
-            {result.completedAt.toDate().toLocaleString("uk", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+            {result.completedAt.toDate().toLocaleString("uk", {
+              day: "numeric", month: "long", year: "numeric",
+              hour: "2-digit", minute: "2-digit",
+            })}
           </p>
         )}
       </div>
@@ -144,7 +135,7 @@ export default function ResultPage() {
         {questions.map((q, i) => (
           <a key={q.id ?? i} href={`#q-${i}`}>
             <div className={cn(
-              "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border transition-all",
+              "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border",
               q.isCorrect
                 ? "bg-green-500/15 border-green-500/40 text-green-600 dark:text-green-400"
                 : q.userAnswer
@@ -157,26 +148,9 @@ export default function ResultPage() {
         ))}
       </div>
 
-      {/* Question breakdown */}
+      {/* Questions */}
       <div className="space-y-3">
-        {questions.map((q, i) => (
-          <QuestionCard key={q.id ?? i} q={q} index={i} />
-        ))}
-      </div>
-
-      <div className="flex gap-3">
-        {testAvailable ? (
-          <Link href={`/dashboard/exam/${result.testId}`} className="flex-1">
-            <Button variant="outline" className="w-full">Ще раз</Button>
-          </Link>
-        ) : (
-          <Button variant="outline" className="flex-1" disabled title="Тест більше недоступний">
-            Ще раз
-          </Button>
-        )}
-        <Link href="/dashboard/history" className="flex-1">
-          <Button className="w-full">Історія</Button>
-        </Link>
+        {questions.map((q, i) => <QuestionCard key={q.id ?? i} q={q} index={i} />)}
       </div>
     </div>
   );

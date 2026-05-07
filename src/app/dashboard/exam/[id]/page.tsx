@@ -371,12 +371,12 @@ export default function ExamPage() {
                   {/* Answers */}
                   <div className="pl-9 space-y-1.5 text-sm">
                     <div className="flex gap-2">
-                      <span className="text-muted-foreground shrink-0 w-20">Ваша:</span>
+                      <span className="text-muted-foreground shrink-0 whitespace-nowrap">Ваша:</span>
                       <span className={correct ? "text-green-600 dark:text-green-400" : "text-red-500"}>{userLabel}</span>
                     </div>
                     {!correct && correctLabel && (
                       <div className="flex gap-2">
-                        <span className="text-muted-foreground shrink-0 w-20">Правильна:</span>
+                        <span className="text-muted-foreground shrink-0 whitespace-nowrap">Правильна:</span>
                         <span className="text-green-600 dark:text-green-400">{correctLabel}</span>
                       </div>
                     )}

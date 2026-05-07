@@ -1,0 +1,176 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useAuth } from "@/context/AuthContext";
+import { getAllUsers, updateUserRole } from "@/lib/users";
+import { useHeader } from "@/context/HeaderContext";
+import { UserProfile } from "@/types";
+import { cn } from "@/lib/utils";
+import { Flame, Crown, Search, ChevronRight } from "lucide-react";
+import { useRouter } from "next/navigation";
+
+function timeAgo(date: Date | { seconds: number } | null | undefined): string {
+  if (!date) return "—";
+  const d = date instanceof Date ? date : new Date((date as { seconds: number }).seconds * 1000);
+  const diff = Math.floor((Date.now() - d.getTime()) / 1000);
+  if (diff < 60) return "щойно";
+  if (diff < 3600) return `${Math.floor(diff / 60)} хв тому`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)} год тому`;
+  if (diff < 2592000) return `${Math.floor(diff / 86400)} дн тому`;
+  return d.toLocaleDateString("uk");
+}
+
+export default function AdminUsersPage() {
+  const { user: currentUser } = useAuth();
+  const { setHeader } = useHeader();
+  const router = useRouter();
+  const [users, setUsers] = useState<UserProfile[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [updatingUid, setUpdatingUid] = useState<string | null>(null);
+
+  useEffect(() => {
+    setHeader("Користувачі", "Управління доступом");
+    return () => setHeader("", "");
+  }, [setHeader]);
+
+  useEffect(() => {
+    getAllUsers().then((u) => {
+      setUsers(u.sort((a, b) => {
+        const ta = (a.createdAt as unknown as { seconds: number })?.seconds ?? 0;
+        const tb = (b.createdAt as unknown as { seconds: number })?.seconds ?? 0;
+        return tb - ta;
+      }));
+      setLoading(false);
+    });
+  }, []);
+
+  async function handleToggleRole(u: UserProfile) {
+    const next = u.role === "editor" ? "student" : "editor";
+    setUpdatingUid(u.uid);
+    try {
+      await updateUserRole(u.uid, next);
+      setUsers((prev) => prev.map((p) => p.uid === u.uid ? { ...p, role: next } : p));
+    } finally {
+      setUpdatingUid(null);
+    }
+  }
+
+  const filtered = users.filter((u) => {
+    const q = search.toLowerCase();
+    return (
+      u.displayName?.toLowerCase().includes(q) ||
+      u.email?.toLowerCase().includes(q)
+    );
+  });
+
+  const editors = filtered.filter((u) => u.role === "editor");
+  const students = filtered.filter((u) => u.role === "student");
+
+  function UserRow({ u }: { u: UserProfile }) {
+    const isSelf = u.uid === currentUser?.uid;
+    const isEditor = u.role === "editor";
+    const updating = updatingUid === u.uid;
+
+    return (
+      <div
+        className={cn(
+          "rounded-2xl border bg-card px-4 py-3 flex items-center gap-3 group transition-all cursor-pointer",
+          isEditor ? "border-primary/30 bg-primary/5 hover:border-primary/50" : "border-border/50 hover:bg-muted/30 hover:border-border/80",
+        )}
+        onClick={() => router.push(`/admin/users/${u.uid}`)}
+      >
+        {/* Avatar */}
+        <div className={cn(
+          "w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold shrink-0",
+          isEditor ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
+        )}>
+          {u.displayName?.[0]?.toUpperCase() ?? "?"}
+        </div>
+
+        {/* Info */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5">
+            <p className="text-sm font-semibold truncate">{u.displayName || "—"}</p>
+            {isEditor && <Crown size={11} className="text-primary shrink-0" />}
+            {isSelf && <span className="text-[9px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full font-medium shrink-0">Ви</span>}
+          </div>
+          <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+        </div>
+
+        {/* Stats */}
+        <div className="hidden sm:flex items-center gap-4 shrink-0 text-xs text-muted-foreground">
+          <div className="flex items-center gap-1">
+            <Flame size={11} className={u.streak > 0 ? "text-orange-500" : ""} />
+            <span className={u.streak > 0 ? "text-orange-500 font-medium" : ""}>{u.streak}</span>
+          </div>
+          <span className="text-muted-foreground/50">{timeAgo(u.createdAt as never)}</span>
+        </div>
+
+        {/* Role toggle */}
+        <button
+          onClick={(e) => { e.stopPropagation(); !isSelf && handleToggleRole(u); }}
+          disabled={isSelf || updating}
+          className={cn(
+            "shrink-0 text-[11px] font-semibold px-3 py-1.5 rounded-full transition-all",
+            isSelf && "opacity-40 cursor-default",
+            !isSelf && isEditor && "bg-primary/10 text-primary hover:bg-red-500/10 hover:text-red-500",
+            !isSelf && !isEditor && "bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary",
+            updating && "opacity-50 pointer-events-none",
+          )}
+        >
+          {updating ? "..." : isEditor ? "Редактор" : "Учень"}
+        </button>
+        <ChevronRight size={14} className="text-muted-foreground/40 group-hover:text-muted-foreground transition-colors shrink-0" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-2xl mx-auto space-y-4">
+      {/* Search */}
+      <div className="relative">
+        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Пошук за іменем або email..."
+          className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-border/50 bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 placeholder:text-muted-foreground"
+        />
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-16">
+          <div className="w-6 h-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {editors.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-1">
+                Редактори ({editors.length})
+              </p>
+              {editors.map((u) => <UserRow key={u.uid} u={u} />)}
+            </div>
+          )}
+
+          {students.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-1">
+                Учні ({students.length})
+              </p>
+              {students.map((u) => <UserRow key={u.uid} u={u} />)}
+            </div>
+          )}
+
+          {filtered.length === 0 && (
+            <div className="rounded-2xl border border-dashed border-border/50 py-20 text-center space-y-2">
+              <p className="text-3xl">👤</p>
+              <p className="font-medium">Нічого не знайдено</p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

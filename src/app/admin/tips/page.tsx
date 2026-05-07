@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { getTips, createTip, updateTip, deleteTip, Tip } from "@/lib/tips";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 import { Trash2, Pencil, Plus, Check, X, GripVertical, Eye, EyeOff } from "lucide-react";
 
@@ -165,6 +166,7 @@ export default function AdminTipsPage() {
   const [loading, setLoading] = useState(true);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
     getTips().then((t) => { setTips(t); setLoading(false); });
@@ -182,6 +184,13 @@ export default function AdminTipsPage() {
   }
 
   async function handleDelete(id: string) {
+    setConfirmDeleteId(id);
+  }
+
+  async function confirmDelete() {
+    if (!confirmDeleteId) return;
+    const id = confirmDeleteId;
+    setConfirmDeleteId(null);
     await deleteTip(id);
     setTips((prev) => prev.filter((t) => t.id !== id));
   }
@@ -202,11 +211,9 @@ export default function AdminTipsPage() {
     await Promise.all(updated.map((t, i) => updateTip(t.id, { order: i })));
   }
 
-  const active = tips.filter((t) => t.active).length;
   const dayIdx = getDayIndex();
-  const todayIdx = active > 0 ? dayIdx % active : -1;
-  const tomorrowIdx = active > 0 ? (dayIdx + 1) % active : -1;
-  let activeCount = 0;
+  const todayIdx = tips.length > 0 ? dayIdx % tips.length : -1;
+  const tomorrowIdx = tips.length > 0 ? (dayIdx + 1) % tips.length : -1;
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -217,12 +224,10 @@ export default function AdminTipsPage() {
       ) : (
         <div className="space-y-2">
           {tips.map((tip, i) => {
-            let badge: "today" | "tomorrow" | undefined;
-            if (tip.active) {
-              if (activeCount === todayIdx) badge = "today";
-              else if (activeCount === tomorrowIdx) badge = "tomorrow";
-              activeCount++;
-            }
+            const badge: "today" | "tomorrow" | undefined =
+              i === todayIdx && tip.active ? "today"
+              : i === tomorrowIdx && tip.active ? "tomorrow"
+              : undefined;
             return (
               <TipRow
                 key={tip.id}
@@ -241,6 +246,15 @@ export default function AdminTipsPage() {
           <NewTipForm onAdd={handleAdd} />
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmDeleteId !== null}
+        title="Видалити пораду?"
+        description="Цю дію не можна скасувати. Порада буде видалена назавжди."
+        confirmLabel="Видалити"
+        onConfirm={confirmDelete}
+        onCancel={() => setConfirmDeleteId(null)}
+      />
     </div>
   );
 }
