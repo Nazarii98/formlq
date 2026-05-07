@@ -11,33 +11,37 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url,
 ).toString();
 
-// Session-level cache: ArrayBuffer parsed by pdfjs once, reused on re-navigation.
-let cachedData: ArrayBuffer | null = null;
-let fetchPromise: Promise<ArrayBuffer> | null = null;
+// Session-level cache stored as Uint8Array.
+// pdfjs transfers the ArrayBuffer to its worker (detaching it), so we always
+// pass a .slice() copy — the original Uint8Array's backing buffer stays alive.
+let cachedBytes: Uint8Array | null = null;
+let fetchPromise: Promise<Uint8Array> | null = null;
 
-function preloadPdf(): Promise<ArrayBuffer> {
+function preloadPdf(): Promise<Uint8Array> {
   if (!fetchPromise) {
     fetchPromise = fetch("/dovidka.pdf")
       .then((r) => r.arrayBuffer())
-      .then((buf) => { cachedData = buf; return buf; })
+      .then((buf) => { cachedBytes = new Uint8Array(buf); return cachedBytes; })
       .catch(() => { fetchPromise = null; return Promise.reject(); });
   }
   return fetchPromise;
 }
 
-// Triggered when Next.js prefetches this page's JS bundle (on sidebar hover).
 if (typeof window !== "undefined") void preloadPdf();
 
-type PdfFile = string | { data: ArrayBuffer };
+type PdfFile = string | { data: Uint8Array };
+
+// Always pass a copy so pdfjs can transfer it without detaching our cache.
+function pdfFileProp(): PdfFile {
+  return cachedBytes ? { data: cachedBytes.slice() } : "/dovidka.pdf";
+}
 
 export default function ReferencePage() {
   const [numPages, setNumPages] = useState(0);
   const [page, setPage] = useState(1);
   const [scale, setScale] = useState(1.0);
   const [containerWidth, setContainerWidth] = useState(0);
-  const [pdfFile, setPdfFile] = useState<PdfFile>(
-    cachedData ? { data: cachedData } : "/dovidka.pdf",
-  );
+  const [pdfFile, setPdfFile] = useState<PdfFile>(pdfFileProp);
   const containerRef = useRef<HTMLDivElement>(null);
   const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
 
@@ -50,11 +54,11 @@ export default function ReferencePage() {
     return () => ro.disconnect();
   }, []);
 
-  // If cache wasn't ready at mount, wait for it and switch to cached version
+  // If cache wasn't ready at mount, wait for it then pass a fresh copy
   useEffect(() => {
-    if (cachedData) return;
+    if (cachedBytes) return;
     preloadPdf()
-      .then((buf) => setPdfFile({ data: buf }))
+      .then((bytes) => setPdfFile({ data: bytes.slice() }))
       .catch(() => {});
   }, []);
 
