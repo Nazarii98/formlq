@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { useQueryClient } from "@tanstack/react-query";
+import { useReferenceDrawer } from "@/context/ReferenceDrawerContext";
 import { useExamGuard } from "@/context/ExamGuardContext";
 import { Button } from "@/components/ui/button";
 import {
@@ -59,6 +60,7 @@ export default function ExamPage() {
   const { setGuarded } = useExamGuard();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { openDrawer } = useReferenceDrawer();
 
   const [test, setTest] = useState<TestDoc | null>(null);
   const [loadingTest, setLoadingTest] = useState(true);
@@ -528,15 +530,13 @@ export default function ExamPage() {
       </main>
 
       {/* Reference button */}
-      <a
-        href="/dovidka.pdf"
-        target="_blank"
-        rel="noopener noreferrer"
+      <button
+        onClick={openDrawer}
         className="fixed bottom-5 right-5 flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-card border border-border/60 shadow-lg text-sm font-medium text-foreground hover:bg-muted transition-all z-50"
       >
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
         Довідка
-      </a>
+      </button>
     </div>
   );
 }

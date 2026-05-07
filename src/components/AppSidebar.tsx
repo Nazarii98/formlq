@@ -5,12 +5,12 @@ import { Home, FileText, History, BookOpen, ShieldCheck, Lightbulb, Users } from
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { useExamGuard } from "@/context/ExamGuardContext";
+import { useReferenceDrawer } from "@/context/ReferenceDrawerContext";
 
 const NAV = [
-  { icon: Home,     href: "/dashboard",           label: "Головна" },
-  { icon: FileText, href: "/dashboard/tests",     label: "Тести" },
-  { icon: History,  href: "/dashboard/history",   label: "Історія" },
-  { icon: BookOpen, href: "/dashboard/reference", label: "Довідка" },
+  { icon: Home,     href: "/dashboard",         label: "Головна" },
+  { icon: FileText, href: "/dashboard/tests",   label: "Тести" },
+  { icon: History,  href: "/dashboard/history", label: "Історія" },
 ];
 
 const ADMIN_NAV = [
@@ -23,6 +23,7 @@ export function AppSidebar() {
   const path = usePathname();
   const { userProfile } = useAuth();
   const { requestNav } = useExamGuard();
+  const { open: drawerOpen, openDrawer } = useReferenceDrawer();
 
   function NavBtn({ href, label, Icon }: { href: string; label: string; Icon: React.ElementType }) {
     const active = path === href || (href !== "/dashboard" && path.startsWith(href));
@@ -34,38 +35,19 @@ export function AppSidebar() {
           className={cn(
             "relative w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
-            active ? "" : "text-muted-foreground hover:text-foreground"
+            active ? "" : "text-muted-foreground hover:text-foreground",
           )}
         >
-          {/* Background fill */}
           <span className={cn(
             "absolute inset-0 rounded-xl transition-all duration-200",
-            active
-              ? "bg-primary/12"
-              : "bg-transparent group-hover:bg-muted"
+            active ? "bg-primary/12" : "bg-transparent group-hover:bg-muted",
           )} />
-
-          {/* Icon */}
           <Icon size={20} className={cn(
             "relative z-10 transition-all duration-200 group-hover:scale-110",
-            active ? "text-primary" : ""
+            active ? "text-primary" : "",
           )} />
         </button>
-
-        {/* Tooltip */}
-        <div className={cn(
-          "pointer-events-none absolute left-[calc(100%+10px)] top-1/2 -translate-y-1/2 z-50",
-          "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg",
-          "bg-popover border border-border/50 shadow-md",
-          "text-xs font-medium text-foreground whitespace-nowrap",
-          "opacity-0 translate-x-1 group-hover:opacity-100 group-hover:translate-x-0",
-          "transition-all duration-150"
-        )}>
-          {label}
-          {/* Arrow */}
-          <span className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-border/50" />
-          <span className="absolute right-full top-1/2 -translate-y-1/2 ml-px border-[3.5px] border-transparent border-r-popover translate-x-px" />
-        </div>
+        <Tooltip label={label} />
       </div>
     );
   }
@@ -76,6 +58,28 @@ export function AppSidebar() {
         {NAV.map(({ icon: Icon, href, label }) => (
           <NavBtn key={href} href={href} label={label} Icon={Icon} />
         ))}
+
+        {/* Reference — opens drawer */}
+        <div className="relative group">
+          <button
+            onClick={openDrawer}
+            className={cn(
+              "relative w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
+              drawerOpen ? "" : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <span className={cn(
+              "absolute inset-0 rounded-xl transition-all duration-200",
+              drawerOpen ? "bg-primary/12" : "bg-transparent group-hover:bg-muted",
+            )} />
+            <BookOpen size={20} className={cn(
+              "relative z-10 transition-all duration-200 group-hover:scale-110",
+              drawerOpen ? "text-primary" : "",
+            )} />
+          </button>
+          <Tooltip label="Довідка" />
+        </div>
       </nav>
 
       {userProfile?.role === "editor" && (
@@ -87,5 +91,22 @@ export function AppSidebar() {
         </div>
       )}
     </aside>
+  );
+}
+
+function Tooltip({ label }: { label: string }) {
+  return (
+    <div className={cn(
+      "pointer-events-none absolute left-[calc(100%+10px)] top-1/2 -translate-y-1/2 z-50",
+      "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg",
+      "bg-popover border border-border/50 shadow-md",
+      "text-xs font-medium text-foreground whitespace-nowrap",
+      "opacity-0 translate-x-1 group-hover:opacity-100 group-hover:translate-x-0",
+      "transition-all duration-150",
+    )}>
+      {label}
+      <span className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-border/50" />
+      <span className="absolute right-full top-1/2 -translate-y-1/2 ml-px border-[3.5px] border-transparent border-r-popover translate-x-px" />
+    </div>
   );
 }

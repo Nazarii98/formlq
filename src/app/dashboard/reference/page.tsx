@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from "lucide-react";
+import { pdfFileProp, getPdfCopyAsync } from "@/lib/pdf-cache";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
 
@@ -11,58 +12,28 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url,
 ).toString();
 
-// Session-level cache stored as Uint8Array.
-// pdfjs transfers the ArrayBuffer to its worker (detaching it), so we always
-// pass a .slice() copy — the original Uint8Array's backing buffer stays alive.
-let cachedBytes: Uint8Array | null = null;
-let fetchPromise: Promise<Uint8Array> | null = null;
-
-function preloadPdf(): Promise<Uint8Array> {
-  if (!fetchPromise) {
-    fetchPromise = fetch("/dovidka.pdf")
-      .then((r) => r.arrayBuffer())
-      .then((buf) => { cachedBytes = new Uint8Array(buf); return cachedBytes; })
-      .catch(() => { fetchPromise = null; return Promise.reject(); });
-  }
-  return fetchPromise;
-}
-
-if (typeof window !== "undefined") void preloadPdf();
-
-type PdfFile = string | { data: Uint8Array };
-
-// Always pass a copy so pdfjs can transfer it without detaching our cache.
-function pdfFileProp(): PdfFile {
-  return cachedBytes ? { data: cachedBytes.slice() } : "/dovidka.pdf";
-}
-
 export default function ReferencePage() {
   const [numPages, setNumPages] = useState(0);
   const [page, setPage] = useState(1);
   const [scale, setScale] = useState(1.0);
   const [containerWidth, setContainerWidth] = useState(0);
-  const [pdfFile, setPdfFile] = useState<PdfFile>(pdfFileProp);
+  const [pdfFile, setPdfFile] = useState<string | { data: Uint8Array }>(pdfFileProp);
   const containerRef = useRef<HTMLDivElement>(null);
   const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   useEffect(() => {
     if (!containerRef.current) return;
-    const ro = new ResizeObserver(([entry]) => {
-      setContainerWidth(entry.contentRect.width);
-    });
+    const ro = new ResizeObserver(([entry]) => setContainerWidth(entry.contentRect.width));
     ro.observe(containerRef.current);
     return () => ro.disconnect();
   }, []);
 
-  // If cache wasn't ready at mount, wait for it then pass a fresh copy
   useEffect(() => {
-    if (cachedBytes) return;
-    preloadPdf()
-      .then((bytes) => setPdfFile({ data: bytes.slice() }))
-      .catch(() => {});
+    const copy = pdfFileProp();
+    if (typeof copy !== "string") { setPdfFile(copy); return; }
+    getPdfCopyAsync().then((data) => setPdfFile({ data })).catch(() => {});
   }, []);
 
-  // Track visible page via IntersectionObserver
   useEffect(() => {
     if (!numPages) return;
     const observers: IntersectionObserver[] = [];
@@ -111,47 +82,24 @@ export default function ReferencePage() {
         ))}
       </Document>
 
-      {/* Floating controls */}
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1 px-3 py-2 rounded-2xl border border-border/50 bg-background/90 backdrop-blur-md shadow-lg">
-        <button
-          onClick={() => scrollToPage(Math.max(1, page - 1))}
-          disabled={page <= 1}
-          className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-all disabled:opacity-30"
-        >
+        <button onClick={() => scrollToPage(Math.max(1, page - 1))} disabled={page <= 1}
+          className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-all disabled:opacity-30">
           <ChevronLeft size={16} />
         </button>
-
-        <span className="text-sm tabular-nums px-2 min-w-[64px] text-center">
-          {page} / {numPages || "—"}
-        </span>
-
-        <button
-          onClick={() => scrollToPage(Math.min(numPages, page + 1))}
-          disabled={page >= numPages}
-          className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-all disabled:opacity-30"
-        >
+        <span className="text-sm tabular-nums px-2 min-w-[64px] text-center">{page} / {numPages || "—"}</span>
+        <button onClick={() => scrollToPage(Math.min(numPages, page + 1))} disabled={page >= numPages}
+          className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-all disabled:opacity-30">
           <ChevronRight size={16} />
         </button>
-
         <div className="w-px h-5 bg-border/50 mx-1" />
-
-        <button
-          onClick={() => zoom(-0.1)}
-          disabled={scale <= 0.5}
-          className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-all disabled:opacity-30"
-        >
+        <button onClick={() => zoom(-0.1)} disabled={scale <= 0.5}
+          className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-all disabled:opacity-30">
           <ZoomOut size={16} />
         </button>
-
-        <span className="text-sm tabular-nums w-12 text-center">
-          {Math.round(scale * 100)}%
-        </span>
-
-        <button
-          onClick={() => zoom(0.1)}
-          disabled={scale >= 2}
-          className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-all disabled:opacity-30"
-        >
+        <span className="text-sm tabular-nums w-12 text-center">{Math.round(scale * 100)}%</span>
+        <button onClick={() => zoom(0.1)} disabled={scale >= 2}
+          className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-all disabled:opacity-30">
           <ZoomIn size={16} />
         </button>
       </div>
