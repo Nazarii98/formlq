@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { getUserResults, TestResult } from "@/lib/tests";
+import { getUserResults } from "@/lib/tests";
 import { formatDate, formatDuration, scoreColor } from "@/lib/format";
 import { SpinnerPage } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import { ChevronRight, Clock, Target } from "lucide-react";
 import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
+import type { TestResult } from "@/lib/tests";
 
 function ResultCard({ result }: { result: TestResult }) {
   const { text, bg } = scoreColor(result.nmtScore);
@@ -15,13 +16,11 @@ function ResultCard({ result }: { result: TestResult }) {
   return (
     <Link href={`/dashboard/results/${result.id}`} className="block">
       <div className="rounded-2xl border border-border/50 bg-card px-5 py-4 flex items-center gap-4 hover:bg-muted/30 hover:border-border/80 transition-all group">
-        {/* Score badge */}
         <div className={cn("w-12 h-12 rounded-xl flex flex-col items-center justify-center shrink-0", bg)}>
           <span className={cn("text-lg font-bold tabular-nums leading-none", text)}>{result.nmtScore}</span>
           <span className="text-[9px] text-muted-foreground leading-none mt-0.5">з 200</span>
         </div>
 
-        {/* Info */}
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-sm truncate">{result.testTitle}</p>
           {result.testSubtitle && (
@@ -30,22 +29,12 @@ function ResultCard({ result }: { result: TestResult }) {
           <p className="text-xs text-muted-foreground mt-0.5">{formatDate(result.completedAt)}</p>
         </div>
 
-        {/* Stats */}
         <div className="hidden sm:flex flex-col items-end gap-1 text-xs text-muted-foreground shrink-0">
-          <span className="flex items-center gap-1">
-            <Target size={11} />
-            {result.rawScore}/{result.maxRaw}
-          </span>
-          <span className="flex items-center gap-1">
-            <Clock size={11} />
-            {formatDuration(result.timeSpent)}
-          </span>
+          <span className="flex items-center gap-1"><Target size={11} />{result.rawScore}/{result.maxRaw}</span>
+          <span className="flex items-center gap-1"><Clock size={11} />{formatDuration(result.timeSpent)}</span>
         </div>
 
-        <ChevronRight
-          size={16}
-          className="text-muted-foreground group-hover:text-foreground group-hover:translate-x-0.5 transition-all shrink-0"
-        />
+        <ChevronRight size={16} className="text-muted-foreground group-hover:text-foreground group-hover:translate-x-0.5 transition-all shrink-0" />
       </div>
     </Link>
   );
@@ -53,17 +42,17 @@ function ResultCard({ result }: { result: TestResult }) {
 
 export default function HistoryPage() {
   const { user } = useAuth();
-  const [results, setResults] = useState<TestResult[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (!user) return;
-    getUserResults(user.uid).then((r) => { setResults(r); setLoading(false); });
-  }, [user]);
+  const { data: results = [], isLoading } = useQuery({
+    queryKey: ["results", user?.uid],
+    queryFn: () => getUserResults(user!.uid),
+    enabled: !!user,
+    staleTime: 60 * 1000,
+  });
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      {loading ? (
+      {isLoading ? (
         <SpinnerPage />
       ) : results.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border/50 py-20 text-center space-y-2">
@@ -73,9 +62,7 @@ export default function HistoryPage() {
         </div>
       ) : (
         <div className="space-y-2">
-          {results.map((r) => (
-            <ResultCard key={r.id} result={r} />
-          ))}
+          {results.map((r) => <ResultCard key={r.id} result={r} />)}
         </div>
       )}
     </div>

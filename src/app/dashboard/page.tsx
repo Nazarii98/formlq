@@ -13,6 +13,7 @@ import {
 import { getTips, Tip } from "@/lib/tips";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useColorTheme } from "@/context/ThemeContext";
 import { ChevronRight } from "lucide-react";
 import { formatDuration } from "@/lib/format";
@@ -27,22 +28,19 @@ import {
 } from "recharts";
 
 // ── Daily Tip ─────────────────────────────────────────────────
-function DailyTip() {
-  const [tip, setTip] = useState<Tip | null>(null);
-
-  useEffect(() => {
-    getTips().then((tips) => {
-      if (!tips.length) return;
-      const dayOfYear = Math.floor(
-        (Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000
-      );
-      const baseIdx = dayOfYear % tips.length;
-      for (let i = 0; i < tips.length; i++) {
-        const t = tips[(baseIdx + i) % tips.length];
-        if (t.active) { setTip(t); break; }
-      }
-    });
-  }, []);
+function DailyTip({ tips }: { tips: Tip[] }) {
+  const tip = useMemo(() => {
+    if (!tips.length) return null;
+    const dayOfYear = Math.floor(
+      (Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000
+    );
+    const baseIdx = dayOfYear % tips.length;
+    for (let i = 0; i < tips.length; i++) {
+      const t = tips[(baseIdx + i) % tips.length];
+      if (t.active) return t;
+    }
+    return null;
+  }, [tips]);
 
   if (!tip) return null;
 
@@ -555,69 +553,69 @@ function RecommendedTest({
 // ── Main ───────────────────────────────────────────────────────
 export default function DashboardPage() {
   const { user, refreshProfile } = useAuth();
-  const [tests, setTests] = useState<TestDoc[]>([]);
-  const [testsLoading, setTestsLoading] = useState(true);
-  const [results, setResults] = useState<TestResult[]>([]);
-  const [activeDays, setActiveDays] = useState<number[]>([]);
+
+  const { data: tests = [], isLoading: testsLoading } = useQuery({
+    queryKey: ["published-tests"],
+    queryFn: getPublishedTests,
+    enabled: !!user,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: tips = [] } = useQuery({
+    queryKey: ["tips"],
+    queryFn: getTips,
+    enabled: !!user,
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const { data: results = [] } = useQuery<TestResult[]>({
+    queryKey: ["results", user?.uid],
+    queryFn: () => getUserResults(user!.uid),
+    enabled: !!user,
+    staleTime: 60 * 1000,
+  });
 
   useEffect(() => {
-    if (!user) return;
-    getPublishedTests().then((t) => {
-      setTests(t);
-      setTestsLoading(false);
-    });
-    getUserResults(user.uid).then(async (results) => {
-      setResults(results);
-      const now = new Date();
-      const days = results
-        .filter((r) => {
-          if (!r.completedAt) return false;
-          const d = r.completedAt.toDate();
-          return (
-            d.getMonth() === now.getMonth() &&
-            d.getFullYear() === now.getFullYear()
-          );
-        })
-        .map((r) => r.completedAt!.toDate().getDate());
-      setActiveDays([...new Set(days)]);
+    if (!user || !results.length) return;
+    const now = new Date();
+    const activeDayKeys = new Set(
+      results
+        .filter((r) => r.completedAt)
+        .map((r) => {
+          const d = r.completedAt!.toDate();
+          return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+        }),
+    );
+    let streak = 0;
+    for (let i = 0; i < 365; i++) {
+      const d = new Date(now);
+      d.setDate(now.getDate() - i);
+      const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+      if (activeDayKeys.has(key)) streak++;
+      else break;
+    }
+    updateDoc(doc(db, "users", user.uid), { streak }).then(() => refreshProfile());
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [results, user?.uid]);
 
-      // sync streak from actual results
-      const activeDayKeys = new Set(
-        results
-          .filter((r) => r.completedAt)
-          .map((r) => {
-            const d = r.completedAt!.toDate();
-            return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-          }),
-      );
-      let streak = 0;
-      for (let i = 0; i < 365; i++) {
-        const d = new Date(now);
-        d.setDate(now.getDate() - i);
-        const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-        if (activeDayKeys.has(key)) streak++;
-        else break;
-      }
-      await updateDoc(doc(db, "users", user.uid), { streak });
-      await refreshProfile();
-    });
-  }, [user]);
+  const activeDays = useMemo(() => {
+    const now = new Date();
+    const days = results
+      .filter((r) => {
+        if (!r.completedAt) return false;
+        const d = r.completedAt.toDate();
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      })
+      .map((r) => r.completedAt!.toDate().getDate());
+    return [...new Set(days)];
+  }, [results]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6 items-start">
       {/* Left */}
       <div className="space-y-6">
-        {/* Tips */}
-        <DailyTip />
-
-        {/* Recommended test */}
-        <RecommendedTest
-          tests={tests}
-          results={results}
-          loading={testsLoading}
-        />
-
-        {/* Progress */}
+        <DailyTip tips={tips} />
+        <RecommendedTest tests={tests} results={results} loading={testsLoading} />
         <ProgressSection results={results} />
       </div>
 
@@ -627,7 +625,6 @@ export default function DashboardPage() {
           <MiniCalendar activeDays={activeDays} />
         </section>
 
-        {/* Score stats */}
         {results.length > 0 && (() => {
           const scores = results.map((r) => r.nmtScore);
           const best = Math.max(...scores);
@@ -657,10 +654,7 @@ export default function DashboardPage() {
               { label: "НМТ 2026", date: "Незабаром" },
               { label: "Пробний тест", date: "Заплануй" },
             ].map((ev) => (
-              <div
-                key={ev.label}
-                className="rounded-2xl border border-border/40 bg-card px-4 py-3 flex items-center justify-between"
-              >
+              <div key={ev.label} className="rounded-2xl border border-border/40 bg-card px-4 py-3 flex items-center justify-between">
                 <p className="text-sm font-medium">{ev.label}</p>
                 <p className="text-xs text-muted-foreground">{ev.date}</p>
               </div>

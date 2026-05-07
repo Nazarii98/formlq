@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
+import { useQueryClient } from "@tanstack/react-query";
 import { useExamGuard } from "@/context/ExamGuardContext";
 import { Button } from "@/components/ui/button";
 import {
@@ -57,6 +58,7 @@ export default function ExamPage() {
   const { user, loading: authLoading, refreshProfile } = useAuth();
   const { setGuarded } = useExamGuard();
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   const [test, setTest] = useState<TestDoc | null>(null);
   const [loadingTest, setLoadingTest] = useState(true);
@@ -194,6 +196,7 @@ export default function ExamPage() {
     }
     await updateDoc(doc(db, "users", user.uid), { streak });
     await refreshProfile();
+    queryClient.invalidateQueries({ queryKey: ["results", user.uid] });
   }
 
   function handleSubmit() {

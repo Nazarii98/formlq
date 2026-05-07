@@ -5,6 +5,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { ExamGuardProvider } from "@/context/ExamGuardContext";
 import { HeaderProvider } from "@/context/HeaderContext";
+import { QueryProvider } from "@/components/QueryProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -76,13 +77,15 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-full flex flex-col">
-        <ThemeProvider>
-          <AuthProvider>
-            <ExamGuardProvider>
-              <HeaderProvider>{children}</HeaderProvider>
-            </ExamGuardProvider>
-          </AuthProvider>
-        </ThemeProvider>
+        <QueryProvider>
+          <ThemeProvider>
+            <AuthProvider>
+              <ExamGuardProvider>
+                <HeaderProvider>{children}</HeaderProvider>
+              </ExamGuardProvider>
+            </AuthProvider>
+          </ThemeProvider>
+        </QueryProvider>
       </body>
     </html>
   );

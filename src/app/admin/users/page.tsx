@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { getAllUsers, updateUserRole } from "@/lib/users";
 import { timeAgo } from "@/lib/format";
@@ -10,45 +9,49 @@ import { UserProfile } from "@/types";
 import { cn } from "@/lib/utils";
 import { Flame, Crown, Search, ChevronRight } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 
 export default function AdminUsersPage() {
   const { user: currentUser } = useAuth();
   const { setHeader } = useHeader();
   const router = useRouter();
-  const [users, setUsers] = useState<UserProfile[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
-  const [updatingUid, setUpdatingUid] = useState<string | null>(null);
 
   useEffect(() => {
     setHeader("Користувачі", "Управління доступом");
     return () => setHeader("", "");
   }, [setHeader]);
 
-  useEffect(() => {
-    getAllUsers().then((u) => {
-      setUsers(u.sort((a, b) => (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0)));
-      setLoading(false);
-    });
-  }, []);
+  const { data: users = [], isLoading } = useQuery({
+    queryKey: ["admin-users"],
+    queryFn: async () => {
+      const u = await getAllUsers();
+      return u.sort((a, b) => (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0));
+    },
+    staleTime: 2 * 60 * 1000,
+  });
 
-  async function handleToggleRole(u: UserProfile) {
-    const next = u.role === "editor" ? "student" : "editor";
-    setUpdatingUid(u.uid);
-    try {
-      await updateUserRole(u.uid, next);
-      setUsers((prev) => prev.map((p) => p.uid === u.uid ? { ...p, role: next } : p));
-    } finally {
-      setUpdatingUid(null);
-    }
-  }
+  const roleMutation = useMutation({
+    mutationFn: ({ uid, role }: { uid: string; role: "student" | "editor" }) =>
+      updateUserRole(uid, role),
+    onMutate: async ({ uid, role }) => {
+      await queryClient.cancelQueries({ queryKey: ["admin-users"] });
+      const prev = queryClient.getQueryData<UserProfile[]>(["admin-users"]);
+      queryClient.setQueryData<UserProfile[]>(["admin-users"], (old = []) =>
+        old.map((u) => (u.uid === uid ? { ...u, role } : u)),
+      );
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(["admin-users"], ctx.prev);
+    },
+  });
 
   const filtered = users.filter((u) => {
     const q = search.toLowerCase();
-    return (
-      u.displayName?.toLowerCase().includes(q) ||
-      u.email?.toLowerCase().includes(q)
-    );
+    return u.displayName?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q);
   });
 
   const editors = filtered.filter((u) => u.role === "editor");
@@ -57,7 +60,7 @@ export default function AdminUsersPage() {
   function UserRow({ u }: { u: UserProfile }) {
     const isSelf = u.uid === currentUser?.uid;
     const isEditor = u.role === "editor";
-    const updating = updatingUid === u.uid;
+    const updating = roleMutation.isPending && roleMutation.variables?.uid === u.uid;
 
     return (
       <div
@@ -67,15 +70,13 @@ export default function AdminUsersPage() {
         )}
         onClick={() => router.push(`/admin/users/${u.uid}`)}
       >
-        {/* Avatar */}
         <div className={cn(
           "w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold shrink-0",
-          isEditor ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
+          isEditor ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground",
         )}>
           {u.displayName?.[0]?.toUpperCase() ?? "?"}
         </div>
 
-        {/* Info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
             <p className="text-sm font-semibold truncate">{u.displayName || "—"}</p>
@@ -85,7 +86,6 @@ export default function AdminUsersPage() {
           <p className="text-xs text-muted-foreground truncate">{u.email}</p>
         </div>
 
-        {/* Stats */}
         <div className="hidden sm:flex items-center gap-4 shrink-0 text-xs text-muted-foreground">
           <div className="flex items-center gap-1">
             <Flame size={11} className={u.streak > 0 ? "text-orange-500" : ""} />
@@ -94,9 +94,12 @@ export default function AdminUsersPage() {
           <span className="text-muted-foreground/50">{u.createdAt ? timeAgo(u.createdAt.toDate()) : "—"}</span>
         </div>
 
-        {/* Role toggle */}
         <button
-          onClick={(e) => { e.stopPropagation(); !isSelf && handleToggleRole(u); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (isSelf) return;
+            roleMutation.mutate({ uid: u.uid, role: isEditor ? "student" : "editor" });
+          }}
           disabled={isSelf || updating}
           className={cn(
             "shrink-0 text-[11px] font-semibold px-3 py-1.5 rounded-full transition-all",
@@ -115,7 +118,6 @@ export default function AdminUsersPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-4">
-      {/* Search */}
       <div className="relative">
         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
         <input
@@ -126,7 +128,7 @@ export default function AdminUsersPage() {
         />
       </div>
 
-      {loading ? <SpinnerPage /> : (
+      {isLoading ? <SpinnerPage /> : (
         <div className="space-y-4">
           {editors.length > 0 && (
             <div className="space-y-2">
