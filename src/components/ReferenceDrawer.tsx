@@ -29,9 +29,9 @@ export function ReferenceDrawer() {
   const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
   const [containerWidth, setContainerWidth] = useState(0);
   const programmaticScrollRef = useRef(false);
-  const programmaticScrollTimer = useRef<
-    ReturnType<typeof setTimeout> | undefined
-  >(undefined);
+  const programmaticScrollTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const savedScrollPos = useRef({ top: 0, left: 0 });
+  const pdfReadyRef = useRef(false);
 
   // Measure drawer content width
   useEffect(() => {
@@ -73,12 +73,28 @@ export function ReferenceDrawer() {
     return () => el.removeEventListener("scroll", onScroll);
   }, [open]);
 
-  // Ensure bytes are loaded when drawer opens
+  // Save/restore scroll position on close/open
   useEffect(() => {
-    if (!open) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    if (!open) {
+      savedScrollPos.current = { top: el.scrollTop, left: el.scrollLeft };
+    } else {
+      const id = setTimeout(() => {
+        el.scrollTop = savedScrollPos.current.top;
+        el.scrollLeft = savedScrollPos.current.left;
+      }, 50);
+      return () => clearTimeout(id);
+    }
+  }, [open]);
+
+  // Ensure bytes are loaded when drawer opens — only once
+  useEffect(() => {
+    if (!open || pdfReadyRef.current) return;
     let cancelled = false;
     Promise.resolve(pdfFileProp()).then((copy) => {
       if (cancelled) return;
+      pdfReadyRef.current = true;
       if (typeof copy !== "string") {
         setPdfFile(copy);
       } else {
@@ -142,7 +158,7 @@ export function ReferenceDrawer() {
       {/* Backdrop */}
       <div
         className={cn(
-          "fixed inset-0 z-40 bg-black/30 backdrop-blur-[2px] transition-opacity duration-300",
+          "fixed inset-0 z-60 bg-black/30 backdrop-blur-[2px] transition-opacity duration-300",
           open ? "opacity-100" : "opacity-0 pointer-events-none",
         )}
         onClick={closeDrawer}
@@ -151,7 +167,7 @@ export function ReferenceDrawer() {
       {/* Drawer panel */}
       <div
         className={cn(
-          "fixed inset-y-0 right-0 z-50 flex flex-col bg-background border-l border-border/50 shadow-2xl transition-transform duration-300 ease-out",
+          "fixed inset-y-0 right-0 z-70 flex flex-col bg-background border-l border-border/50 shadow-2xl transition-transform duration-300 ease-out",
           "w-[min(780px,92vw)]",
           open ? "translate-x-0" : "translate-x-full",
         )}
@@ -181,7 +197,7 @@ export function ReferenceDrawer() {
         {/* PDF scroll area */}
         <div
           ref={scrollRef}
-          className="flex-1 overflow-y-auto overflow-x-hidden"
+          className="flex-1 overflow-auto"
         >
           <Document
             file={pdfFile}
@@ -190,7 +206,7 @@ export function ReferenceDrawer() {
               setPage(1);
             }}
             loading={null}
-            className="flex flex-col items-center gap-4 py-5 px-6 pb-20"
+            className="flex flex-col gap-4 py-5 px-6 pb-20"
           >
             {Array.from({ length: numPages }, (_, i) => (
               <div
@@ -198,7 +214,7 @@ export function ReferenceDrawer() {
                 ref={(el) => {
                   pageRefs.current[i] = el;
                 }}
-                className="scroll-mt-4"
+                className="scroll-mt-4 w-fit mx-auto"
               >
                 <Page
                   pageNumber={i + 1}

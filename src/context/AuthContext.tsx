@@ -16,6 +16,8 @@ import {
   updateProfile,
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
 } from "firebase/auth";
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
@@ -40,20 +42,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    getRedirectResult(auth)
+      .then(async (result) => { if (result?.user) await createUserDoc(result.user); })
+      .catch(() => {});
+
+    const fallback = setTimeout(() => setLoading(false), 8000);
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      clearTimeout(fallback);
       setUser(firebaseUser);
       if (firebaseUser) {
-        const ref = doc(db, "users", firebaseUser.uid);
-        const snap = await getDoc(ref);
-        if (snap.exists()) {
-          setUserProfile(snap.data() as UserProfile);
+        try {
+          const snap = await getDoc(doc(db, "users", firebaseUser.uid));
+          if (snap.exists()) setUserProfile(snap.data() as UserProfile);
+        } catch {
+          // profile fetch failed, proceed without it
         }
       } else {
         setUserProfile(null);
       }
       setLoading(false);
     });
-    return unsubscribe;
+    return () => { clearTimeout(fallback); unsubscribe(); };
   }, []);
 
   async function createUserDoc(user: User, name?: string) {
@@ -91,8 +100,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function signInWithGoogle() {
     const provider = new GoogleAuthProvider();
-    const { user } = await signInWithPopup(auth, provider);
-    await createUserDoc(user);
+    const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+    if (isMobile) {
+      await signInWithRedirect(auth, provider);
+    } else {
+      const { user } = await signInWithPopup(auth, provider);
+      await createUserDoc(user);
+    }
   }
 
   async function logOut() {

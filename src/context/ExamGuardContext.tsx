@@ -7,41 +7,51 @@ interface ExamGuardContextType {
   isGuarded: boolean;
   setGuarded: (v: boolean) => void;
   requestNav: (href: string) => void;
+  requestAction: (fn: () => void) => void;
 }
 
 const ExamGuardContext = createContext<ExamGuardContextType>({
   isGuarded: false,
   setGuarded: () => {},
   requestNav: () => {},
+  requestAction: () => {},
 });
 
 export function ExamGuardProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [isGuarded, setGuarded] = useState(false);
-  const [pending, setPending] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
 
   const requestNav = useCallback((href: string) => {
     if (isGuarded) {
-      setPending(href);
+      setPendingAction(() => () => router.push(href));
     } else {
       router.push(href);
     }
   }, [isGuarded, router]);
 
+  const requestAction = useCallback((fn: () => void) => {
+    if (isGuarded) {
+      setPendingAction(() => fn);
+    } else {
+      fn();
+    }
+  }, [isGuarded]);
+
   function confirm() {
-    if (pending) router.push(pending);
-    setPending(null);
+    pendingAction?.();
+    setPendingAction(null);
     setGuarded(false);
   }
 
   function cancel() {
-    setPending(null);
+    setPendingAction(null);
   }
 
   return (
-    <ExamGuardContext.Provider value={{ isGuarded, setGuarded, requestNav }}>
+    <ExamGuardContext.Provider value={{ isGuarded, setGuarded, requestNav, requestAction }}>
       {children}
-      {pending && (
+      {pendingAction && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="bg-card border border-border/60 rounded-2xl p-6 shadow-xl max-w-sm w-full mx-4 space-y-4">
             <div className="space-y-1">

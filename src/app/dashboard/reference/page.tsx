@@ -33,14 +33,22 @@ export default function ReferencePage() {
   }, []);
 
   useEffect(() => {
-    const copy = pdfFileProp();
-    if (typeof copy !== "string") {
-      setPdfFile(copy);
-      return;
-    }
-    getPdfCopyAsync()
-      .then((data) => setPdfFile({ data }))
-      .catch(() => {});
+    let cancelled = false;
+    Promise.resolve(pdfFileProp()).then((copy) => {
+      if (cancelled) return;
+      if (typeof copy !== "string") {
+        setPdfFile(copy);
+      } else {
+        getPdfCopyAsync()
+          .then((data) => {
+            if (!cancelled) setPdfFile({ data });
+          })
+          .catch(() => {});
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {

@@ -26,6 +26,7 @@ import { db } from "@/lib/firebase";
 import Link from "next/link";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
+import { BookOpen } from "lucide-react";
 import { formatTimer } from "@/lib/format";
 import { ResultListItem } from "@/components/exam/ResultListItem";
 import confetti from "canvas-confetti";
@@ -80,6 +81,7 @@ export default function ExamPage() {
   const [timeLeft, setTimeLeft] = useState(EXAM_DURATION);
   const [startTime, setStartTime] = useState<number>(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) router.push("/login");
@@ -212,6 +214,16 @@ export default function ExamPage() {
   }
 
   function handleSubmit() {
+    const unanswered = questions.filter((q) => !isAnswered(q, answers[q.id])).length;
+    if (unanswered > 0) {
+      setShowSubmitConfirm(true);
+      return;
+    }
+    doSubmit();
+  }
+
+  function doSubmit() {
+    setShowSubmitConfirm(false);
     if (timerRef.current) clearInterval(timerRef.current);
     persistResult(answers);
     setPhase("results");
@@ -438,6 +450,7 @@ export default function ExamPage() {
 
   // ── EXAM ───────────────────────────────────────────────────────
   const question = questions[currentIdx];
+  if (!question) return null;
   const answeredCount = questions.filter((q) => isAnswered(q, answers[q.id])).length;
   const isLast = currentIdx + 1 >= questions.length;
 
@@ -455,7 +468,15 @@ export default function ExamPage() {
           )}>
             ⏱ {formatTimer(timeLeft)}
           </span>
-          <Button size="sm" variant="outline" onClick={handleSubmit}>Завершити</Button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={openDrawer}
+              className="md:hidden w-8 h-8 rounded-xl flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
+            >
+              <BookOpen size={17} />
+            </button>
+            <Button size="sm" variant="outline" onClick={handleSubmit}>Завершити</Button>
+          </div>
         </div>
 
         {/* Question grid */}
@@ -558,17 +579,47 @@ export default function ExamPage() {
         </div>
       </main>
 
-      {/* Reference button */}
+      {/* Reference button — desktop only */}
       <button
         onClick={openDrawer}
         className={cn(
-          "fixed bottom-5 right-5 flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-card border border-border/60 shadow-lg text-sm font-medium text-foreground hover:bg-muted transition-all z-50",
+          "hidden md:flex fixed bottom-5 right-5 items-center gap-2 px-4 py-2.5 rounded-2xl bg-card border border-border/60 shadow-lg text-sm font-medium text-foreground hover:bg-muted transition-all z-50",
           drawerOpen && "opacity-0 pointer-events-none",
         )}
       >
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
         Довідка
       </button>
+
+      {/* Submit confirmation modal */}
+      {showSubmitConfirm && (() => {
+        const unanswered = questions.filter((q) => !isAnswered(q, answers[q.id])).length;
+        return (
+          <div className="fixed inset-0 z-80 flex items-center justify-center p-4" onClick={() => setShowSubmitConfirm(false)}>
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+            <div
+              className="relative z-10 w-full max-w-sm rounded-2xl border border-border/60 bg-card shadow-xl p-6 space-y-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="space-y-1">
+                <p className="font-semibold text-base">Завершити тест?</p>
+                <p className="text-sm text-muted-foreground">
+                  У вас залишилось <span className="font-semibold text-foreground">{unanswered}</span> {unanswered === 1 ? "незаповнене питання" : unanswered < 5 ? "незаповнені питання" : "незаповнених питань"}.
+                  Пропущені питання будуть зараховані як неправильні.
+                </p>
+              </div>
+              <div className="flex gap-2 justify-end">
+                <Button size="sm" variant="ghost" onClick={() => setShowSubmitConfirm(false)}>
+                  Продовжити
+                </Button>
+                <Button size="sm" onClick={doSubmit}>
+                  Завершити
+                </Button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
