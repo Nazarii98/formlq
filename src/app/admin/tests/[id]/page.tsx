@@ -6,6 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { ImagePlus, X as XIcon } from "lucide-react";
+import { uploadQuestionImage, deleteQuestionImage } from "@/lib/storage";
+import Image from "next/image";
 import {
   getTest,
   updateTest,
@@ -286,6 +289,15 @@ export default function TestEditorPage() {
                   />
                 </div>
 
+                {/* Image upload */}
+                <QuestionImageUpload
+                  testId={id}
+                  questionId={activeQ.id}
+                  imageUrl={activeQ.imageUrl}
+                  onUploaded={(url) => updateQ(activeQ.id, { imageUrl: url })}
+                  onRemoved={() => updateQ(activeQ.id, { imageUrl: undefined })}
+                />
+
                 {activeQ.type === "mcq" && (
                   <MCQEditor
                     question={activeQ as MCQQuestion}
@@ -339,6 +351,73 @@ export default function TestEditorPage() {
         )}
 
       </main>
+    </div>
+  );
+}
+
+function QuestionImageUpload({
+  testId,
+  questionId,
+  imageUrl,
+  onUploaded,
+  onRemoved,
+}: {
+  testId: string;
+  questionId: string;
+  imageUrl?: string;
+  onUploaded: (url: string) => void;
+  onRemoved: () => void;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  async function handleFile(file: File) {
+    if (!file.type.startsWith("image/")) return;
+    setUploading(true);
+    try {
+      const url = await uploadQuestionImage(testId, questionId, file);
+      onUploaded(url);
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function handleRemove() {
+    if (imageUrl) await deleteQuestionImage(imageUrl);
+    onRemoved();
+  }
+
+  if (imageUrl) {
+    return (
+      <div className="space-y-1">
+        <label className="text-xs text-muted-foreground uppercase tracking-wide font-medium">Зображення</label>
+        <div className="relative rounded-xl overflow-hidden border border-border/50 bg-muted/30 group">
+          <Image src={imageUrl} alt="" width={800} height={400} className="w-full h-48 object-contain" />
+          <button
+            onClick={handleRemove}
+            className="absolute top-2 right-2 w-7 h-7 rounded-lg bg-background/90 border border-border/60 flex items-center justify-center text-muted-foreground hover:text-destructive hover:border-destructive/40 transition-all"
+          >
+            <XIcon size={13} />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-1">
+      <label className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
+        Зображення <span className="normal-case font-normal">(необов'язково)</span>
+      </label>
+      <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ""; }} />
+      <button
+        onClick={() => inputRef.current?.click()}
+        disabled={uploading}
+        className="w-full h-24 rounded-xl border border-dashed border-border/50 bg-muted/20 hover:border-primary/40 hover:bg-primary/5 transition-all flex flex-col items-center justify-center gap-1.5 text-muted-foreground disabled:opacity-50"
+      >
+        <ImagePlus size={20} />
+        <span className="text-xs">{uploading ? "Завантаження..." : "Додати зображення"}</span>
+      </button>
     </div>
   );
 }

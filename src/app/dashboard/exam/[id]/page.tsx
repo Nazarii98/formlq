@@ -24,6 +24,7 @@ import {
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import Link from "next/link";
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { formatTimer } from "@/lib/format";
 import { ResultListItem } from "@/components/exam/ResultListItem";
@@ -159,7 +160,7 @@ export default function ExamPage() {
           correct = Object.entries(q.correctPairs).every(([k, v]) => p[k] === v);
         } catch { correct = false; }
       }
-      const base = { id: q.id, type: q.type, text: q.text, points: q.points, userAnswer, isCorrect: correct, explanation: q.explanation };
+      const base = { id: q.id, type: q.type, text: q.text, imageUrl: q.imageUrl, points: q.points, userAnswer, isCorrect: correct, explanation: q.explanation };
       if (q.type === "mcq") return { ...base, options: q.options, correctOptionId: q.correctOptionId };
       if (q.type === "open") return { ...base, correctAnswer: q.correctAnswer };
       return { ...base, leftItems: q.leftItems, rightOptions: q.rightOptions, correctPairs: q.correctPairs };
@@ -383,6 +384,11 @@ export default function ExamPage() {
                     <div className="flex-1 min-w-0">
                       <p className="text-xs text-muted-foreground mb-1">Завдання {i + 1} · {q.points} б</p>
                       <p className="text-sm text-foreground leading-relaxed">{q.text || "—"}</p>
+                      {q.imageUrl && (
+                        <div className="mt-2 rounded-xl overflow-hidden border border-border/50">
+                          <Image src={q.imageUrl} alt="" width={800} height={400} className="w-full object-contain max-h-56" />
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -486,6 +492,11 @@ export default function ExamPage() {
               {" · "}{question.points} {question.points === 1 ? "бал" : "бали"}
             </div>
             <p className="text-base font-medium leading-relaxed">{question.text}</p>
+          {question.imageUrl && (
+            <div className="rounded-xl overflow-hidden border border-border/50">
+              <Image src={question.imageUrl} alt="" width={800} height={400} className="w-full object-contain max-h-64" />
+            </div>
+          )}
           </div>
 
           {question.type === "mcq" && (

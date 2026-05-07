@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { QuestionResult } from "@/lib/tests";
 
@@ -54,6 +55,11 @@ export function QuestionCard({ q, index, answerLabel = "Ваша відпові�
             {q.points} {q.points === 1 ? "бал" : "бали"}
           </p>
           <p className="text-sm leading-relaxed">{q.text || "—"}</p>
+          {q.imageUrl && (
+            <div className="mt-3 rounded-xl overflow-hidden border border-border/50">
+              <Image src={q.imageUrl} alt="" width={800} height={400} className="w-full object-contain max-h-64" />
+            </div>
+          )}
         </div>
         <span className={cn(
           "shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full mt-0.5",
