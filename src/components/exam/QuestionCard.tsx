@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { QuestionResult } from "@/lib/tests";
+import { MathText } from "@/components/MathText";
 
 interface QuestionCardProps {
   q: QuestionResult;
@@ -54,7 +55,7 @@ export function QuestionCard({ q, index, answerLabel = "Ваша відпові�
             <span className="mx-1.5 opacity-40">·</span>
             {q.points} {q.points === 1 ? "бал" : "бали"}
           </p>
-          <p className="text-sm leading-relaxed">{q.text || "—"}</p>
+          <MathText text={q.text || "—"} className="text-sm leading-relaxed" />
           {q.imageUrl && (
             <div className="mt-3 rounded-xl overflow-hidden border border-border/50">
               <Image src={q.imageUrl} alt="" width={800} height={400} className="w-full object-contain max-h-64" />
@@ -99,9 +100,12 @@ export function QuestionCard({ q, index, answerLabel = "Ваша відпові�
             <span className="group-open:rotate-90 transition-transform inline-block leading-none">›</span>
             Пояснення
           </summary>
-          <p className="mt-2.5 text-sm text-foreground/80 leading-relaxed border-l-2 border-border/60 pl-3">
-            {q.explanation}
-          </p>
+          <MathText text={q.explanation} className="block mt-2.5 text-sm text-foreground/80 leading-relaxed border-l-2 border-border/60 pl-3" />
+          {q.explanationImageUrl && (
+            <div className="mt-3 rounded-xl overflow-hidden border border-border/50">
+              <Image src={q.explanationImageUrl} alt="" width={800} height={400} className="w-full object-contain max-h-64" />
+            </div>
+          )}
         </details>
       )}
     </div>

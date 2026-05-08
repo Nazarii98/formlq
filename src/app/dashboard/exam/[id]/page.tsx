@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils";
 import { BookOpen } from "lucide-react";
 import { formatTimer } from "@/lib/format";
 import { ResultListItem } from "@/components/exam/ResultListItem";
+import { MathText } from "@/components/MathText";
 import confetti from "canvas-confetti";
 
 const EXAM_DURATION = 150 * 60;
@@ -162,7 +163,7 @@ export default function ExamPage() {
           correct = Object.entries(q.correctPairs).every(([k, v]) => p[k] === v);
         } catch { correct = false; }
       }
-      const base = { id: q.id, type: q.type, text: q.text, imageUrl: q.imageUrl, points: q.points, userAnswer, isCorrect: correct, explanation: q.explanation };
+      const base = { id: q.id, type: q.type, text: q.text, imageUrl: q.imageUrl ?? null, points: q.points, userAnswer, isCorrect: correct, explanation: q.explanation ?? "", explanationImageUrl: q.explanationImageUrl ?? null };
       if (q.type === "mcq") return { ...base, options: q.options, correctOptionId: q.correctOptionId };
       if (q.type === "open") return { ...base, correctAnswer: q.correctAnswer };
       return { ...base, leftItems: q.leftItems, rightOptions: q.rightOptions, correctPairs: q.correctPairs };
@@ -512,7 +513,7 @@ export default function ExamPage() {
               {question.type === "open" && " · Коротка відповідь"}
               {" · "}{question.points} {question.points === 1 ? "бал" : "бали"}
             </div>
-            <p className="text-base font-medium leading-relaxed">{question.text}</p>
+            <MathText text={question.text} className="text-base font-medium leading-relaxed" />
           {question.imageUrl && (
             <div className="rounded-xl overflow-hidden border border-border/50">
               <Image src={question.imageUrl} alt="" width={800} height={400} className="w-full object-contain max-h-64" />
@@ -536,7 +537,7 @@ export default function ExamPage() {
                     )}
                   >
                     <span className="font-bold mr-2">{opt.id}</span>
-                    {opt.text}
+                    <MathText text={opt.text} />
                   </button>
                 );
               })}
@@ -665,7 +666,7 @@ function MatchingInput({
               )}
             >
               <span className="text-sm font-semibold text-muted-foreground w-5 shrink-0">{item.id}.</span>
-              <span className="text-sm flex-1 leading-snug">{item.text}</span>
+              <MathText text={item.text} className="text-sm flex-1 leading-snug" />
               <span className="text-muted-foreground shrink-0">→</span>
               <span className={cn(
                 "w-9 h-8 rounded-lg border-2 flex items-center justify-center text-xs font-bold shrink-0 transition-all",
@@ -681,8 +682,8 @@ function MatchingInput({
       </div>
 
       {/* Right panel */}
-      <div className="w-24 rounded-2xl bg-green-50/60 dark:bg-green-950/20 border border-green-200/50 dark:border-green-800/30 p-2 space-y-1">
-        <p className="text-[11px] font-medium text-green-600/70 dark:text-green-400/70 uppercase tracking-wide px-1">Точка</p>
+      <div className="flex-1 min-w-0 rounded-2xl bg-green-50/60 dark:bg-green-950/20 border border-green-200/50 dark:border-green-800/30 p-2 space-y-1">
+        <p className="text-[11px] font-medium text-green-600/70 dark:text-green-400/70 uppercase tracking-wide px-1">Відповідь</p>
         {question.rightOptions.map((opt) => {
           const usedBy = Object.entries(value).find(([, v]) => v === opt.id)?.[0];
           const isUsed = !!usedBy;
@@ -692,7 +693,7 @@ function MatchingInput({
               onClick={() => selectOption(opt.id)}
               disabled={!activeLeft}
               className={cn(
-                "w-full px-2 py-1.5 rounded-xl border-2 text-sm font-semibold transition-all",
+                "w-full flex items-center gap-2 px-2 py-1.5 rounded-xl border-2 text-sm font-semibold transition-all text-left",
                 isUsed
                   ? "border-green-400/60 bg-green-100/60 dark:bg-green-900/30 text-green-700 dark:text-green-400"
                   : activeLeft
@@ -700,7 +701,8 @@ function MatchingInput({
                   : "border-transparent bg-white/70 dark:bg-white/5 text-foreground/80"
               )}
             >
-              {opt.id}{opt.text ? `. ${opt.text}` : ""}
+              <span className="shrink-0">{opt.id}.</span>
+              {opt.text && <MathText text={opt.text} className="font-normal" />}
             </button>
           );
         })}

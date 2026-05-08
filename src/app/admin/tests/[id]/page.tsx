@@ -8,6 +8,7 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { ImagePlus, X as XIcon } from "lucide-react";
 import { uploadQuestionImage, deleteQuestionImage } from "@/lib/storage";
+import { MathText } from "@/components/MathText";
 import Image from "next/image";
 import {
   getTest,
@@ -283,10 +284,15 @@ export default function TestEditorPage() {
                   <textarea
                     value={activeQ.text}
                     onChange={(e) => updateQ(activeQ.id, { text: e.target.value })}
-                    placeholder="Введіть текст завдання..."
+                    placeholder="Введіть текст завдання... Використовуйте $...$ для inline math, $$...$$ для block math"
                     rows={3}
-                    className="w-full px-4 py-3 rounded-xl border border-border/50 bg-background focus:outline-none focus:border-primary text-sm transition-colors resize-none"
+                    className="w-full px-4 py-3 rounded-xl border border-border/50 bg-background focus:outline-none focus:border-primary text-sm transition-colors resize-none font-mono"
                   />
+                  {activeQ.text && (
+                    <div className="px-4 py-3 rounded-xl border border-border/30 bg-muted/30 text-sm leading-relaxed">
+                      <MathText text={activeQ.text} />
+                    </div>
+                  )}
                 </div>
 
                 {/* Image upload */}
@@ -327,11 +333,25 @@ export default function TestEditorPage() {
                   <textarea
                     value={activeQ.explanation}
                     onChange={(e) => updateQ(activeQ.id, { explanation: e.target.value })}
-                    placeholder="Пояснення правильної відповіді..."
+                    placeholder="Пояснення правильної відповіді... Використовуйте $...$ для inline math, $$...$$ для block math"
                     rows={2}
-                    className="w-full px-4 py-3 rounded-xl border border-border/50 bg-background focus:outline-none focus:border-primary text-sm transition-colors resize-none"
+                    className="w-full px-4 py-3 rounded-xl border border-border/50 bg-background focus:outline-none focus:border-primary text-sm transition-colors resize-none font-mono"
                   />
+                  {activeQ.explanation && (
+                    <div className="px-4 py-3 rounded-xl border border-border/30 bg-muted/30 text-sm leading-relaxed">
+                      <MathText text={activeQ.explanation} />
+                    </div>
+                  )}
                 </div>
+
+                <QuestionImageUpload
+                  testId={id}
+                  questionId={`${activeQ.id}-explanation`}
+                  imageUrl={activeQ.explanationImageUrl}
+                  onUploaded={(url) => updateQ(activeQ.id, { explanationImageUrl: url })}
+                  onRemoved={() => updateQ(activeQ.id, { explanationImageUrl: undefined })}
+                  label="Зображення до пояснення"
+                />
               </div>
             ) : (
               <div className="rounded-2xl border border-dashed border-border/50 flex items-center justify-center h-48 text-sm text-muted-foreground">
@@ -361,12 +381,14 @@ function QuestionImageUpload({
   imageUrl,
   onUploaded,
   onRemoved,
+  label = "Зображення",
 }: {
   testId: string;
   questionId: string;
   imageUrl?: string;
   onUploaded: (url: string) => void;
   onRemoved: () => void;
+  label?: string;
 }) {
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -390,7 +412,7 @@ function QuestionImageUpload({
   if (imageUrl) {
     return (
       <div className="space-y-1">
-        <label className="text-xs text-muted-foreground uppercase tracking-wide font-medium">Зображення</label>
+        <label className="text-xs text-muted-foreground uppercase tracking-wide font-medium">{label}</label>
         <div className="relative rounded-xl overflow-hidden border border-border/50 bg-muted/30 group">
           <Image src={imageUrl} alt="" width={800} height={400} className="w-full h-48 object-contain" />
           <button
@@ -407,7 +429,7 @@ function QuestionImageUpload({
   return (
     <div className="space-y-1">
       <label className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
-        Зображення <span className="normal-case font-normal">(необов'язково)</span>
+        {label} <span className="normal-case font-normal">(необов'язково)</span>
       </label>
       <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ""; }} />
       <button
@@ -438,12 +460,12 @@ function MCQEditor({
       </label>
       <div className="space-y-2">
         {question.options.map((opt) => (
-          <div key={opt.id} className="flex items-center gap-3">
+          <div key={opt.id} className="flex items-start gap-3">
             <button
               type="button"
               onClick={() => onCorrectChange(opt.id)}
               className={cn(
-                "w-7 h-7 rounded-full border-2 flex items-center justify-center text-xs font-bold shrink-0 transition-all",
+                "w-7 h-7 rounded-full border-2 flex items-center justify-center text-xs font-bold shrink-0 transition-all mt-2",
                 question.correctOptionId === opt.id
                   ? "border-primary bg-primary text-primary-foreground"
                   : "border-border hover:border-primary/60 text-muted-foreground"
@@ -452,12 +474,20 @@ function MCQEditor({
             >
               {opt.id}
             </button>
-            <input
-              value={opt.text}
-              onChange={(e) => onOptionChange(opt.id, e.target.value)}
-              placeholder={`Варіант ${opt.id}...`}
-              className="flex-1 px-3 py-2 rounded-xl border border-border/50 bg-background focus:outline-none focus:border-primary text-sm transition-colors"
-            />
+            <div className="flex-1 space-y-1">
+              <textarea
+                value={opt.text}
+                onChange={(e) => onOptionChange(opt.id, e.target.value)}
+                placeholder={`Варіант ${opt.id}... Використовуйте $...$ для math`}
+                rows={1}
+                className="w-full px-3 py-2 rounded-xl border border-border/50 bg-background focus:outline-none focus:border-primary text-sm transition-colors resize-none font-mono"
+              />
+              {opt.text && opt.text.includes("$") && (
+                <div className="px-3 py-1.5 rounded-lg border border-border/30 bg-muted/30 text-sm">
+                  <MathText text={opt.text} />
+                </div>
+              )}
+            </div>
           </div>
         ))}
       </div>
@@ -527,17 +557,25 @@ function MatchingEditor({
           Вирази / твердження (ліва колонка)
         </label>
         {question.leftItems.map((item) => (
-          <div key={item.id} className="flex items-center gap-2">
-            <span className="text-xs font-semibold w-5 text-center shrink-0 text-muted-foreground">{item.id}.</span>
-            <input
-              value={item.text}
-              onChange={(e) => updateLeft(item.id, e.target.value)}
-              placeholder={`Вираз ${item.id}...`}
-              className="flex-1 px-3 py-2 rounded-xl border border-border/50 bg-background focus:outline-none focus:border-primary text-sm transition-colors"
-            />
+          <div key={item.id} className="flex items-start gap-2">
+            <span className="text-xs font-semibold w-5 text-center shrink-0 text-muted-foreground mt-2.5">{item.id}.</span>
+            <div className="flex-1 space-y-1">
+              <textarea
+                value={item.text}
+                onChange={(e) => updateLeft(item.id, e.target.value)}
+                placeholder={`Вираз ${item.id}... Використовуйте $...$ для math`}
+                rows={1}
+                className="w-full px-3 py-2 rounded-xl border border-border/50 bg-background focus:outline-none focus:border-primary text-sm transition-colors resize-none font-mono"
+              />
+              {item.text && item.text.includes("$") && (
+                <div className="px-3 py-1.5 rounded-lg border border-border/30 bg-muted/30 text-sm">
+                  <MathText text={item.text} />
+                </div>
+              )}
+            </div>
             <button
               onClick={() => removeLeft(item.id)}
-              className="text-muted-foreground hover:text-destructive transition-colors text-xs px-1"
+              className="text-muted-foreground hover:text-destructive transition-colors text-xs px-1 mt-2.5"
             >✕</button>
           </div>
         ))}
@@ -552,14 +590,22 @@ function MatchingEditor({
           Варіанти відповіді (права колонка)
         </label>
         {question.rightOptions.map((opt) => (
-          <div key={opt.id} className="flex items-center gap-2">
-            <span className="text-xs font-semibold w-5 text-center shrink-0 text-primary">{opt.id}.</span>
-            <input
-              value={opt.text}
-              onChange={(e) => updateRight(opt.id, e.target.value)}
-              placeholder={`Варіант ${opt.id}...`}
-              className="flex-1 px-3 py-2 rounded-xl border border-border/50 bg-background focus:outline-none focus:border-primary text-sm transition-colors"
-            />
+          <div key={opt.id} className="flex items-start gap-2">
+            <span className="text-xs font-semibold w-5 text-center shrink-0 text-primary mt-2.5">{opt.id}.</span>
+            <div className="flex-1 space-y-1">
+              <textarea
+                value={opt.text}
+                onChange={(e) => updateRight(opt.id, e.target.value)}
+                placeholder={`Варіант ${opt.id}... Використовуйте $...$ для math`}
+                rows={1}
+                className="w-full px-3 py-2 rounded-xl border border-border/50 bg-background focus:outline-none focus:border-primary text-sm transition-colors resize-none font-mono"
+              />
+              {opt.text && opt.text.includes("$") && (
+                <div className="px-3 py-1.5 rounded-lg border border-border/30 bg-muted/30 text-sm">
+                  <MathText text={opt.text} />
+                </div>
+              )}
+            </div>
           </div>
         ))}
       </div>

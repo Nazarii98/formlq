@@ -26,6 +26,7 @@ export interface MCQQuestion {
   options: QuestionOption[];
   correctOptionId: string;
   explanation: string;
+  explanationImageUrl?: string;
   points: number;
   order: number;
 }
@@ -37,6 +38,7 @@ export interface OpenQuestion {
   imageUrl?: string;
   correctAnswer: string;
   explanation: string;
+  explanationImageUrl?: string;
   points: number;
   order: number;
 }
@@ -55,6 +57,7 @@ export interface MatchingQuestion {
   rightOptions: MatchingItem[];
   correctPairs: Record<string, string>; // leftId → rightId
   explanation: string;
+  explanationImageUrl?: string;
   points: number;
   order: number;
 }
@@ -84,7 +87,8 @@ export interface QuestionResult {
   id: string;
   type: TestQuestion["type"];
   text: string;
-  imageUrl?: string;
+  imageUrl?: string | null;
+  explanationImageUrl?: string | null;
   points: number;
   userAnswer: string;
   isCorrect: boolean;

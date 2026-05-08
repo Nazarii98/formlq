@@ -1,8 +1,14 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@import "katex/dist/katex.min.css";
 
 @custom-variant dark (&:is(.dark *));
+
+/* KaTeX: prevent Tailwind box-sizing reset from breaking matrix/table layout */
+.katex * {
+  box-sizing: content-box;
+}
 
 @theme inline {
   --color-background: var(--background);
