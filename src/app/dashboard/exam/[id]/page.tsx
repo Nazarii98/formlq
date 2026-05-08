@@ -179,7 +179,7 @@ export default function ExamPage() {
       userId: user.uid,
       testId: test.id,
       testTitle: test.title,
-      testSubtitle: test.subtitle,
+      testSubtitle: test.subtitle ?? "",
       timeSpent: elapsed,
       rawScore: raw,
       nmtScore: nmt,
