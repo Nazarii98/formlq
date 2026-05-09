@@ -40,10 +40,13 @@ export default function DashboardLayout({
 
   // Warm PDF cache in idle time so drawer opens instantly
   useEffect(() => {
-    const id = requestIdleCallback(() => {
-      import("@/lib/pdf-cache").then((m) => m.preloadPdf());
-    });
-    return () => cancelIdleCallback(id);
+    const cb = () => { import("@/lib/pdf-cache").then((m) => m.preloadPdf()); };
+    if (typeof requestIdleCallback !== "undefined") {
+      const id = requestIdleCallback(cb);
+      return () => cancelIdleCallback(id);
+    }
+    const id = setTimeout(cb, 1000);
+    return () => clearTimeout(id);
   }, []);
 
   useEffect(() => {
