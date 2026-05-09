@@ -16,8 +16,6 @@ import {
   updateProfile,
   GoogleAuthProvider,
   signInWithPopup,
-  signInWithRedirect,
-  getRedirectResult,
 } from "firebase/auth";
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
@@ -42,10 +40,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getRedirectResult(auth)
-      .then(async (result) => { if (result?.user) await createUserDoc(result.user); })
-      .catch(() => {});
-
     const fallback = setTimeout(() => setLoading(false), 8000);
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       clearTimeout(fallback);
@@ -62,7 +56,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       setLoading(false);
     });
-    return () => { clearTimeout(fallback); unsubscribe(); };
+    return () => {
+      clearTimeout(fallback);
+      unsubscribe();
+    };
   }, []);
 
   async function createUserDoc(user: User, name?: string) {
@@ -93,20 +90,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signUp(email: string, password: string, name: string) {
-    const { user } = await createUserWithEmailAndPassword(auth, email, password);
+    const { user } = await createUserWithEmailAndPassword(
+      auth,
+      email,
+      password,
+    );
     await updateProfile(user, { displayName: name });
     await createUserDoc(user, name);
   }
 
   async function signInWithGoogle() {
     const provider = new GoogleAuthProvider();
-    const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
-    if (isMobile) {
-      await signInWithRedirect(auth, provider);
-    } else {
-      const { user } = await signInWithPopup(auth, provider);
-      await createUserDoc(user);
-    }
+    const { user } = await signInWithPopup(auth, provider);
+    await createUserDoc(user);
   }
 
   async function logOut() {
@@ -120,7 +116,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, userProfile, loading, signIn, signUp, signInWithGoogle, logOut, refreshProfile }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        userProfile,
+        loading,
+        signIn,
+        signUp,
+        signInWithGoogle,
+        logOut,
+        refreshProfile,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
