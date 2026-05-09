@@ -14,14 +14,22 @@ export function ResultListItem({ result, href }: ResultListItemProps) {
   const questions = result.questions ?? [];
   const correct = questions.filter((q) => q.isCorrect).length;
   const pct = questions.length ? Math.round((correct / questions.length) * 100) : 0;
+  const failed = result.rawScore < 5;
 
   return (
     <Link href={href} className="block">
       <div className="rounded-2xl border border-border/50 bg-card px-5 py-4 flex items-center gap-4 hover:bg-muted/30 hover:border-border/80 transition-all group">
-        <div className={cn("w-12 h-12 rounded-xl flex flex-col items-center justify-center shrink-0", bg)}>
-          <span className={cn("text-lg font-bold leading-none tabular-nums", text)}>{result.nmtScore}</span>
-          <span className={cn("text-[9px] font-medium leading-none mt-0.5", text)}>НМТ</span>
-        </div>
+        {failed ? (
+          <div className="w-12 h-12 rounded-xl flex flex-col items-center justify-center shrink-0 bg-red-500/10">
+            <span className="text-lg leading-none">❌</span>
+            <span className="text-[9px] font-medium leading-none mt-0.5 text-red-500">НЕ СКЛАВ</span>
+          </div>
+        ) : (
+          <div className={cn("w-12 h-12 rounded-xl flex flex-col items-center justify-center shrink-0", bg)}>
+            <span className={cn("text-lg font-bold leading-none tabular-nums", text)}>{result.nmtScore}</span>
+            <span className={cn("text-[9px] font-medium leading-none mt-0.5", text)}>НМТ</span>
+          </div>
+        )}
 
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-sm truncate">{result.testTitle || "Без назви"}</p>

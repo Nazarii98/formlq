@@ -32,7 +32,7 @@ import { ResultListItem } from "@/components/exam/ResultListItem";
 import { MathText } from "@/components/MathText";
 import confetti from "canvas-confetti";
 
-const EXAM_DURATION = 150 * 60;
+const DEFAULT_DURATION = 150 * 60;
 
 function isAnswered(q: TestQuestion, answer: string | undefined): boolean {
   if (!answer) return false;
@@ -79,7 +79,7 @@ export default function ExamPage() {
   const [phase, setPhase] = useState<"intro" | "exam" | "results">("intro");
   const [currentIdx, setCurrentIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [timeLeft, setTimeLeft] = useState(EXAM_DURATION);
+  const [timeLeft, setTimeLeft] = useState(DEFAULT_DURATION);
   const [startTime, setStartTime] = useState<number>(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
@@ -105,6 +105,7 @@ export default function ExamPage() {
     getTest(id).then((t) => {
       if (!t) { router.replace("/dashboard"); return; }
       setTest(t);
+      setTimeLeft((t.durationMinutes ?? 150) * 60);
       setLoadingTest(false);
     });
   }, [id, user, router]);
@@ -233,7 +234,7 @@ export default function ExamPage() {
   function handleRestart() {
     setAnswers({});
     setCurrentIdx(0);
-    setTimeLeft(EXAM_DURATION);
+    setTimeLeft((test?.durationMinutes ?? 150) * 60);
     setStartTime(0);
     setPhase("intro");
   }
@@ -250,6 +251,7 @@ export default function ExamPage() {
 
   const questions = test.questions ?? [];
   const maxRaw = maxRawScore(questions);
+  const examDuration = (test.durationMinutes ?? 150) * 60;
 
   // ── INTRO ──────────────────────────────────────────────────────
   if (phase === "intro") {
@@ -272,7 +274,7 @@ export default function ExamPage() {
               {[
                 [String(questions.length), "Завдань"],
                 [String(maxRaw), "Макс. балів"],
-                ["150 хв", "Часу"],
+                [`${test.durationMinutes ?? 150} хв`, "Часу"],
                 [`${mcqCount} × ${questions.find(q=>q.type==="mcq")?.points ?? 1}б`, "Вибір"],
                 [`${openCount} × ${questions.find(q=>q.type==="open")?.points ?? 2}б`, "Відповідь"],
                 ["100–200", "Шкала НМТ"],
@@ -316,6 +318,7 @@ export default function ExamPage() {
   if (phase === "results") {
     const rawScore = calcRawScore(questions, answers);
     const nmtScore = rawToNMT(rawScore, test.scoreTable ?? []);
+    const failed = rawScore < 5;
     const emoji = nmtScore >= 180 ? "🏆" : nmtScore >= 160 ? "🎉" : nmtScore >= 140 ? "👍" : "💪";
 
     return (
@@ -323,12 +326,21 @@ export default function ExamPage() {
         <main className="max-w-2xl mx-auto px-4 py-8 space-y-6">
           {/* Score header */}
           <div className="rounded-2xl border border-border/50 bg-card p-6 text-center space-y-1">
-            <div className="text-4xl mb-2">{emoji}</div>
-            <div className="text-5xl font-bold tabular-nums">{nmtScore}</div>
-            <p className="text-muted-foreground text-sm">балів НМТ (з 200)</p>
+            <div className="text-4xl mb-2">{failed ? "❌" : emoji}</div>
+            {failed ? (
+              <>
+                <div className="text-3xl font-bold text-red-500">Не склав</div>
+                <p className="text-muted-foreground text-sm">менше 5 балів — тест не зараховано</p>
+              </>
+            ) : (
+              <>
+                <div className="text-5xl font-bold tabular-nums">{nmtScore}</div>
+                <p className="text-muted-foreground text-sm">балів НМТ (з 200)</p>
+              </>
+            )}
             <div className="flex justify-center gap-4 pt-3 text-sm text-muted-foreground">
               <span>Сирий бал: <b className="text-foreground">{rawScore}/{maxRaw}</b></span>
-              <span>Час: <b className="text-foreground">{formatTimer(EXAM_DURATION - timeLeft)}</b></span>
+              <span>Час: <b className="text-foreground">{formatTimer(examDuration - timeLeft)}</b></span>
             </div>
           </div>
 
@@ -396,7 +408,7 @@ export default function ExamPage() {
                     </span>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs text-muted-foreground mb-1">Завдання {i + 1} · {q.points} б</p>
-                      <p className="text-sm text-foreground leading-relaxed">{q.text || "—"}</p>
+                      <MathText text={q.text || "—"} className="text-sm text-foreground leading-relaxed" />
                       {q.imageUrl && (
                         <div className="mt-2 rounded-xl overflow-hidden border border-border/50">
                           <Image src={q.imageUrl} alt="" width={800} height={400} className="w-full object-contain max-h-56" />
@@ -427,9 +439,12 @@ export default function ExamPage() {
                           <span className="group-open:rotate-90 transition-transform inline-block">›</span>
                           Пояснення
                         </summary>
-                        <p className="mt-2 text-sm text-foreground/80 leading-relaxed border-l-2 border-border pl-3">
-                          {q.explanation}
-                        </p>
+                        <MathText text={q.explanation} className="block mt-2 text-sm text-foreground/80 leading-relaxed border-l-2 border-border pl-3" />
+                        {q.explanationImageUrl && (
+                          <div className="mt-3 rounded-xl overflow-hidden border border-border/50">
+                            <Image src={q.explanationImageUrl} alt="" width={800} height={400} className="w-full object-contain max-h-64" />
+                          </div>
+                        )}
                       </details>
                     </div>
                   )}

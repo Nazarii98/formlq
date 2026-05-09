@@ -33,6 +33,7 @@ export default function TestEditorPage() {
   const [title, setTitle] = useState("");
   const [subtitle, setSubtitle] = useState("");
   const [published, setPublished] = useState(false);
+  const [durationMinutes, setDurationMinutes] = useState(150);
   const [questions, setQuestions] = useState<TestQuestion[]>([]);
   const [scoreTable, setScoreTable] = useState<ScoreRow[]>(NMT_2025_TABLE);
   const [activeQId, setActiveQId] = useState<string | null>(null);
@@ -42,7 +43,7 @@ export default function TestEditorPage() {
   const [saved, setSaved] = useState(false);
   const savedSnapshot = useRef("");
 
-  const snapshot = () => JSON.stringify({ title, subtitle, published, questions, scoreTable });
+  const snapshot = () => JSON.stringify({ title, subtitle, published, durationMinutes, questions, scoreTable });
   const isDirty = !saved && snapshot() !== savedSnapshot.current;
 
   useEffect(() => {
@@ -51,6 +52,7 @@ export default function TestEditorPage() {
       setTitle(test.title);
       setSubtitle(test.subtitle);
       setPublished(test.published);
+      setDurationMinutes(test.durationMinutes ?? 150);
       setQuestions(test.questions ?? []);
       const table = test.scoreTable?.length ? test.scoreTable : NMT_2025_TABLE;
       setScoreTable(table);
@@ -58,6 +60,7 @@ export default function TestEditorPage() {
         title: test.title,
         subtitle: test.subtitle,
         published: test.published,
+        durationMinutes: test.durationMinutes ?? 150,
         questions: test.questions ?? [],
         scoreTable: table,
       });
@@ -67,12 +70,12 @@ export default function TestEditorPage() {
 
   const save = useCallback(async () => {
     setSaving(true);
-    await updateTest(id, { title, subtitle, published, questions, scoreTable });
-    savedSnapshot.current = JSON.stringify({ title, subtitle, published, questions, scoreTable });
+    await updateTest(id, { title, subtitle, published, durationMinutes, questions, scoreTable });
+    savedSnapshot.current = JSON.stringify({ title, subtitle, published, durationMinutes, questions, scoreTable });
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
-  }, [id, title, subtitle, published, questions, scoreTable]);
+  }, [id, title, subtitle, published, durationMinutes, questions, scoreTable]);
 
   function addQuestion(type: "mcq" | "open" | "matching") {
     const next =
@@ -172,6 +175,31 @@ export default function TestEditorPage() {
                 placeholder="НМТ 2026 · Варіант 1"
                 className="w-full px-4 py-2.5 rounded-xl border border-border/50 bg-background focus:outline-none focus:border-primary text-sm transition-colors"
               />
+            </div>
+          </div>
+          <div className="space-y-1 w-fit">
+            <label className="text-xs text-muted-foreground uppercase tracking-wide font-medium">Тривалість (хв)</label>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setDurationMinutes((v) => Math.max(5, v - 5))}
+                className="w-8 h-8 rounded-lg border border-border/50 bg-background hover:border-primary/60 text-sm font-bold flex items-center justify-center transition-colors"
+              >−</button>
+              <input
+                type="number"
+                min={5}
+                max={360}
+                value={durationMinutes}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value, 10);
+                  if (!isNaN(v) && v >= 5) setDurationMinutes(v);
+                }}
+                className="w-20 px-3 py-2 rounded-xl border border-border/50 bg-background focus:outline-none focus:border-primary text-sm text-center transition-colors tabular-nums"
+              />
+              <button
+                onClick={() => setDurationMinutes((v) => Math.min(360, v + 5))}
+                className="w-8 h-8 rounded-lg border border-border/50 bg-background hover:border-primary/60 text-sm font-bold flex items-center justify-center transition-colors"
+              >+</button>
+              <span className="text-xs text-muted-foreground">хв</span>
             </div>
           </div>
           <div className="text-xs text-muted-foreground pt-1">

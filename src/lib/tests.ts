@@ -80,6 +80,7 @@ export interface TestDoc {
   updatedAt: Timestamp | null;
   questions: TestQuestion[];
   scoreTable: ScoreRow[];
+  durationMinutes?: number;
   order?: number;
 }
 

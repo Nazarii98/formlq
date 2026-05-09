@@ -13,12 +13,22 @@ export function ScoreHeader({ result }: Props) {
   const wrong = questions.filter((q) => !q.isCorrect && q.userAnswer != null && q.userAnswer !== "").length;
   const skipped = questions.length - correct - wrong;
   const pct = questions.length ? Math.round((correct / questions.length) * 100) : 0;
+  const failed = result.rawScore < 5;
 
   return (
     <div className="rounded-2xl border border-border/50 bg-card p-6 text-center">
-      <div className="text-4xl mb-2">{nmtEmoji(result.nmtScore)}</div>
-      <div className="text-5xl font-bold tabular-nums">{result.nmtScore}</div>
-      <p className="text-muted-foreground text-sm mt-1">балів НМТ (з 200)</p>
+      <div className="text-4xl mb-2">{failed ? "❌" : nmtEmoji(result.nmtScore)}</div>
+      {failed ? (
+        <>
+          <div className="text-3xl font-bold text-red-500">Не склав</div>
+          <p className="text-muted-foreground text-sm mt-1">менше 5 балів — тест не зараховано</p>
+        </>
+      ) : (
+        <>
+          <div className="text-5xl font-bold tabular-nums">{result.nmtScore}</div>
+          <p className="text-muted-foreground text-sm mt-1">балів НМТ (з 200)</p>
+        </>
+      )}
 
       <div className="grid grid-cols-3 gap-3 mt-5">
         <div className="rounded-xl bg-green-500/10 border border-green-500/20 py-3 px-2">
