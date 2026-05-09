@@ -5,7 +5,7 @@ import { Document, Page, pdfjs } from "react-pdf";
 import { X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useReferenceDrawer } from "@/context/ReferenceDrawerContext";
-import { pdfFileProp, getPdfCopyAsync } from "@/lib/pdf-cache";
+import { getPdfCopyAsync } from "@/lib/pdf-cache";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
 
@@ -21,7 +21,7 @@ export function ReferenceDrawer() {
   const [page, setPage] = useState(1);
   const [scale, setScale] = useState(1.0);
   const [pdfFile, setPdfFile] = useState<string | { data: Uint8Array }>(
-    pdfFileProp,
+    "/dovidka.pdf",
   );
   const [scrolled, setScrolled] = useState(false);
   const [atBottom, setAtBottom] = useState(false);
@@ -29,9 +29,10 @@ export function ReferenceDrawer() {
   const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
   const [containerWidth, setContainerWidth] = useState(0);
   const programmaticScrollRef = useRef(false);
-  const programmaticScrollTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const programmaticScrollTimer = useRef<
+    ReturnType<typeof setTimeout> | undefined
+  >(undefined);
   const savedScrollPos = useRef({ top: 0, left: 0 });
-  const pdfReadyRef = useRef(false);
 
   // Measure drawer content width
   useEffect(() => {
@@ -88,23 +89,15 @@ export function ReferenceDrawer() {
     }
   }, [open]);
 
-  // Ensure bytes are loaded when drawer opens — only once
+  // Fresh copy each open — prevents detached ArrayBuffer error on re-open
   useEffect(() => {
-    if (!open || pdfReadyRef.current) return;
+    if (!open) return;
     let cancelled = false;
-    Promise.resolve(pdfFileProp()).then((copy) => {
-      if (cancelled) return;
-      pdfReadyRef.current = true;
-      if (typeof copy !== "string") {
-        setPdfFile(copy);
-      } else {
-        getPdfCopyAsync()
-          .then((data) => {
-            if (!cancelled) setPdfFile({ data });
-          })
-          .catch(() => {});
-      }
-    });
+    getPdfCopyAsync()
+      .then((data) => {
+        if (!cancelled) setPdfFile({ data });
+      })
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
@@ -195,10 +188,7 @@ export function ReferenceDrawer() {
         </div>
 
         {/* PDF scroll area */}
-        <div
-          ref={scrollRef}
-          className="flex-1 overflow-auto"
-        >
+        <div ref={scrollRef} className="flex-1 overflow-auto">
           <Document
             file={pdfFile}
             onLoadSuccess={({ numPages }) => {
