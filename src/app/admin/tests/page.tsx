@@ -170,6 +170,7 @@ export default function AdminTestsPage() {
                     <span className={cn(
                       "text-[10px] font-semibold px-2.5 py-1 rounded-full whitespace-nowrap transition-all duration-150",
                       "group-hover:opacity-0 group-hover:scale-90 group-hover:pointer-events-none",
+                      "[@media(hover:none)]:hidden",
                       badge === "today" ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground",
                     )}>
                       {badge === "today" ? "Сьогодні" : "Завтра"}
@@ -179,8 +180,8 @@ export default function AdminTestsPage() {
                   <div className={cn(
                     "flex items-center gap-1 transition-all duration-150",
                     badge
-                      ? "absolute right-0 opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100"
-                      : "opacity-0 group-hover:opacity-100",
+                      ? "absolute right-0 opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100 [@media(hover:none)]:opacity-100 [@media(hover:none)]:scale-100"
+                      : "opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100",
                   )}>
                     <div className="hidden sm:flex items-center gap-1 text-xs text-muted-foreground mr-1">
                       <FileText size={11} />

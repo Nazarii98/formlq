@@ -28,7 +28,13 @@ export function MathText({ text, className }: { text: string; className?: string
   return (
     <span className={className}>
       {parts.map((p, i) => {
-        if (p.type === "text") return <span key={i}>{p.content}</span>;
+        if (p.type === "text") return (
+          <span key={i}>
+            {p.content.split("\n").map((line, j, arr) => (
+              <span key={j}>{line}{j < arr.length - 1 && <br />}</span>
+            ))}
+          </span>
+        );
         try {
           const html = katex.renderToString(p.content, {
             displayMode: p.type === "block",

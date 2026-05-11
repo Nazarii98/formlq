@@ -78,17 +78,15 @@ export function QuestionCard({ q, index, answerLabel = "Ваша відпові�
       <div className="space-y-2 text-sm">
         <div className="flex items-baseline gap-2">
           <span className="text-muted-foreground text-xs shrink-0 w-32">{answerLabel}</span>
-          <span className={cn(
+          <MathText text={userLabel} className={cn(
             "font-medium",
             q.isCorrect ? "text-green-600 dark:text-green-400" : skipped ? "text-muted-foreground" : "text-red-500",
-          )}>
-            {userLabel}
-          </span>
+          )} />
         </div>
         {!q.isCorrect && correctLabel && (
           <div className="flex items-baseline gap-2">
             <span className="text-muted-foreground text-xs shrink-0 w-32">Правильна відповідь</span>
-            <span className="font-medium text-green-600 dark:text-green-400">{correctLabel}</span>
+            <MathText text={correctLabel} className="font-medium text-green-600 dark:text-green-400" />
           </div>
         )}
       </div>
