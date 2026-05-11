@@ -5,7 +5,7 @@ import { getTips, createTip, updateTip, deleteTip, Tip } from "@/lib/tips";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
-import { Trash2, Pencil, Plus, Check, X, GripVertical, Eye, EyeOff } from "lucide-react";
+import { Trash2, Pencil, Plus, Check, X, GripVertical, Eye, EyeOff, ChevronUp, ChevronDown } from "lucide-react";
 import { getDayIndex } from "@/lib/format";
 import { SpinnerPage } from "@/components/ui/spinner";
 
@@ -14,7 +14,7 @@ const EMOJI_SUGGESTIONS = ["📐", "🔢", "📏", "🎯", "⏱️", "📊", "�
 function TipRow({
   tip, badge, onSave, onDelete,
   onDragStart, onDragEnter, onDrop, onDragEnd,
-  isSrc, isOver,
+  isSrc, isOver, onMoveUp, onMoveDown, isFirst, isLast,
 }: {
   tip: Tip;
   badge?: "today" | "tomorrow";
@@ -26,6 +26,10 @@ function TipRow({
   onDragEnd: () => void;
   isSrc: boolean;
   isOver: boolean;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  isFirst: boolean;
+  isLast: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [emoji, setEmoji] = useState(tip.emoji);
@@ -78,8 +82,16 @@ function TipRow({
         isOver && "border-primary/50 bg-primary/5 shadow-[0_0_0_2px_color-mix(in_oklch,var(--primary)_20%,transparent)]",
       )}
       >
-        <div className="shrink-0 text-muted-foreground/30 group-hover:text-muted-foreground/70 transition-colors cursor-grab active:cursor-grabbing">
+        <div className="hidden [@media(hover:hover)]:flex shrink-0 text-muted-foreground/30 group-hover:text-muted-foreground/70 transition-colors cursor-grab active:cursor-grabbing">
           <GripVertical size={16} />
+        </div>
+        <div className="flex [@media(hover:hover)]:hidden flex-col shrink-0">
+          <button onClick={onMoveUp} disabled={isFirst} className="text-muted-foreground disabled:opacity-20 p-0.5">
+            <ChevronUp size={14} />
+          </button>
+          <button onClick={onMoveDown} disabled={isLast} className="text-muted-foreground disabled:opacity-20 p-0.5">
+            <ChevronDown size={14} />
+          </button>
         </div>
 
         <span className="text-2xl shrink-0">{tip.emoji}</span>
@@ -102,7 +114,7 @@ function TipRow({
           <div className={cn(
             "flex items-center gap-1 transition-all duration-150",
             badge
-              ? "absolute right-0 opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100 [@media(hover:none)]:opacity-100 [@media(hover:none)]:scale-100"
+              ? "absolute right-0 opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100 [@media(hover:none)]:static [@media(hover:none)]:opacity-100 [@media(hover:none)]:scale-100"
               : "opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100",
           )}>
             <button onClick={() => onSave(tip.id, { active: !tip.active })} title={tip.active ? "Деактивувати" : "Активувати"} className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-all">
@@ -218,6 +230,15 @@ export default function AdminTipsPage() {
     setDragOverIdx(null);
   }
 
+  function handleReorder(src: number, dst: number) {
+    const next = [...tips];
+    const [moved] = next.splice(src, 1);
+    next.splice(dst, 0, moved);
+    const updated = next.map((t, idx) => ({ ...t, order: idx }));
+    setTips(updated);
+    Promise.all(updated.map((t, idx) => updateTip(t.id, { order: idx })));
+  }
+
   const dayIdx = getDayIndex();
   const baseIdx = tips.length > 0 ? dayIdx % tips.length : -1;
   let todayIdx = -1;
@@ -251,6 +272,10 @@ export default function AdminTipsPage() {
                 onDragEnd={handleDragEnd}
                 isSrc={dragSrcIdx === i}
                 isOver={dragOverIdx === i && dragSrcIdx !== i}
+                onMoveUp={() => handleReorder(i, i - 1)}
+                onMoveDown={() => handleReorder(i, i + 1)}
+                isFirst={i === 0}
+                isLast={i === tips.length - 1}
               />
             );
           })}

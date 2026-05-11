@@ -8,7 +8,7 @@ import { getDayIndex } from "@/lib/format";
 import { SpinnerPage } from "@/components/ui/spinner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
-import { Pencil, Trash2, Plus, FileText, GripVertical, Eye, EyeOff } from "lucide-react";
+import { Pencil, Trash2, Plus, FileText, GripVertical, Eye, EyeOff, ChevronUp, ChevronDown } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { TestDoc } from "@/lib/tests";
@@ -154,8 +154,24 @@ export default function AdminTestsPage() {
                   isOver && "border-primary/50 bg-primary/5 shadow-[0_0_0_2px_color-mix(in_oklch,var(--primary)_20%,transparent)]",
                 )}
               >
-                <div className="shrink-0 text-muted-foreground/30 group-hover:text-muted-foreground/70 transition-colors cursor-grab active:cursor-grabbing">
+                <div className="hidden [@media(hover:hover)]:flex shrink-0 text-muted-foreground/30 group-hover:text-muted-foreground/70 transition-colors cursor-grab active:cursor-grabbing">
                   <GripVertical size={16} />
+                </div>
+                <div className="flex [@media(hover:hover)]:hidden flex-col shrink-0">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); if (i > 0) performReorder(i, i - 1); }}
+                    disabled={i === 0}
+                    className="text-muted-foreground disabled:opacity-20 p-0.5"
+                  >
+                    <ChevronUp size={14} />
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); if (i < tests.length - 1) performReorder(i, i + 1); }}
+                    disabled={i === tests.length - 1}
+                    className="text-muted-foreground disabled:opacity-20 p-0.5"
+                  >
+                    <ChevronDown size={14} />
+                  </button>
                 </div>
 
                 <div className={cn("w-2 h-2 rounded-full shrink-0", test.published ? "bg-green-500" : "bg-muted-foreground/30")} />
@@ -180,7 +196,7 @@ export default function AdminTestsPage() {
                   <div className={cn(
                     "flex items-center gap-1 transition-all duration-150",
                     badge
-                      ? "absolute right-0 opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100 [@media(hover:none)]:opacity-100 [@media(hover:none)]:scale-100"
+                      ? "absolute right-0 opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100 [@media(hover:none)]:static [@media(hover:none)]:opacity-100 [@media(hover:none)]:scale-100"
                       : "opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100",
                   )}>
                     <div className="hidden sm:flex items-center gap-1 text-xs text-muted-foreground mr-1">
