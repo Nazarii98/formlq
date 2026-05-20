@@ -20,7 +20,6 @@ import {
   MCQQuestion,
   OpenQuestion,
   MatchingQuestion,
-  MatchingItem,
   ScoreRow,
   NMT_2025_TABLE,
   maxRawScore,
@@ -37,18 +36,31 @@ export default function TestEditorPage() {
   const [questions, setQuestions] = useState<TestQuestion[]>([]);
   const [scoreTable, setScoreTable] = useState<ScoreRow[]>(NMT_2025_TABLE);
   const [activeQId, setActiveQId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"questions" | "scoring">("questions");
+  const [activeTab, setActiveTab] = useState<"questions" | "scoring">(
+    "questions",
+  );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const savedSnapshot = useRef("");
+  const [savedSnapshot, setSavedSnapshot] = useState("");
 
-  const snapshot = () => JSON.stringify({ title, subtitle, published, durationMinutes, questions, scoreTable });
-  const isDirty = !saved && snapshot() !== savedSnapshot.current;
+  const snapshot = () =>
+    JSON.stringify({
+      title,
+      subtitle,
+      published,
+      durationMinutes,
+      questions,
+      scoreTable,
+    });
+  const isDirty = !saved && snapshot() !== savedSnapshot;
 
   useEffect(() => {
     getTest(id).then((test) => {
-      if (!test) { router.replace("/admin/tests"); return; }
+      if (!test) {
+        router.replace("/admin/tests");
+        return;
+      }
       setTitle(test.title);
       setSubtitle(test.subtitle);
       setPublished(test.published);
@@ -56,38 +68,56 @@ export default function TestEditorPage() {
       setQuestions(test.questions ?? []);
       const table = test.scoreTable?.length ? test.scoreTable : NMT_2025_TABLE;
       setScoreTable(table);
-      savedSnapshot.current = JSON.stringify({
+      setSavedSnapshot(JSON.stringify({
         title: test.title,
         subtitle: test.subtitle,
         published: test.published,
         durationMinutes: test.durationMinutes ?? 150,
         questions: test.questions ?? [],
         scoreTable: table,
-      });
+      }));
       setLoading(false);
     });
   }, [id, router]);
 
   const save = useCallback(async () => {
     setSaving(true);
-    await updateTest(id, { title, subtitle, published, durationMinutes, questions, scoreTable });
-    savedSnapshot.current = JSON.stringify({ title, subtitle, published, durationMinutes, questions, scoreTable });
+    await updateTest(id, {
+      title,
+      subtitle,
+      published,
+      durationMinutes,
+      questions,
+      scoreTable,
+    });
+    setSavedSnapshot(JSON.stringify({
+      title,
+      subtitle,
+      published,
+      durationMinutes,
+      questions,
+      scoreTable,
+    }));
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
-  }, [id, title, subtitle, published, durationMinutes, questions, scoreTable]);
+  }, [id, title, subtitle, published, durationMinutes, questions, scoreTable, setSavedSnapshot]);
 
   function addQuestion(type: "mcq" | "open" | "matching") {
     const next =
-      type === "mcq" ? makeEmptyMCQ(questions.length) :
-      type === "matching" ? makeEmptyMatching(questions.length) :
-      makeEmptyOpen(questions.length);
+      type === "mcq"
+        ? makeEmptyMCQ(questions.length)
+        : type === "matching"
+          ? makeEmptyMatching(questions.length)
+          : makeEmptyOpen(questions.length);
     setQuestions((prev) => [...prev, next]);
     setActiveQId(next.id);
   }
 
   function deleteQuestion(qId: string) {
-    setQuestions((prev) => prev.filter((q) => q.id !== qId).map((q, i) => ({ ...q, order: i })));
+    setQuestions((prev) =>
+      prev.filter((q) => q.id !== qId).map((q, i) => ({ ...q, order: i })),
+    );
     setActiveQId(null);
   }
 
@@ -103,7 +133,9 @@ export default function TestEditorPage() {
 
   function updateQ(qId: string, patch: Partial<TestQuestion>) {
     setQuestions((prev) =>
-      prev.map((q) => (q.id === qId ? ({ ...q, ...patch } as TestQuestion) : q))
+      prev.map((q) =>
+        q.id === qId ? ({ ...q, ...patch } as TestQuestion) : q,
+      ),
     );
   }
 
@@ -111,8 +143,31 @@ export default function TestEditorPage() {
     setQuestions((prev) =>
       prev.map((q) => {
         if (q.id !== qId || q.type !== "mcq") return q;
-        return { ...q, options: q.options.map((o) => (o.id === optionId ? { ...o, text } : o)) };
-      })
+        return {
+          ...q,
+          options: q.options.map((o) =>
+            o.id === optionId ? { ...o, text } : o,
+          ),
+        };
+      }),
+    );
+  }
+
+  function updateMCQOptionImage(
+    qId: string,
+    optionId: string,
+    url: string | undefined,
+  ) {
+    setQuestions((prev) =>
+      prev.map((q) => {
+        if (q.id !== qId || q.type !== "mcq") return q;
+        return {
+          ...q,
+          options: q.options.map((o) =>
+            o.id === optionId ? { ...o, imageUrl: url } : o,
+          ),
+        };
+      }),
     );
   }
 
@@ -130,11 +185,13 @@ export default function TestEditorPage() {
   return (
     <div>
       <main className="max-w-5xl mx-auto space-y-6">
-
         {/* Header */}
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
-            <Link href="/admin/tests" className="text-muted-foreground hover:text-foreground text-sm">
+            <Link
+              href="/admin/tests"
+              className="text-muted-foreground hover:text-foreground text-sm"
+            >
               ← Тести
             </Link>
             <Badge
@@ -143,14 +200,19 @@ export default function TestEditorPage() {
                 "cursor-pointer select-none text-xs",
                 published
                   ? "border-green-500/40 text-green-600 bg-green-500/10 hover:bg-green-500/20"
-                  : "border-border/50 text-muted-foreground hover:border-primary/40"
+                  : "border-border/50 text-muted-foreground hover:border-primary/40",
               )}
               onClick={() => setPublished((v) => !v)}
             >
               {published ? "✓ Опубліковано" : "Чернетка"}
             </Badge>
           </div>
-          <Button size="sm" onClick={save} disabled={saving || !isDirty} className="min-w-[100px]">
+          <Button
+            size="sm"
+            onClick={save}
+            disabled={saving || !isDirty}
+            className="min-w-[100px]"
+          >
             {saving ? "Збереження..." : saved ? "✓ Збережено" : "Зберегти"}
           </Button>
         </div>
@@ -159,7 +221,9 @@ export default function TestEditorPage() {
         <div className="rounded-2xl border border-border/50 bg-card p-5 space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
-              <label className="text-xs text-muted-foreground uppercase tracking-wide font-medium">Назва</label>
+              <label className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
+                Назва
+              </label>
               <input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
@@ -168,7 +232,9 @@ export default function TestEditorPage() {
               />
             </div>
             <div className="space-y-1">
-              <label className="text-xs text-muted-foreground uppercase tracking-wide font-medium">Підзаголовок</label>
+              <label className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
+                Підзаголовок
+              </label>
               <input
                 value={subtitle}
                 onChange={(e) => setSubtitle(e.target.value)}
@@ -178,12 +244,16 @@ export default function TestEditorPage() {
             </div>
           </div>
           <div className="space-y-1 w-fit">
-            <label className="text-xs text-muted-foreground uppercase tracking-wide font-medium">Тривалість (хв)</label>
+            <label className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
+              Тривалість (хв)
+            </label>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setDurationMinutes((v) => Math.max(5, v - 5))}
                 className="w-8 h-8 rounded-lg border border-border/50 bg-background hover:border-primary/60 text-sm font-bold flex items-center justify-center transition-colors"
-              >−</button>
+              >
+                −
+              </button>
               <input
                 type="number"
                 min={5}
@@ -198,12 +268,15 @@ export default function TestEditorPage() {
               <button
                 onClick={() => setDurationMinutes((v) => Math.min(360, v + 5))}
                 className="w-8 h-8 rounded-lg border border-border/50 bg-background hover:border-primary/60 text-sm font-bold flex items-center justify-center transition-colors"
-              >+</button>
+              >
+                +
+              </button>
               <span className="text-xs text-muted-foreground">хв</span>
             </div>
           </div>
           <div className="text-xs text-muted-foreground pt-1">
-            Максимум балів: <span className="font-semibold text-foreground">{totalPoints}</span>
+            Максимум балів:{" "}
+            <span className="font-semibold text-foreground">{totalPoints}</span>
           </div>
         </div>
 
@@ -217,10 +290,12 @@ export default function TestEditorPage() {
                 "px-4 py-1.5 rounded-lg text-sm font-medium transition-all",
                 activeTab === tab
                   ? "bg-background shadow-sm text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
               )}
             >
-              {tab === "questions" ? `Питання (${questions.length})` : "Шкала балів"}
+              {tab === "questions"
+                ? `Питання (${questions.length})`
+                : "Шкала балів"}
             </button>
           ))}
         </div>
@@ -234,35 +309,67 @@ export default function TestEditorPage() {
                 {questions.map((q, i) => (
                   <button
                     key={q.id}
-                    onClick={() => setActiveQId(q.id === activeQId ? null : q.id)}
+                    onClick={() =>
+                      setActiveQId(q.id === activeQId ? null : q.id)
+                    }
                     className={cn(
                       "w-full text-left px-4 py-3 rounded-xl border transition-all",
                       activeQId === q.id
                         ? "border-primary bg-primary/10"
-                        : "border-border/40 bg-card hover:border-primary/40"
+                        : "border-border/40 bg-card hover:border-primary/40",
                     )}
                   >
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground font-mono w-5 shrink-0">{i + 1}</span>
-                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0">
-                        {q.type === "mcq" ? "MCQ" : q.type === "matching" ? "Відповідність" : "Відповідь"}
+                      <span className="text-xs text-muted-foreground font-mono w-5 shrink-0">
+                        {i + 1}
+                      </span>
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] px-1.5 py-0 shrink-0"
+                      >
+                        {q.type === "mcq"
+                          ? "MCQ"
+                          : q.type === "matching"
+                            ? "Відповідність"
+                            : "Відповідь"}
                       </Badge>
-                      <span className="text-xs font-semibold text-primary shrink-0">{q.points}б</span>
+                      <span className="text-xs font-semibold text-primary shrink-0">
+                        {q.points}б
+                      </span>
                       <span className="text-sm truncate text-foreground/80">
-                        {q.text || <span className="italic text-muted-foreground">Без тексту</span>}
+                        {q.text || (
+                          <span className="italic text-muted-foreground">
+                            Без тексту
+                          </span>
+                        )}
                       </span>
                     </div>
                   </button>
                 ))}
               </div>
               <div className="flex gap-2 pt-1 flex-wrap">
-                <Button variant="outline" size="sm" className="flex-1 text-xs" onClick={() => addQuestion("mcq")}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 text-xs"
+                  onClick={() => addQuestion("mcq")}
+                >
                   + MCQ
                 </Button>
-                <Button variant="outline" size="sm" className="flex-1 text-xs" onClick={() => addQuestion("matching")}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 text-xs"
+                  onClick={() => addQuestion("matching")}
+                >
                   + Відповідність
                 </Button>
-                <Button variant="outline" size="sm" className="flex-1 text-xs" onClick={() => addQuestion("open")}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 text-xs"
+                  onClick={() => addQuestion("open")}
+                >
                   + Відповідь
                 </Button>
               </div>
@@ -274,44 +381,85 @@ export default function TestEditorPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium">
-                      Завдання {questions.findIndex((q) => q.id === activeQ.id) + 1}
+                      Завдання{" "}
+                      {questions.findIndex((q) => q.id === activeQ.id) + 1}
                     </span>
                     <Badge variant="outline" className="text-xs">
-                      {activeQ.type === "mcq" ? "Вибір відповіді" : activeQ.type === "matching" ? "Відповідність" : "Вписати відповідь"}
+                      {activeQ.type === "mcq"
+                        ? "Вибір відповіді"
+                        : activeQ.type === "matching"
+                          ? "Відповідність"
+                          : "Вписати відповідь"}
                     </Badge>
                   </div>
                   <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="sm" className="w-8 h-8 p-0 text-muted-foreground"
-                      onClick={() => moveQuestion(activeQ.id, -1)}>↑</Button>
-                    <Button variant="ghost" size="sm" className="w-8 h-8 p-0 text-muted-foreground"
-                      onClick={() => moveQuestion(activeQ.id, 1)}>↓</Button>
-                    <Button variant="ghost" size="sm" className="w-8 h-8 p-0 text-destructive hover:text-destructive"
-                      onClick={() => deleteQuestion(activeQ.id)}>✕</Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-8 h-8 p-0 text-muted-foreground"
+                      onClick={() => moveQuestion(activeQ.id, -1)}
+                    >
+                      ↑
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-8 h-8 p-0 text-muted-foreground"
+                      onClick={() => moveQuestion(activeQ.id, 1)}
+                    >
+                      ↓
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-8 h-8 p-0 text-destructive hover:text-destructive"
+                      onClick={() => deleteQuestion(activeQ.id)}
+                    >
+                      ✕
+                    </Button>
                   </div>
                 </div>
 
                 {/* Points */}
                 <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/40">
-                  <span className="text-sm text-muted-foreground">Балів за правильну відповідь:</span>
+                  <span className="text-sm text-muted-foreground">
+                    Балів за правильну відповідь:
+                  </span>
                   <div className="flex items-center gap-1">
                     <button
-                      onClick={() => updateQ(activeQ.id, { points: Math.max(1, activeQ.points - 1) })}
+                      onClick={() =>
+                        updateQ(activeQ.id, {
+                          points: Math.max(1, activeQ.points - 1),
+                        })
+                      }
                       className="w-7 h-7 rounded-lg border border-border/50 bg-background hover:border-primary/60 text-sm font-bold flex items-center justify-center transition-colors"
-                    >−</button>
-                    <span className="w-8 text-center font-bold tabular-nums">{activeQ.points}</span>
+                    >
+                      −
+                    </button>
+                    <span className="w-8 text-center font-bold tabular-nums">
+                      {activeQ.points}
+                    </span>
                     <button
-                      onClick={() => updateQ(activeQ.id, { points: activeQ.points + 1 })}
+                      onClick={() =>
+                        updateQ(activeQ.id, { points: activeQ.points + 1 })
+                      }
                       className="w-7 h-7 rounded-lg border border-border/50 bg-background hover:border-primary/60 text-sm font-bold flex items-center justify-center transition-colors"
-                    >+</button>
+                    >
+                      +
+                    </button>
                   </div>
                 </div>
 
                 {/* Question text */}
                 <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground uppercase tracking-wide font-medium">Текст завдання</label>
+                  <label className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
+                    Текст завдання
+                  </label>
                   <textarea
                     value={activeQ.text}
-                    onChange={(e) => updateQ(activeQ.id, { text: e.target.value })}
+                    onChange={(e) =>
+                      updateQ(activeQ.id, { text: e.target.value })
+                    }
                     placeholder="Введіть текст завдання... Використовуйте $...$ для inline math, $$...$$ для block math"
                     rows={3}
                     className="w-full px-4 py-3 rounded-xl border border-border/50 bg-background focus:outline-none focus:border-primary text-sm transition-colors resize-none font-mono"
@@ -334,9 +482,17 @@ export default function TestEditorPage() {
 
                 {activeQ.type === "mcq" && (
                   <MCQEditor
+                    testId={id}
                     question={activeQ as MCQQuestion}
-                    onOptionChange={(optId, text) => updateMCQOption(activeQ.id, optId, text)}
-                    onCorrectChange={(optId) => updateQ(activeQ.id, { correctOptionId: optId })}
+                    onOptionChange={(optId, text) =>
+                      updateMCQOption(activeQ.id, optId, text)
+                    }
+                    onCorrectChange={(optId) =>
+                      updateQ(activeQ.id, { correctOptionId: optId })
+                    }
+                    onOptionImageChange={(optId, url) =>
+                      updateMCQOptionImage(activeQ.id, optId, url)
+                    }
                   />
                 )}
 
@@ -356,11 +512,16 @@ export default function TestEditorPage() {
 
                 <div className="space-y-1">
                   <label className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
-                    Пояснення <span className="normal-case font-normal">(необов'язково)</span>
+                    Пояснення{" "}
+                    <span className="normal-case font-normal">
+                      (необов'язково)
+                    </span>
                   </label>
                   <textarea
                     value={activeQ.explanation}
-                    onChange={(e) => updateQ(activeQ.id, { explanation: e.target.value })}
+                    onChange={(e) =>
+                      updateQ(activeQ.id, { explanation: e.target.value })
+                    }
                     placeholder="Пояснення правильної відповіді... Використовуйте $...$ для inline math, $$...$$ для block math"
                     rows={2}
                     className="w-full px-4 py-3 rounded-xl border border-border/50 bg-background focus:outline-none focus:border-primary text-sm transition-colors resize-none font-mono"
@@ -376,8 +537,12 @@ export default function TestEditorPage() {
                   testId={id}
                   questionId={`${activeQ.id}-explanation`}
                   imageUrl={activeQ.explanationImageUrl}
-                  onUploaded={(url) => updateQ(activeQ.id, { explanationImageUrl: url })}
-                  onRemoved={() => updateQ(activeQ.id, { explanationImageUrl: undefined })}
+                  onUploaded={(url) =>
+                    updateQ(activeQ.id, { explanationImageUrl: url })
+                  }
+                  onRemoved={() =>
+                    updateQ(activeQ.id, { explanationImageUrl: undefined })
+                  }
                   label="Зображення до пояснення"
                 />
               </div>
@@ -397,7 +562,6 @@ export default function TestEditorPage() {
             maxRaw={totalPoints}
           />
         )}
-
       </main>
     </div>
   );
@@ -440,9 +604,17 @@ function QuestionImageUpload({
   if (imageUrl) {
     return (
       <div className="space-y-1">
-        <label className="text-xs text-muted-foreground uppercase tracking-wide font-medium">{label}</label>
+        <label className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
+          {label}
+        </label>
         <div className="relative rounded-xl overflow-hidden border border-border/50 bg-muted/30 group">
-          <Image src={imageUrl} alt="" width={800} height={400} className="w-full h-48 object-contain" />
+          <Image
+            src={imageUrl}
+            alt=""
+            width={800}
+            height={400}
+            className="w-full h-48 object-contain"
+          />
           <button
             onClick={handleRemove}
             className="absolute top-2 right-2 w-7 h-7 rounded-lg bg-background/90 border border-border/60 flex items-center justify-center text-muted-foreground hover:text-destructive hover:border-destructive/40 transition-all"
@@ -459,34 +631,50 @@ function QuestionImageUpload({
       <label className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
         {label} <span className="normal-case font-normal">(необов'язково)</span>
       </label>
-      <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ""; }} />
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) handleFile(f);
+          e.target.value = "";
+        }}
+      />
       <button
         onClick={() => inputRef.current?.click()}
         disabled={uploading}
         className="w-full h-24 rounded-xl border border-dashed border-border/50 bg-muted/20 hover:border-primary/40 hover:bg-primary/5 transition-all flex flex-col items-center justify-center gap-1.5 text-muted-foreground disabled:opacity-50"
       >
         <ImagePlus size={20} />
-        <span className="text-xs">{uploading ? "Завантаження..." : "Додати зображення"}</span>
+        <span className="text-xs">
+          {uploading ? "Завантаження..." : "Додати зображення"}
+        </span>
       </button>
     </div>
   );
 }
 
 function MCQEditor({
+  testId,
   question,
   onOptionChange,
   onCorrectChange,
+  onOptionImageChange,
 }: {
+  testId: string;
   question: MCQQuestion;
   onOptionChange: (optId: string, text: string) => void;
   onCorrectChange: (optId: string) => void;
+  onOptionImageChange: (optId: string, url: string | undefined) => void;
 }) {
   return (
     <div className="space-y-2">
       <label className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
         Варіанти відповіді
       </label>
-      <div className="space-y-2">
+      <div className="space-y-3">
         {question.options.map((opt) => (
           <div key={opt.id} className="flex items-start gap-3">
             <button
@@ -496,13 +684,13 @@ function MCQEditor({
                 "w-7 h-7 rounded-full border-2 flex items-center justify-center text-xs font-bold shrink-0 transition-all mt-2",
                 question.correctOptionId === opt.id
                   ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border hover:border-primary/60 text-muted-foreground"
+                  : "border-border hover:border-primary/60 text-muted-foreground",
               )}
               title="Позначити правильною"
             >
               {opt.id}
             </button>
-            <div className="flex-1 space-y-1">
+            <div className="flex-1 space-y-1.5">
               <textarea
                 value={opt.text}
                 onChange={(e) => onOptionChange(opt.id, e.target.value)}
@@ -515,12 +703,102 @@ function MCQEditor({
                   <MathText text={opt.text} />
                 </div>
               )}
+              <OptionImageSlot
+                testId={testId}
+                questionId={question.id}
+                optionId={opt.id}
+                imageUrl={opt.imageUrl}
+                onUploaded={(url) => onOptionImageChange(opt.id, url)}
+                onRemoved={() => onOptionImageChange(opt.id, undefined)}
+              />
             </div>
           </div>
         ))}
       </div>
-      <p className="text-xs text-muted-foreground">Клікніть на літеру — правильна відповідь</p>
+      <p className="text-xs text-muted-foreground">
+        Клікніть на літеру — правильна відповідь
+      </p>
     </div>
+  );
+}
+
+function OptionImageSlot({
+  testId,
+  questionId,
+  optionId,
+  imageUrl,
+  onUploaded,
+  onRemoved,
+}: {
+  testId: string;
+  questionId: string;
+  optionId: string;
+  imageUrl?: string;
+  onUploaded: (url: string) => void;
+  onRemoved: () => void;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  async function handleFile(file: File) {
+    if (!file.type.startsWith("image/")) return;
+    setUploading(true);
+    try {
+      const url = await uploadQuestionImage(
+        testId,
+        `${questionId}-opt-${optionId}`,
+        file,
+      );
+      onUploaded(url);
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  if (imageUrl) {
+    return (
+      <div className="relative rounded-lg overflow-hidden border border-border/50 bg-muted/20 group">
+        <Image
+          src={imageUrl}
+          alt=""
+          width={400}
+          height={200}
+          className="w-full max-h-32 object-contain"
+        />
+        <button
+          onClick={onRemoved}
+          className="absolute top-1 right-1 w-6 h-6 rounded-md bg-background/90 border border-border/60 flex items-center justify-center text-muted-foreground hover:text-destructive transition-all opacity-0 group-hover:opacity-100"
+        >
+          <XIcon size={11} />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) handleFile(f);
+          e.target.value = "";
+        }}
+      />
+      <button
+        onClick={() => inputRef.current?.click()}
+        disabled={uploading}
+        className="w-full h-8 rounded-lg border border-dashed border-border/40 bg-muted/10 hover:border-primary/40 hover:bg-primary/5 transition-all flex items-center justify-center gap-1.5 text-muted-foreground disabled:opacity-50"
+      >
+        <ImagePlus size={12} />
+        <span className="text-[11px]">
+          {uploading ? "Завантаження..." : "Додати зображення"}
+        </span>
+      </button>
+    </>
   );
 }
 
@@ -533,7 +811,9 @@ function OpenEditor({
 }) {
   return (
     <div className="space-y-1">
-      <label className="text-xs text-muted-foreground uppercase tracking-wide font-medium">Правильна відповідь</label>
+      <label className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
+        Правильна відповідь
+      </label>
       <input
         value={question.correctAnswer}
         onChange={(e) => onChange({ correctAnswer: e.target.value })}
@@ -552,11 +832,19 @@ function MatchingEditor({
   onChange: (patch: Partial<MatchingQuestion>) => void;
 }) {
   function updateLeft(id: string, text: string) {
-    onChange({ leftItems: question.leftItems.map((i) => i.id === id ? { ...i, text } : i) });
+    onChange({
+      leftItems: question.leftItems.map((i) =>
+        i.id === id ? { ...i, text } : i,
+      ),
+    });
   }
 
   function updateRight(id: string, text: string) {
-    onChange({ rightOptions: question.rightOptions.map((i) => i.id === id ? { ...i, text } : i) });
+    onChange({
+      rightOptions: question.rightOptions.map((i) =>
+        i.id === id ? { ...i, text } : i,
+      ),
+    });
   }
 
   function addLeft() {
@@ -586,7 +874,9 @@ function MatchingEditor({
         </label>
         {question.leftItems.map((item) => (
           <div key={item.id} className="flex items-start gap-2">
-            <span className="text-xs font-semibold w-5 text-center shrink-0 text-muted-foreground mt-2.5">{item.id}.</span>
+            <span className="text-xs font-semibold w-5 text-center shrink-0 text-muted-foreground mt-2.5">
+              {item.id}.
+            </span>
             <div className="flex-1 space-y-1">
               <textarea
                 value={item.text}
@@ -604,10 +894,17 @@ function MatchingEditor({
             <button
               onClick={() => removeLeft(item.id)}
               className="text-muted-foreground hover:text-destructive transition-colors text-xs px-1 mt-2.5"
-            >✕</button>
+            >
+              ✕
+            </button>
           </div>
         ))}
-        <Button variant="outline" size="sm" className="text-xs" onClick={addLeft}>
+        <Button
+          variant="outline"
+          size="sm"
+          className="text-xs"
+          onClick={addLeft}
+        >
           + Додати рядок
         </Button>
       </div>
@@ -619,7 +916,9 @@ function MatchingEditor({
         </label>
         {question.rightOptions.map((opt) => (
           <div key={opt.id} className="flex items-start gap-2">
-            <span className="text-xs font-semibold w-5 text-center shrink-0 text-primary mt-2.5">{opt.id}.</span>
+            <span className="text-xs font-semibold w-5 text-center shrink-0 text-primary mt-2.5">
+              {opt.id}.
+            </span>
             <div className="flex-1 space-y-1">
               <textarea
                 value={opt.text}
@@ -649,11 +948,14 @@ function MatchingEditor({
               key={item.id}
               className={cn(
                 "flex items-center gap-3 px-4 py-2.5",
-                i % 2 === 0 ? "bg-muted/20" : ""
+                i % 2 === 0 ? "bg-muted/20" : "",
               )}
             >
               <span className="text-sm w-24 truncate text-foreground/80">
-                {item.id}. {item.text || <span className="italic text-muted-foreground">...</span>}
+                {item.id}.{" "}
+                {item.text || (
+                  <span className="italic text-muted-foreground">...</span>
+                )}
               </span>
               <span className="text-muted-foreground">→</span>
               <div className="flex gap-1.5 flex-wrap">
@@ -665,7 +967,7 @@ function MatchingEditor({
                       "w-7 h-7 rounded-full border-2 text-xs font-bold transition-all",
                       question.correctPairs[item.id] === opt.id
                         ? "border-primary bg-primary text-primary-foreground"
-                        : "border-border hover:border-primary/60 text-muted-foreground"
+                        : "border-border hover:border-primary/60 text-muted-foreground",
                     )}
                   >
                     {opt.id}
@@ -675,7 +977,9 @@ function MatchingEditor({
             </div>
           ))}
         </div>
-        <p className="text-xs text-muted-foreground">Клікніть літеру — правильна відповідь для рядка</p>
+        <p className="text-xs text-muted-foreground">
+          Клікніть літеру — правильна відповідь для рядка
+        </p>
       </div>
     </div>
   );
@@ -719,7 +1023,8 @@ function ScoreTableEditor({
         <div>
           <p className="text-sm font-medium">Таблиця переведення балів</p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Тестовий бал → Бал за шкалою 100–200. Максимум тесту: {maxRaw} балів.
+            Тестовий бал → Бал за шкалою 100–200. Максимум тесту: {maxRaw}{" "}
+            балів.
           </p>
         </div>
         <Button
@@ -727,7 +1032,10 @@ function ScoreTableEditor({
           size="sm"
           className="text-xs"
           onClick={resetToNMT2025}
-          disabled={JSON.stringify(sorted) === JSON.stringify([...NMT_2025_TABLE].sort((a, b) => a.raw - b.raw))}
+          disabled={
+            JSON.stringify(sorted) ===
+            JSON.stringify([...NMT_2025_TABLE].sort((a, b) => a.raw - b.raw))
+          }
         >
           ↺ Скинути
         </Button>
@@ -741,7 +1049,10 @@ function ScoreTableEditor({
         </div>
         <div className="divide-y divide-border/30 max-h-[400px] overflow-y-auto">
           {sorted.map((row, i) => (
-            <div key={i} className="grid grid-cols-[1fr_1fr_40px] items-center px-4 py-2 gap-2">
+            <div
+              key={i}
+              className="grid grid-cols-[1fr_1fr_40px] items-center px-4 py-2 gap-2"
+            >
               <input
                 type="number"
                 value={row.raw}
@@ -766,7 +1077,12 @@ function ScoreTableEditor({
           ))}
         </div>
         <div className="px-4 py-3 border-t border-border/50">
-          <Button variant="outline" size="sm" className="text-xs" onClick={addRow}>
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-xs"
+            onClick={addRow}
+          >
             + Додати рядок
           </Button>
         </div>

@@ -18,8 +18,8 @@ export function QuestionCard({ q, index, answerLabel = "Ваша відпові�
   if (q.type === "mcq") {
     const uOpt = q.options?.find((o) => o.id === q.userAnswer);
     const cOpt = q.options?.find((o) => o.id === q.correctOptionId);
-    userLabel = uOpt ? `${uOpt.id}. ${uOpt.text}` : q.userAnswer || "—";
-    correctLabel = cOpt ? `${cOpt.id}. ${cOpt.text}` : q.correctOptionId ?? "";
+    userLabel = uOpt ? `${uOpt.id}${uOpt.text ? `. ${uOpt.text}` : ""}` : q.userAnswer || "—";
+    correctLabel = cOpt ? `${cOpt.id}${cOpt.text ? `. ${cOpt.text}` : ""}` : q.correctOptionId ?? "";
   } else if (q.type === "open") {
     userLabel = q.userAnswer || "—";
     correctLabel = q.correctAnswer ?? "";

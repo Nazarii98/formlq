@@ -551,8 +551,18 @@ export default function ExamPage() {
                         : "border-border/50 hover:border-primary/40 hover:bg-muted/40"
                     )}
                   >
-                    <span className="font-bold mr-2">{opt.id}</span>
-                    <MathText text={opt.text} />
+                    {opt.imageUrl ? (
+                      <div className="flex flex-col gap-2">
+                        <span className="font-bold">{opt.id}</span>
+                        <Image src={opt.imageUrl} alt={opt.id} width={400} height={200} className="max-h-40 w-full object-contain rounded-lg" />
+                        {opt.text && <MathText text={opt.text} className="text-xs text-muted-foreground" />}
+                      </div>
+                    ) : (
+                      <>
+                        <span className="font-bold mr-2">{opt.id}</span>
+                        <MathText text={opt.text} />
+                      </>
+                    )}
                   </button>
                 );
               })}

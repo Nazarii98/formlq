@@ -16,6 +16,7 @@ import { db } from "@/lib/firebase";
 export interface QuestionOption {
   id: string;
   text: string;
+  imageUrl?: string;
 }
 
 export interface MCQQuestion {
