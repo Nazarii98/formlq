@@ -27,7 +27,7 @@ import {
   OpenEditor,
   MatchingEditor,
 } from "@/components/admin/QuestionEditorPanel";
-import { getAllQuestions } from "@/lib/questions";
+import { getAllQuestions, createQuestion } from "@/lib/questions";
 import { BankQuestion } from "@/lib/tests";
 import { TOPICS } from "@/lib/topics";
 import { Search, X } from "lucide-react";
@@ -51,6 +51,13 @@ export default function TestEditorPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [savedSnapshot, setSavedSnapshot] = useState("");
+
+  // Export to bank modal
+  const [showExport, setShowExport] = useState(false);
+  const [exportSelected, setExportSelected] = useState<Set<string>>(new Set());
+  const [exportTopic, setExportTopic] = useState(TOPICS[0].id);
+  const [exportDiff, setExportDiff] = useState<1 | 2 | 3 | 4 | 5>(3);
+  const [exporting, setExporting] = useState(false);
 
   // Bank import modal
   const [showBank, setShowBank] = useState(false);
@@ -187,6 +194,30 @@ export default function TestEditorPage() {
     setActiveQId(converted[0]?.id ?? null);
     setShowBank(false);
     setBankSelected(new Set());
+  }
+
+  async function exportToBank() {
+    const toExport = questions.filter((q) => exportSelected.has(q.id));
+    if (!toExport.length) return;
+    setExporting(true);
+    try {
+      await Promise.all(
+        toExport.map((q) => {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { points, order, id, ...rest } = q;
+          return createQuestion({
+            ...rest,
+            topicId: exportTopic,
+            difficulty: exportDiff,
+            status: "draft",
+          });
+        }),
+      );
+      setShowExport(false);
+      setExportSelected(new Set());
+    } finally {
+      setExporting(false);
+    }
   }
 
   function moveQuestion(qId: string, dir: -1 | 1) {
@@ -447,6 +478,18 @@ export default function TestEditorPage() {
                   onClick={openBankModal}
                 >
                   З банку
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 text-xs border-orange-400/40 text-orange-600 hover:bg-orange-500/5"
+                  onClick={() => {
+                    setShowExport(true);
+                    setExportSelected(new Set());
+                  }}
+                  disabled={questions.length === 0}
+                >
+                  В банк
                 </Button>
               </div>
             </div>
@@ -827,6 +870,184 @@ export default function TestEditorPage() {
             </div>
           );
         })()}
+
+      {/* Export to bank modal */}
+      {showExport && (
+        <div
+          className="fixed inset-0 z-80 flex items-center justify-center p-4"
+          onClick={() => setShowExport(false)}
+        >
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+          <div
+            className="relative z-10 w-full max-w-2xl rounded-2xl border border-border/60 bg-card shadow-2xl flex flex-col max-h-[88vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-3 border-b border-border/50 shrink-0">
+              <span className="font-semibold text-sm">
+                Експорт у банк завдань
+              </span>
+              <button
+                onClick={() => setShowExport(false)}
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            {/* Topic + Difficulty */}
+            <div className="flex flex-wrap gap-3 items-end px-5 py-3 border-b border-border/50 shrink-0">
+              <div className="space-y-1 flex-1 min-w-40">
+                <label className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
+                  Тема
+                </label>
+                <Select value={exportTopic} onValueChange={setExportTopic}>
+                  {TOPICS.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.icon} {t.name}
+                    </SelectItem>
+                  ))}
+                </Select>
+              </div>
+              <div className="space-y-1 shrink-0">
+                <label className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
+                  Складність
+                </label>
+                <div className="flex gap-1">
+                  {[1, 2, 3, 4, 5].map((d) => (
+                    <button
+                      key={d}
+                      onClick={() => setExportDiff(d as 1 | 2 | 3 | 4 | 5)}
+                      className={cn(
+                        "w-8 h-8 rounded-lg border text-sm font-bold transition-all",
+                        exportDiff === d
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border/50 text-muted-foreground hover:border-primary/40",
+                      )}
+                    >
+                      {d}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <p className="w-full text-xs text-muted-foreground -mt-1">
+                Тема та складність застосовуються до всіх вибраних завдань
+              </p>
+            </div>
+
+            {/* Question list */}
+            <div className="overflow-y-auto flex-1">
+              {questions.length === 0 ? (
+                <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
+                  Немає завдань
+                </div>
+              ) : (
+                <div>
+                  <div className="flex items-center justify-between px-5 py-2 border-b border-border/30">
+                    <button
+                      onClick={() =>
+                        setExportSelected(
+                          exportSelected.size === questions.length
+                            ? new Set()
+                            : new Set(questions.map((q) => q.id)),
+                        )
+                      }
+                      className="text-xs text-primary hover:underline"
+                    >
+                      {exportSelected.size === questions.length
+                        ? "Зняти всі"
+                        : "Вибрати всі"}
+                    </button>
+                    <span className="text-xs text-muted-foreground">
+                      {questions.length} завдань
+                    </span>
+                  </div>
+                  {questions.map((q) => {
+                    const sel = exportSelected.has(q.id);
+                    return (
+                      <button
+                        key={q.id}
+                        type="button"
+                        onClick={() =>
+                          setExportSelected((prev) => {
+                            const s = new Set(prev);
+                            if (sel) s.delete(q.id);
+                            else s.add(q.id);
+                            return s;
+                          })
+                        }
+                        className={cn(
+                          "w-full text-left px-5 py-3 flex items-start gap-3 transition-all",
+                          sel ? "bg-primary/8" : "hover:bg-muted/40",
+                        )}
+                      >
+                        <div
+                          className={cn(
+                            "w-4 h-4 rounded border-2 shrink-0 mt-0.5 flex items-center justify-center transition-all",
+                            sel
+                              ? "border-primary bg-primary"
+                              : "border-border/60",
+                          )}
+                        >
+                          {sel && (
+                            <span className="text-[9px] font-bold text-primary-foreground">
+                              ✓
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm leading-snug line-clamp-2">
+                            <MathText text={q.text || "Без тексту"} />
+                          </p>
+                          <div className="flex gap-2 mt-1">
+                            <span className="text-[10px] text-muted-foreground">
+                              {q.type === "mcq"
+                                ? "MCQ"
+                                : q.type === "open"
+                                  ? "Відповідь"
+                                  : "Відповідність"}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground">
+                              {q.points}б
+                            </span>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between px-5 py-3 border-t border-border/50 shrink-0">
+              <span className="text-xs text-muted-foreground">
+                {exportSelected.size > 0
+                  ? `Вибрано ${exportSelected.size}`
+                  : "Оберіть завдання"}
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowExport(false)}
+                >
+                  Скасувати
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={exportSelected.size === 0 || exporting}
+                  onClick={exportToBank}
+                >
+                  {exporting
+                    ? "Збереження..."
+                    : `Експортувати (${exportSelected.size})`}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
