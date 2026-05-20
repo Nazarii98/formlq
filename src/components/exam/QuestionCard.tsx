@@ -11,26 +11,39 @@ interface QuestionCardProps {
   answerLabel?: string;
 }
 
-export function QuestionCard({ q, index, answerLabel = "Ваша відповідь" }: QuestionCardProps) {
+export function QuestionCard({
+  q,
+  index,
+  answerLabel = "Ваша відповідь",
+}: QuestionCardProps) {
   let userLabel = "—";
   let correctLabel = "";
 
   if (q.type === "mcq") {
     const uOpt = q.options?.find((o) => o.id === q.userAnswer);
     const cOpt = q.options?.find((o) => o.id === q.correctOptionId);
-    userLabel = uOpt ? `${uOpt.id}${uOpt.text ? `. ${uOpt.text}` : ""}` : q.userAnswer || "—";
-    correctLabel = cOpt ? `${cOpt.id}${cOpt.text ? `. ${cOpt.text}` : ""}` : q.correctOptionId ?? "";
+    userLabel = uOpt
+      ? `${uOpt.id}${uOpt.text ? `. ${uOpt.text}` : ""}`
+      : q.userAnswer || "—";
+    correctLabel = cOpt
+      ? `${cOpt.id}${cOpt.text ? `. ${cOpt.text}` : ""}`
+      : (q.correctOptionId ?? "");
   } else if (q.type === "open") {
     userLabel = q.userAnswer || "—";
     correctLabel = q.correctAnswer ?? "";
   } else if (q.type === "matching") {
     try {
       const parsed = JSON.parse(q.userAnswer) as Record<string, string>;
-      userLabel = Object.entries(parsed).map(([k, v]) => `${k}→${v}`).join(", ") || "—";
+      userLabel =
+        Object.entries(parsed)
+          .map(([k, v]) => `${k}→${v}`)
+          .join(", ") || "—";
     } catch {
       userLabel = "—";
     }
-    correctLabel = Object.entries(q.correctPairs ?? {}).map(([k, v]) => `${k}→${v}`).join(", ");
+    correctLabel = Object.entries(q.correctPairs ?? {})
+      .map(([k, v]) => `${k}→${v}`)
+      .join(", ");
   }
 
   const skipped = !q.userAnswer || q.userAnswer === "";
@@ -43,8 +56,8 @@ export function QuestionCard({ q, index, answerLabel = "Ваша відпові�
         q.isCorrect
           ? "border-border/50 border-l-green-500/60"
           : skipped
-          ? "border-border/50 border-l-border"
-          : "border-border/50 border-l-red-400/70",
+            ? "border-border/50 border-l-border"
+            : "border-border/50 border-l-red-400/70",
       )}
     >
       {/* Header */}
@@ -58,18 +71,26 @@ export function QuestionCard({ q, index, answerLabel = "Ваша відпові�
           <MathText text={q.text || "—"} className="text-sm leading-relaxed" />
           {q.imageUrl && (
             <div className="mt-3 rounded-xl overflow-hidden border border-border/50">
-              <Image src={q.imageUrl} alt="" width={800} height={400} className="w-full object-contain max-h-64" />
+              <Image
+                src={q.imageUrl}
+                alt=""
+                width={800}
+                height={400}
+                className="w-full object-contain max-h-64"
+              />
             </div>
           )}
         </div>
-        <span className={cn(
-          "shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full mt-0.5",
-          q.isCorrect
-            ? "bg-green-500/12 text-green-600 dark:text-green-400"
-            : skipped
-            ? "bg-muted text-muted-foreground"
-            : "bg-red-500/12 text-red-500",
-        )}>
+        <span
+          className={cn(
+            "shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full mt-0.5",
+            q.isCorrect
+              ? "bg-green-500/12 text-green-600 dark:text-green-400"
+              : skipped
+                ? "bg-muted text-muted-foreground"
+                : "bg-red-500/12 text-red-500",
+          )}
+        >
           {q.isCorrect ? "Вірно" : skipped ? "Пропущено" : "Невірно"}
         </span>
       </div>
@@ -77,16 +98,30 @@ export function QuestionCard({ q, index, answerLabel = "Ваша відпові�
       {/* Answers */}
       <div className="space-y-2 text-sm">
         <div className="flex items-baseline gap-2">
-          <span className="text-muted-foreground text-xs shrink-0 w-32">{answerLabel}</span>
-          <MathText text={userLabel} className={cn(
-            "font-medium",
-            q.isCorrect ? "text-green-600 dark:text-green-400" : skipped ? "text-muted-foreground" : "text-red-500",
-          )} />
+          <span className="text-muted-foreground text-xs shrink-0 w-32">
+            {answerLabel}
+          </span>
+          <MathText
+            text={userLabel}
+            className={cn(
+              "font-medium",
+              q.isCorrect
+                ? "text-green-600 dark:text-green-400"
+                : skipped
+                  ? "text-muted-foreground"
+                  : "text-red-500",
+            )}
+          />
         </div>
         {!q.isCorrect && correctLabel && (
           <div className="flex items-baseline gap-2">
-            <span className="text-muted-foreground text-xs shrink-0 w-32">Правильна відповідь</span>
-            <MathText text={correctLabel} className="font-medium text-green-600 dark:text-green-400" />
+            <span className="text-muted-foreground text-xs shrink-0 w-32">
+              Правильна відповідь
+            </span>
+            <MathText
+              text={correctLabel}
+              className="font-medium text-green-600 dark:text-green-400"
+            />
           </div>
         )}
       </div>
@@ -95,13 +130,24 @@ export function QuestionCard({ q, index, answerLabel = "Ваша відпові�
       {q.explanation && (
         <details className="group">
           <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors list-none flex items-center gap-1.5 select-none w-fit">
-            <span className="group-open:rotate-90 transition-transform inline-block leading-none">›</span>
+            <span className="group-open:rotate-90 transition-transform inline-block leading-none">
+              ›
+            </span>
             Пояснення
           </summary>
-          <MathText text={q.explanation} className="block mt-2.5 text-sm text-foreground/80 leading-relaxed border-l-2 border-border/60 pl-3" />
+          <MathText
+            text={q.explanation}
+            className="block mt-2.5 text-sm text-foreground/80 leading-relaxed border-l-2 border-border/60 pl-3"
+          />
           {q.explanationImageUrl && (
             <div className="mt-3 rounded-xl overflow-hidden border border-border/50">
-              <Image src={q.explanationImageUrl} alt="" width={800} height={400} className="w-full object-contain max-h-64" />
+              <Image
+                src={q.explanationImageUrl}
+                alt=""
+                width={800}
+                height={400}
+                className="w-full object-contain max-h-64"
+              />
             </div>
           )}
         </details>

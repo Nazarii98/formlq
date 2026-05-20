@@ -1,0 +1,60 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    function isEditor() {
+      return isAuth() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "editor";
+    }
+
+    function isOwner(uid) {
+      return isAuth() && request.auth.uid == uid;
+    }
+
+    // Users — own profile or editor
+    match /users/{uid} {
+      allow read: if isOwner(uid) || isEditor();
+      allow write: if isOwner(uid) || isEditor();
+    }
+
+    // Tests — read by any auth user, write by editors only
+    match /tests/{testId} {
+      allow read: if isAuth();
+      allow write: if isEditor();
+    }
+
+    // Test results — read by owner or editor, create by any auth user
+    match /testResults/{resultId} {
+      allow read: if isAuth() && (
+        resource.data.userId == request.auth.uid || isEditor()
+      );
+      allow create: if isAuth();
+      allow update, delete: if isEditor();
+    }
+
+    // Tips — read by any auth user, write by editors only
+    match /tips/{tipId} {
+      allow read: if isAuth();
+      allow write: if isEditor();
+    }
+
+    // Questions bank — read by any auth user, write by editors only
+    match /questions/{questionId} {
+      allow read: if isAuth();
+      allow write: if isEditor();
+    }
+
+    // Daily answers — read/create by owner, read by editor
+    match /dailyAnswers/{docId} {
+      allow read: if isAuth() && (
+        resource.data.userId == request.auth.uid || isEditor()
+      );
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isEditor();
+    }
+  }
+}

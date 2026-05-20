@@ -9,6 +9,7 @@ import {
   ShieldCheck,
   Lightbulb,
   Users,
+  ClipboardCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
@@ -26,6 +27,7 @@ const ADMIN_NAV = [
   { icon: ShieldCheck, href: "/admin/tests", label: "Тести" },
   { icon: Lightbulb, href: "/admin/tips", label: "Поради" },
   { icon: Users, href: "/admin/users", label: "Користувачі" },
+  { icon: ClipboardCheck, href: "/admin/questions", label: "Завдання" },
 ];
 
 export function AppSidebar() {

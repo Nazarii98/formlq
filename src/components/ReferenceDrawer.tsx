@@ -151,7 +151,7 @@ export function ReferenceDrawer() {
       {/* Backdrop */}
       <div
         className={cn(
-          "fixed inset-0 z-60 bg-black/30 backdrop-blur-[2px] transition-opacity duration-300",
+          "fixed inset-0 z-95 bg-black/30 backdrop-blur-[2px] transition-opacity duration-300",
           open ? "opacity-100" : "opacity-0 pointer-events-none",
         )}
         onClick={closeDrawer}
@@ -160,7 +160,7 @@ export function ReferenceDrawer() {
       {/* Drawer panel */}
       <div
         className={cn(
-          "fixed inset-y-0 right-0 z-70 flex flex-col bg-background border-l border-border/50 shadow-2xl transition-transform duration-300 ease-out",
+          "fixed inset-y-0 right-0 z-100 flex flex-col bg-background border-l border-border/50 shadow-2xl transition-transform duration-300 ease-out",
           "w-[min(780px,92vw)]",
           open ? "translate-x-0" : "translate-x-full",
         )}

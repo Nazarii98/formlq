@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import { useDragReorder } from "@/hooks/useDragReorder";
 import { getTips, createTip, updateTip, deleteTip, Tip } from "@/lib/tips";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -79,7 +80,7 @@ function TipRow({
         badge === "today" && !isOver && "border-primary/40 bg-primary/5",
         !badge && tip.active && !isOver && "border-border/50",
         isSrc && "opacity-40",
-        isOver && "border-primary/50 bg-primary/5 shadow-[0_0_0_2px_color-mix(in_oklch,var(--primary)_20%,transparent)]",
+        isOver && "border-primary/60 bg-primary/5 scale-[1.01]",
       )}
       >
         <div className="hidden [@media(hover:hover)]:flex shrink-0 text-muted-foreground/30 group-hover:text-muted-foreground/70 transition-colors cursor-grab active:cursor-grabbing">
@@ -172,9 +173,6 @@ function NewTipForm({ onAdd }: { onAdd: (data: Omit<Tip, "id">) => void }) {
 export default function AdminTipsPage() {
   const [tips, setTips] = useState<Tip[]>([]);
   const [loading, setLoading] = useState(true);
-  const [dragSrcIdx, setDragSrcIdx] = useState<number | null>(null);
-  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
-  const dragSrcRef = useRef<number | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -200,36 +198,6 @@ export default function AdminTipsPage() {
     setTips((prev) => prev.filter((t) => t.id !== id));
   }
 
-  function handleDragStart(i: number) {
-    dragSrcRef.current = i;
-    setDragSrcIdx(i);
-  }
-
-  function handleDragEnter(i: number, e: React.DragEvent) {
-    if ((e.currentTarget as Node).contains(e.relatedTarget as Node)) return;
-    if (dragOverIdx !== i) setDragOverIdx(i);
-  }
-
-  function handleDrop(i: number) {
-    const src = dragSrcRef.current;
-    dragSrcRef.current = null;
-    setDragSrcIdx(null);
-    setDragOverIdx(null);
-    if (src === null || src === i) return;
-    const next = [...tips];
-    const [moved] = next.splice(src, 1);
-    next.splice(i, 0, moved);
-    const updated = next.map((t, idx) => ({ ...t, order: idx }));
-    setTips(updated);
-    Promise.all(updated.map((t, idx) => updateTip(t.id, { order: idx })));
-  }
-
-  function handleDragEnd() {
-    dragSrcRef.current = null;
-    setDragSrcIdx(null);
-    setDragOverIdx(null);
-  }
-
   function handleReorder(src: number, dst: number) {
     const next = [...tips];
     const [moved] = next.splice(src, 1);
@@ -238,6 +206,8 @@ export default function AdminTipsPage() {
     setTips(updated);
     Promise.all(updated.map((t, idx) => updateTip(t.id, { order: idx })));
   }
+
+  const { isSrc: isDragSrc, isOver: isDragOver, handleDragStart, handleDragEnter, handleDrop, handleDragEnd } = useDragReorder(handleReorder);
 
   const dayIdx = getDayIndex();
   const baseIdx = tips.length > 0 ? dayIdx % tips.length : -1;
@@ -270,8 +240,8 @@ export default function AdminTipsPage() {
                 onDragEnter={(e) => handleDragEnter(i, e)}
                 onDrop={() => handleDrop(i)}
                 onDragEnd={handleDragEnd}
-                isSrc={dragSrcIdx === i}
-                isOver={dragOverIdx === i && dragSrcIdx !== i}
+                isSrc={isDragSrc(i)}
+                isOver={isDragOver(i)}
                 onMoveUp={() => handleReorder(i, i - 1)}
                 onMoveDown={() => handleReorder(i, i + 1)}
                 isFirst={i === 0}

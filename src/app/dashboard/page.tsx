@@ -2,20 +2,30 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { useAuth } from "@/context/AuthContext";
-import Link from "next/link";
 import { cn } from "@/lib/utils";
-import {
-  getPublishedTests,
-  getUserResults,
-  TestDoc,
-  TestResult,
-} from "@/lib/tests";
+import { getUserResults, TestResult } from "@/lib/tests";
 import { getTips, Tip } from "@/lib/tips";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useColorTheme } from "@/context/ThemeContext";
-import { ChevronRight, BookOpen } from "lucide-react";
+import { CheckCircle2, XCircle } from "lucide-react";
+import Image from "next/image";
+import { MathText } from "@/components/MathText";
+import { Select, SelectItem } from "@/components/ui/select";
+import {
+  getDailyQuestion,
+  getTodayDailyAnswer,
+  saveDailyAnswer,
+  getDailyAnswerDates,
+  DailyAnswer,
+} from "@/lib/questions";
+import {
+  BankQuestion,
+  BankMCQQuestion,
+  BankOpenQuestion,
+  BankMatchingQuestion,
+} from "@/lib/tests";
 import { formatDuration } from "@/lib/format";
 import {
   AreaChart,
@@ -31,8 +41,9 @@ import {
 function DailyTip({ tips }: { tips: Tip[] }) {
   const tip = useMemo(() => {
     if (!tips.length) return null;
+    const now = new Date();
     const dayOfYear = Math.floor(
-      (Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000
+      (now.getTime() - new Date(now.getFullYear(), 0, 0).getTime()) / 86400000,
     );
     const baseIdx = dayOfYear % tips.length;
     for (let i = 0; i < tips.length; i++) {
@@ -148,12 +159,20 @@ function buildChartData(
         const t = r.completedAt.toDate().getTime();
         return t >= start.getTime() && t < end.getTime();
       });
-      const best = bucket.length ? Math.max(...bucket.map((r) => r.nmtScore)) : null;
+      const best = bucket.length
+        ? Math.max(...bucket.map((r) => r.nmtScore))
+        : null;
       const avg = bucket.length
         ? Math.round(bucket.reduce((s, r) => s + r.nmtScore, 0) / bucket.length)
         : null;
       const totalTime = bucket.reduce((s, r) => s + (r.timeSpent ?? 0), 0);
-      points.push({ label, score: best, count: bucket.length, totalTime, best: avg });
+      points.push({
+        label,
+        score: best,
+        count: bucket.length,
+        totalTime,
+        best: avg,
+      });
     }
   } else if (range === "week") {
     // last 7 days, step = 1 day
@@ -169,12 +188,20 @@ function buildChartData(
         const t = r.completedAt.toDate().getTime();
         return t >= d.getTime() && t < nextD.getTime();
       });
-      const best = bucket.length ? Math.max(...bucket.map((r) => r.nmtScore)) : null;
+      const best = bucket.length
+        ? Math.max(...bucket.map((r) => r.nmtScore))
+        : null;
       const avg = bucket.length
         ? Math.round(bucket.reduce((s, r) => s + r.nmtScore, 0) / bucket.length)
         : null;
       const totalTime = bucket.reduce((s, r) => s + (r.timeSpent ?? 0), 0);
-      points.push({ label, score: best, count: bucket.length, totalTime, best: avg });
+      points.push({
+        label,
+        score: best,
+        count: bucket.length,
+        totalTime,
+        best: avg,
+      });
     }
   } else if (monthStep === "week") {
     // last 8 weeks, step = 1 week
@@ -184,18 +211,29 @@ function buildChartData(
       weekStart.setHours(0, 0, 0, 0);
       const weekEnd = new Date(weekStart);
       weekEnd.setDate(weekStart.getDate() + 7);
-      const label = weekStart.toLocaleString("uk", { day: "numeric", month: "short" });
+      const label = weekStart.toLocaleString("uk", {
+        day: "numeric",
+        month: "short",
+      });
       const bucket = results.filter((r) => {
         if (!r.completedAt) return false;
         const t = r.completedAt.toDate().getTime();
         return t >= weekStart.getTime() && t < weekEnd.getTime();
       });
-      const best = bucket.length ? Math.max(...bucket.map((r) => r.nmtScore)) : null;
+      const best = bucket.length
+        ? Math.max(...bucket.map((r) => r.nmtScore))
+        : null;
       const avg = bucket.length
         ? Math.round(bucket.reduce((s, r) => s + r.nmtScore, 0) / bucket.length)
         : null;
       const totalTime = bucket.reduce((s, r) => s + (r.timeSpent ?? 0), 0);
-      points.push({ label, score: best, count: bucket.length, totalTime, best: avg });
+      points.push({
+        label,
+        score: best,
+        count: bucket.length,
+        totalTime,
+        best: avg,
+      });
     }
   } else {
     // last 6 months, step = 1 month
@@ -208,12 +246,20 @@ function buildChartData(
         const rd = r.completedAt.toDate();
         return `${rd.getFullYear()}-${rd.getMonth()}` === key;
       });
-      const best = bucket.length ? Math.max(...bucket.map((r) => r.nmtScore)) : null;
+      const best = bucket.length
+        ? Math.max(...bucket.map((r) => r.nmtScore))
+        : null;
       const avg = bucket.length
         ? Math.round(bucket.reduce((s, r) => s + r.nmtScore, 0) / bucket.length)
         : null;
       const totalTime = bucket.reduce((s, r) => s + (r.timeSpent ?? 0), 0);
-      points.push({ label, score: best, count: bucket.length, totalTime, best: avg });
+      points.push({
+        label,
+        score: best,
+        count: bucket.length,
+        totalTime,
+        best: avg,
+      });
     }
   }
 
@@ -236,19 +282,28 @@ function CustomTooltip({
     <div className="rounded-xl border border-border/60 bg-card px-3 py-2.5 shadow-lg text-sm space-y-1.5 min-w-[140px]">
       {label && <p className="text-muted-foreground text-xs">{label}</p>}
       <div>
-        <p className="font-bold text-primary text-lg leading-none">{payload[0].value}</p>
+        <p className="font-bold text-primary text-lg leading-none">
+          {payload[0].value}
+        </p>
         <p className="text-[10px] text-muted-foreground">найкращий бал НМТ</p>
       </div>
       {pt.best !== null && pt.best !== payload[0].value && (
-        <p className="text-xs text-muted-foreground">Середній: <span className="font-semibold text-foreground">{pt.best}</span></p>
+        <p className="text-xs text-muted-foreground">
+          Середній:{" "}
+          <span className="font-semibold text-foreground">{pt.best}</span>
+        </p>
       )}
       <div className="border-t border-border/40 pt-1.5 space-y-0.5">
         <p className="text-xs text-muted-foreground">
-          Спроб: <span className="font-semibold text-foreground">{pt.count}</span>
+          Спроб:{" "}
+          <span className="font-semibold text-foreground">{pt.count}</span>
         </p>
         {pt.totalTime > 0 && (
           <p className="text-xs text-muted-foreground">
-            Час: <span className="font-semibold text-foreground">{formatDuration(pt.totalTime)}</span>
+            Час:{" "}
+            <span className="font-semibold text-foreground">
+              {formatDuration(pt.totalTime)}
+            </span>
           </p>
         )}
       </div>
@@ -282,19 +337,40 @@ function ProgressSection({ results }: { results: TestResult[] }) {
   const { distinctDays, distinctWeeks, distinctMonths } = useMemo(() => {
     const withDate = results.filter((r) => r.completedAt);
     return {
-      distinctDays:   new Set(withDate.map((r) => { const d = r.completedAt!.toDate(); return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`; })).size,
-      distinctWeeks:  new Set(withDate.map((r) => { const d = r.completedAt!.toDate(); return `${d.getFullYear()}-${d.getMonth()}-${Math.floor(d.getDate() / 7)}`; })).size,
-      distinctMonths: new Set(withDate.map((r) => { const d = r.completedAt!.toDate(); return `${d.getFullYear()}-${d.getMonth()}`; })).size,
+      distinctDays: new Set(
+        withDate.map((r) => {
+          const d = r.completedAt!.toDate();
+          return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+        }),
+      ).size,
+      distinctWeeks: new Set(
+        withDate.map((r) => {
+          const d = r.completedAt!.toDate();
+          return `${d.getFullYear()}-${d.getMonth()}-${Math.floor(d.getDate() / 7)}`;
+        }),
+      ).size,
+      distinctMonths: new Set(
+        withDate.map((r) => {
+          const d = r.completedAt!.toDate();
+          return `${d.getFullYear()}-${d.getMonth()}`;
+        }),
+      ).size,
     };
   }, [results]);
 
-  const [range, setRange] = useState<Range>(() => (distinctDays > 1 ? "week" : "day"));
+  const [range, setRange] = useState<Range>(() =>
+    distinctDays > 1 ? "week" : "day",
+  );
   const [monthStep, setMonthStep] = useState<MonthStep>("week");
   const { colorTheme } = useColorTheme();
   const primary = THEME_COLORS[colorTheme] ?? THEME_COLORS.violet;
-  const data = useMemo(() => buildChartData(results, range, monthStep), [results, range, monthStep]);
+  const data = useMemo(
+    () => buildChartData(results, range, monthStep),
+    [results, range, monthStep],
+  );
   const hasData = data.some((d) => d.score !== null);
-  const showStepSelector = range === "month" && (distinctWeeks > 1 || distinctMonths > 1);
+  const showStepSelector =
+    range === "month" && (distinctWeeks > 1 || distinctMonths > 1);
 
   const availableRanges = RANGE_LABELS.filter(({ value }) => {
     if (value === "day") return true;
@@ -341,22 +417,22 @@ function ProgressSection({ results }: { results: TestResult[] }) {
             </div>
           )}
           {availableRanges.length > 1 && (
-          <div className="flex gap-1 bg-muted/40 p-1 rounded-xl">
-            {availableRanges.map(({ value, label }) => (
-              <button
-                key={value}
-                onClick={() => setRange(value)}
-                className={cn(
-                  "px-3 py-1 rounded-lg text-xs font-medium transition-all",
-                  range === value
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+            <div className="flex gap-1 bg-muted/40 p-1 rounded-xl">
+              {availableRanges.map(({ value, label }) => (
+                <button
+                  key={value}
+                  onClick={() => setRange(value)}
+                  className={cn(
+                    "px-3 py-1 rounded-lg text-xs font-medium transition-all",
+                    range === value
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           )}
         </div>
       </div>
@@ -449,39 +525,72 @@ function ProgressSection({ results }: { results: TestResult[] }) {
 }
 
 // ── Recommended Test ───────────────────────────────────────────
-function RecommendedTest({
-  tests,
-  results,
-  loading,
+function DailyQuestion({
+  userId,
+  onAnswered,
 }: {
-  tests: TestDoc[];
-  results: TestResult[];
-  loading: boolean;
+  userId: string;
+  onAnswered: () => void;
 }) {
-  const now = new Date();
-  const todayStart = new Date(now);
-  todayStart.setHours(0, 0, 0, 0);
+  const [question, setQuestion] = useState<BankQuestion | null>(null);
+  const [todayAnswer, setTodayAnswer] = useState<
+    DailyAnswer | null | "loading"
+  >("loading");
+  const [selected, setSelected] = useState<string>("");
+  const [matching, setMatching] = useState<Record<string, string>>({});
+  const [submitted, setSubmitted] = useState(false);
+  const [isCorrect, setIsCorrect] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  const doneToday = results.some((r) => {
-    if (!r.completedAt) return false;
-    return r.completedAt.toDate() >= todayStart;
-  });
+  useEffect(() => {
+    getDailyQuestion().then(setQuestion);
+    getTodayDailyAnswer(userId).then(setTodayAnswer);
+  }, [userId]);
 
-  // pick test least recently done (or never done)
-  const lastDoneMap = new Map<string, number>();
-  results.forEach((r) => {
-    const t = r.completedAt?.toMillis() ?? 0;
-    if (!lastDoneMap.has(r.testId) || t > lastDoneMap.get(r.testId)!) {
-      lastDoneMap.set(r.testId, t);
+  function checkAnswer(): boolean {
+    if (!question) return false;
+    if (question.type === "mcq")
+      return selected === (question as BankMCQQuestion).correctOptionId;
+    if (question.type === "open")
+      return (
+        selected.trim().toLowerCase() ===
+        (question as BankOpenQuestion).correctAnswer.trim().toLowerCase()
+      );
+    if (question.type === "matching") {
+      const q = question as BankMatchingQuestion;
+      return q.leftItems.every(
+        (item) => matching[item.id] === q.correctPairs[item.id],
+      );
     }
-  });
-  const recommended = tests.length
-    ? [...tests].sort(
-        (a, b) => (lastDoneMap.get(a.id) ?? 0) - (lastDoneMap.get(b.id) ?? 0),
-      )[0]
-    : null;
+    return false;
+  }
 
-  if (loading) {
+  async function handleSubmit() {
+    if (!question) return;
+    const correct = checkAnswer();
+    setIsCorrect(correct);
+    setSubmitted(true);
+    setSaving(true);
+    try {
+      await saveDailyAnswer(userId, question.id, correct);
+      onAnswered();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const canSubmit =
+    question?.type === "mcq"
+      ? !!selected
+      : question?.type === "open"
+        ? selected.trim().length > 0
+        : question?.type === "matching"
+          ? (question as BankMatchingQuestion).leftItems.every(
+              (i) => !!matching[i.id],
+            )
+          : false;
+
+  if (todayAnswer === "loading" || (!question && todayAnswer === null)) {
     return (
       <div className="flex justify-center py-8">
         <div className="w-5 h-5 rounded-full border-2 border-primary border-t-transparent animate-spin" />
@@ -489,66 +598,278 @@ function RecommendedTest({
     );
   }
 
-  if (!recommended) {
+  // Already answered today
+  if (typeof todayAnswer === "object" && todayAnswer !== null) {
+    const correct = todayAnswer.isCorrect;
+    let correctLabel = "";
+    if (question) {
+      if (question.type === "mcq") {
+        const opt = (question as BankMCQQuestion).options.find(
+          (o) => o.id === (question as BankMCQQuestion).correctOptionId,
+        );
+        correctLabel = opt
+          ? `${opt.id}. ${opt.text}`
+          : (question as BankMCQQuestion).correctOptionId;
+      } else if (question.type === "open") {
+        correctLabel = (question as BankOpenQuestion).correctAnswer;
+      } else if (question.type === "matching") {
+        correctLabel = Object.entries(
+          (question as BankMatchingQuestion).correctPairs,
+        )
+          .map(([k, v]) => `${k}→${v}`)
+          .join(", ");
+      }
+    }
     return (
-      <section className="rounded-2xl border border-dashed border-border/50 py-10 text-center text-sm text-muted-foreground">
-        Тести ще не додані
+      <section className="rounded-2xl border border-border/50 bg-card p-5 space-y-4">
+        {/* Header */}
+        <div className="flex items-center gap-2">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-primary">
+            Завдання дня
+          </p>
+          <span
+            className={cn(
+              "ml-auto flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full",
+              correct
+                ? "bg-green-500/10 text-green-600 dark:text-green-400"
+                : "bg-red-500/10 text-red-500",
+            )}
+          >
+            {correct ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
+            {correct ? "Правильно" : "Неправильно"}
+          </span>
+        </div>
+
+        {/* Question */}
+        {question && (
+          <div className="space-y-3">
+            <MathText
+              text={question.text}
+              className="text-sm font-medium leading-relaxed"
+            />
+            {question.imageUrl && (
+              <div className="rounded-xl overflow-hidden border border-border/50">
+                <Image
+                  src={question.imageUrl}
+                  alt=""
+                  width={800}
+                  height={400}
+                  className="w-full object-contain max-h-48"
+                />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Correct answer */}
+        {correctLabel && (
+          <div className="px-4 py-2.5 rounded-xl border border-green-500/30 bg-green-500/8 text-sm">
+            <span className="text-xs text-muted-foreground mr-2">
+              Правильна відповідь:
+            </span>
+            <span className="font-medium text-green-700 dark:text-green-400">
+              <MathText text={correctLabel} />
+            </span>
+          </div>
+        )}
+
+        {/* Explanation */}
+        {question?.explanation && (
+          <div className="px-4 py-3 rounded-xl border border-border/40 bg-muted/30 text-sm text-muted-foreground leading-relaxed">
+            <MathText text={question.explanation} />
+            {question.explanationImageUrl && (
+              <div className="mt-2 rounded-lg overflow-hidden border border-border/50">
+                <Image
+                  src={question.explanationImageUrl}
+                  alt=""
+                  width={800}
+                  height={400}
+                  className="w-full object-contain max-h-40"
+                />
+              </div>
+            )}
+          </div>
+        )}
+
+        <p className="text-xs text-muted-foreground">Нове завдання завтра 🔥</p>
       </section>
     );
   }
 
-  const lastDone = lastDoneMap.has(recommended.id)
-    ? new Date(lastDoneMap.get(recommended.id)!).toLocaleDateString("uk", { day: "numeric", month: "short" })
-    : null;
-  const qCount = recommended.questions?.length ?? 0;
-
-  if (doneToday) {
+  if (!question) {
     return (
-      <section className="rounded-2xl border border-border/50 bg-card px-5 py-4 flex items-center gap-4">
-        <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center text-xl shrink-0">🔥</div>
-        <div className="flex-1 min-w-0">
-          <p className="font-semibold text-sm">Молодець, сьогодні вже займався!</p>
-          <p className="text-xs text-muted-foreground mt-0.5">Повертайся завтра щоб підтримати серію</p>
-        </div>
-        <Link href={`/dashboard/exam/${recommended.id}`} className="shrink-0 px-3.5 py-2 rounded-xl border border-border/60 text-sm font-medium hover:bg-muted transition-colors">
-          Ще раз
-        </Link>
+      <section className="rounded-2xl border border-dashed border-border/50 py-8 text-center text-sm text-muted-foreground">
+        Схвалених завдань ще немає
       </section>
     );
   }
 
   return (
-    <Link href={`/dashboard/exam/${recommended.id}`} className="block">
-      <section className="group rounded-2xl border border-border/50 bg-card px-5 py-4 flex items-center gap-4 hover:border-primary/30 hover:bg-primary/2 transition-all cursor-pointer">
-        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-          <BookOpen size={18} className="text-primary" />
+    <section className="rounded-2xl border border-border/50 bg-card p-5 space-y-4">
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-primary mb-2">
+          Завдання дня
+        </p>
+        <MathText
+          text={question.text}
+          className="text-sm font-medium leading-relaxed"
+        />
+        {question.imageUrl && (
+          <div className="mt-3 rounded-xl overflow-hidden border border-border/50">
+            <Image
+              src={question.imageUrl}
+              alt=""
+              width={800}
+              height={400}
+              className="w-full object-contain max-h-48"
+            />
+          </div>
+        )}
+      </div>
+
+      {/* MCQ */}
+      {question.type === "mcq" && !submitted && (
+        <div className="space-y-2">
+          {(question as BankMCQQuestion).options.map((opt) => (
+            <button
+              key={opt.id}
+              onClick={() => setSelected(opt.id)}
+              className={cn(
+                "w-full text-left px-4 py-2.5 rounded-xl border transition-all text-sm",
+                selected === opt.id
+                  ? "border-primary bg-primary/10 font-medium"
+                  : "border-border/50 hover:border-primary/40 hover:bg-muted/40",
+              )}
+            >
+              {opt.imageUrl ? (
+                <div className="flex flex-col gap-1">
+                  <span className="font-bold">{opt.id}</span>
+                  <Image
+                    src={opt.imageUrl}
+                    alt={opt.id}
+                    width={400}
+                    height={200}
+                    className="max-h-32 w-full object-contain rounded-lg"
+                  />
+                  {opt.text && (
+                    <MathText
+                      text={opt.text}
+                      className="text-xs text-muted-foreground"
+                    />
+                  )}
+                </div>
+              ) : (
+                <>
+                  <span className="font-bold mr-2">{opt.id}</span>
+                  <MathText text={opt.text} />
+                </>
+              )}
+            </button>
+          ))}
         </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-primary mb-0.5">Тест дня</p>
-          <p className="font-semibold text-sm truncate">{recommended.title}</p>
-          <p className="text-xs text-muted-foreground truncate mt-0.5">
-            {[recommended.subtitle, `${qCount} питань`, `~${Math.round(qCount * 2)} хв`, lastDone ? `остання: ${lastDone}` : null]
-              .filter(Boolean).join(" · ")}
-          </p>
+      )}
+
+      {/* Open */}
+      {question.type === "open" && !submitted && (
+        <input
+          value={selected}
+          onChange={(e) => setSelected(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && canSubmit) handleSubmit();
+          }}
+          placeholder="Введіть відповідь..."
+          className="w-full px-4 py-2.5 rounded-xl border border-border/50 bg-background focus:outline-none focus:border-primary text-sm transition-colors"
+        />
+      )}
+
+      {/* Matching */}
+      {question.type === "matching" && !submitted && (
+        <div className="space-y-2">
+          {(question as BankMatchingQuestion).leftItems.map((item) => (
+            <div
+              key={item.id}
+              className="flex items-center gap-3 px-4 py-2 rounded-xl border border-border/50 bg-background"
+            >
+              <span className="text-sm flex-1 min-w-0">
+                <span className="font-semibold mr-1">{item.id}.</span>
+                <MathText text={item.text} />
+              </span>
+              <Select
+                value={matching[item.id] ?? ""}
+                onValueChange={(v) =>
+                  setMatching((p) => ({ ...p, [item.id]: v }))
+                }
+                className="shrink-0 w-20"
+              >
+                <SelectItem value="">—</SelectItem>
+                {(question as BankMatchingQuestion).rightOptions.map((opt) => (
+                  <SelectItem key={opt.id} value={opt.id}>
+                    {opt.id}
+                  </SelectItem>
+                ))}
+              </Select>
+            </div>
+          ))}
+          <div className="space-y-0.5 pt-1">
+            {(question as BankMatchingQuestion).rightOptions.map((opt) => (
+              <p key={opt.id} className="text-xs text-muted-foreground px-1">
+                <span className="font-semibold text-foreground">{opt.id}.</span>{" "}
+                <MathText text={opt.text} />
+              </p>
+            ))}
+          </div>
         </div>
-        <span className="shrink-0 flex items-center gap-1 px-3.5 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-medium group-hover:opacity-90 transition-opacity whitespace-nowrap">
-          Почати <ChevronRight size={14} />
-        </span>
-      </section>
-    </Link>
+      )}
+
+      {/* Result after submit */}
+      {submitted && (
+        <div
+          className={cn(
+            "px-4 py-3 rounded-xl border text-sm font-medium flex items-center gap-2",
+            isCorrect
+              ? "border-green-500/40 bg-green-500/10 text-green-700 dark:text-green-400"
+              : "border-red-400/40 bg-red-500/10 text-red-500",
+          )}
+        >
+          {isCorrect ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
+          {isCorrect ? "Правильно!" : "Неправильно"}
+          {!isCorrect && question.type === "open" && (
+            <span className="font-normal text-muted-foreground ml-1">
+              Відповідь:{" "}
+              <b className="text-foreground">
+                {(question as BankOpenQuestion).correctAnswer}
+              </b>
+            </span>
+          )}
+        </div>
+      )}
+      {submitted && question.explanation && (
+        <div className="px-4 py-3 rounded-xl border border-border/40 bg-muted/30 text-sm text-muted-foreground leading-relaxed">
+          <MathText text={question.explanation} />
+        </div>
+      )}
+
+      {!submitted && (
+        <button
+          onClick={handleSubmit}
+          disabled={!canSubmit || saving}
+          className={cn(
+            "w-full py-2.5 rounded-xl text-sm font-medium transition-all",
+            canSubmit && !saving
+              ? "bg-primary text-primary-foreground hover:opacity-90"
+              : "bg-muted text-muted-foreground cursor-not-allowed",
+          )}
+        >
+          {saving ? "Збереження..." : "Перевірити"}
+        </button>
+      )}
+    </section>
   );
 }
 
 // ── Main ───────────────────────────────────────────────────────
 export default function DashboardPage() {
   const { user, refreshProfile } = useAuth();
-
-  const { data: tests = [], isLoading: testsLoading } = useQuery({
-    queryKey: ["published-tests"],
-    queryFn: getPublishedTests,
-    enabled: !!user,
-    staleTime: 5 * 60 * 1000,
-  });
 
   const { data: tips = [] } = useQuery({
     queryKey: ["tips"],
@@ -564,47 +885,75 @@ export default function DashboardPage() {
     staleTime: 60 * 1000,
   });
 
+  const { data: dailyDates = [], refetch: refetchDailyDates } = useQuery<
+    string[]
+  >({
+    queryKey: ["daily-dates", user?.uid],
+    queryFn: () => getDailyAnswerDates(user!.uid),
+    enabled: !!user,
+    staleTime: 60 * 1000,
+  });
+
   useEffect(() => {
-    if (!user || !results.length) return;
+    if (!user) return;
     const now = new Date();
-    const activeDayKeys = new Set(
-      results
-        .filter((r) => r.completedAt)
-        .map((r) => {
-          const d = r.completedAt!.toDate();
-          return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-        }),
-    );
+    // combine test result dates + daily answer dates
+    const activeDayKeys = new Set<string>();
+    results
+      .filter((r) => r.completedAt)
+      .forEach((r) => {
+        const d = r.completedAt!.toDate();
+        activeDayKeys.add(
+          `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`,
+        );
+      });
+    dailyDates.forEach((date) => activeDayKeys.add(date));
+    if (!activeDayKeys.size) return;
     let streak = 0;
     for (let i = 0; i < 365; i++) {
       const d = new Date(now);
       d.setDate(now.getDate() - i);
-      const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
       if (activeDayKeys.has(key)) streak++;
       else break;
     }
-    updateDoc(doc(db, "users", user.uid), { streak }).then(() => refreshProfile());
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [results, user?.uid]);
+    updateDoc(doc(db, "users", user.uid), { streak }).then(() =>
+      refreshProfile(),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [results, dailyDates, user?.uid]);
 
   const activeDays = useMemo(() => {
     const now = new Date();
-    const days = results
+    const days = new Set<number>();
+    results
       .filter((r) => {
         if (!r.completedAt) return false;
         const d = r.completedAt.toDate();
-        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+        return (
+          d.getMonth() === now.getMonth() &&
+          d.getFullYear() === now.getFullYear()
+        );
       })
-      .map((r) => r.completedAt!.toDate().getDate());
-    return [...new Set(days)];
-  }, [results]);
+      .forEach((r) => days.add(r.completedAt!.toDate().getDate()));
+    dailyDates.forEach((date) => {
+      const [y, m, d] = date.split("-").map(Number);
+      if (y === now.getFullYear() && m === now.getMonth() + 1) days.add(d);
+    });
+    return [...days];
+  }, [results, dailyDates]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6 items-start">
       {/* Left */}
       <div className="space-y-6">
         <DailyTip tips={tips} />
-        <RecommendedTest tests={tests} results={results} loading={testsLoading} />
+        {user && (
+          <DailyQuestion
+            userId={user.uid}
+            onAnswered={() => refetchDailyDates()}
+          />
+        )}
         <ProgressSection results={results} />
       </div>
 
@@ -614,27 +963,37 @@ export default function DashboardPage() {
           <MiniCalendar activeDays={activeDays} />
         </section>
 
-        {results.length > 0 && (() => {
-          const scores = results.map((r) => r.nmtScore);
-          const best = Math.max(...scores);
-          const last = scores[0];
-          const avg = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
-          return (
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                { label: "Найкращий", value: best, emoji: "🏆" },
-                { label: "Останній", value: last, emoji: "📋" },
-                { label: "Середній", value: avg, emoji: "📊" },
-              ].map(({ label, value, emoji }) => (
-                <div key={label} className="rounded-2xl border border-border/50 bg-card px-2 py-3 text-center">
-                  <p className="text-base mb-0.5">{emoji}</p>
-                  <p className="text-lg font-bold tabular-nums text-primary">{value}</p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">{label}</p>
-                </div>
-              ))}
-            </div>
-          );
-        })()}
+        {results.length > 0 &&
+          (() => {
+            const scores = results.map((r) => r.nmtScore);
+            const best = Math.max(...scores);
+            const last = scores[0];
+            const avg = Math.round(
+              scores.reduce((a, b) => a + b, 0) / scores.length,
+            );
+            return (
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { label: "Найкращий", value: best, emoji: "🏆" },
+                  { label: "Останній", value: last, emoji: "📋" },
+                  { label: "Середній", value: avg, emoji: "📊" },
+                ].map(({ label, value, emoji }) => (
+                  <div
+                    key={label}
+                    className="rounded-2xl border border-border/50 bg-card px-2 py-3 text-center"
+                  >
+                    <p className="text-base mb-0.5">{emoji}</p>
+                    <p className="text-lg font-bold tabular-nums text-primary">
+                      {value}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      {label}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
 
         <section className="space-y-3">
           <h2 className="font-semibold text-base">Події</h2>
@@ -643,7 +1002,10 @@ export default function DashboardPage() {
               { label: "НМТ 2026", date: "Незабаром" },
               { label: "Пробний тест", date: "Заплануй" },
             ].map((ev) => (
-              <div key={ev.label} className="rounded-2xl border border-border/40 bg-card px-4 py-3 flex items-center justify-between">
+              <div
+                key={ev.label}
+                className="rounded-2xl border border-border/40 bg-card px-4 py-3 flex items-center justify-between"
+              >
                 <p className="text-sm font-medium">{ev.label}</p>
                 <p className="text-xs text-muted-foreground">{ev.date}</p>
               </div>

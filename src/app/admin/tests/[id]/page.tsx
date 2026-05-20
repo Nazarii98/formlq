@@ -1,15 +1,12 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { ImagePlus, X as XIcon } from "lucide-react";
-import { uploadQuestionImage, deleteQuestionImage } from "@/lib/storage";
 import { MathText } from "@/components/MathText";
-import Image from "next/image";
 import {
   getTest,
   updateTest,
@@ -24,6 +21,17 @@ import {
   NMT_2025_TABLE,
   maxRawScore,
 } from "@/lib/tests";
+import {
+  QuestionImageUpload,
+  MCQEditor,
+  OpenEditor,
+  MatchingEditor,
+} from "@/components/admin/QuestionEditorPanel";
+import { getAllQuestions } from "@/lib/questions";
+import { BankQuestion } from "@/lib/tests";
+import { TOPICS } from "@/lib/topics";
+import { Search, X } from "lucide-react";
+import { Select, SelectItem } from "@/components/ui/select";
 
 export default function TestEditorPage() {
   const { id } = useParams<{ id: string }>();
@@ -43,6 +51,18 @@ export default function TestEditorPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [savedSnapshot, setSavedSnapshot] = useState("");
+
+  // Bank import modal
+  const [showBank, setShowBank] = useState(false);
+  const [bankQuestions, setBankQuestions] = useState<BankQuestion[]>([]);
+  const [bankLoading, setBankLoading] = useState(false);
+  const [bankSelected, setBankSelected] = useState<Set<string>>(new Set());
+  const [bankSearch, setBankSearch] = useState("");
+  const [bankTopic, setBankTopic] = useState("all");
+  const [bankType, setBankType] = useState<"all" | "mcq" | "open" | "matching">(
+    "all",
+  );
+  const [bankDiff, setBankDiff] = useState<number | null>(null);
 
   const snapshot = () =>
     JSON.stringify({
@@ -68,14 +88,16 @@ export default function TestEditorPage() {
       setQuestions(test.questions ?? []);
       const table = test.scoreTable?.length ? test.scoreTable : NMT_2025_TABLE;
       setScoreTable(table);
-      setSavedSnapshot(JSON.stringify({
-        title: test.title,
-        subtitle: test.subtitle,
-        published: test.published,
-        durationMinutes: test.durationMinutes ?? 150,
-        questions: test.questions ?? [],
-        scoreTable: table,
-      }));
+      setSavedSnapshot(
+        JSON.stringify({
+          title: test.title,
+          subtitle: test.subtitle,
+          published: test.published,
+          durationMinutes: test.durationMinutes ?? 150,
+          questions: test.questions ?? [],
+          scoreTable: table,
+        }),
+      );
       setLoading(false);
     });
   }, [id, router]);
@@ -90,18 +112,29 @@ export default function TestEditorPage() {
       questions,
       scoreTable,
     });
-    setSavedSnapshot(JSON.stringify({
-      title,
-      subtitle,
-      published,
-      durationMinutes,
-      questions,
-      scoreTable,
-    }));
+    setSavedSnapshot(
+      JSON.stringify({
+        title,
+        subtitle,
+        published,
+        durationMinutes,
+        questions,
+        scoreTable,
+      }),
+    );
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
-  }, [id, title, subtitle, published, durationMinutes, questions, scoreTable, setSavedSnapshot]);
+  }, [
+    id,
+    title,
+    subtitle,
+    published,
+    durationMinutes,
+    questions,
+    scoreTable,
+    setSavedSnapshot,
+  ]);
 
   function addQuestion(type: "mcq" | "open" | "matching") {
     const next =
@@ -119,6 +152,41 @@ export default function TestEditorPage() {
       prev.filter((q) => q.id !== qId).map((q, i) => ({ ...q, order: i })),
     );
     setActiveQId(null);
+  }
+
+  async function openBankModal() {
+    setShowBank(true);
+    setBankSelected(new Set());
+    if (bankQuestions.length === 0) {
+      setBankLoading(true);
+      const qs = await getAllQuestions();
+      setBankQuestions(qs.filter((q) => q.status === "approved"));
+      setBankLoading(false);
+    }
+  }
+
+  function importFromBank() {
+    const toImport = bankQuestions.filter((bq) => bankSelected.has(bq.id));
+    const startOrder = questions.length;
+    const converted: TestQuestion[] = toImport.map((bq, i) => {
+      const order = startOrder + i;
+      const { topicId, difficulty, status, reviewNote, ...rest } =
+        bq as BankQuestion & {
+          topicId: string;
+          difficulty: number;
+          status?: string;
+          reviewNote?: string;
+        };
+      if (rest.type === "mcq")
+        return { ...rest, points: 1, order } as TestQuestion;
+      if (rest.type === "open")
+        return { ...rest, points: 2, order } as TestQuestion;
+      return { ...rest, points: 3, order } as TestQuestion;
+    });
+    setQuestions((prev) => [...prev, ...converted]);
+    setActiveQId(converted[0]?.id ?? null);
+    setShowBank(false);
+    setBankSelected(new Set());
   }
 
   function moveQuestion(qId: string, dir: -1 | 1) {
@@ -372,6 +440,14 @@ export default function TestEditorPage() {
                 >
                   + Відповідь
                 </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 text-xs border-primary/40 text-primary hover:bg-primary/5"
+                  onClick={openBankModal}
+                >
+                  З банку
+                </Button>
               </div>
             </div>
 
@@ -473,8 +549,8 @@ export default function TestEditorPage() {
 
                 {/* Image upload */}
                 <QuestionImageUpload
-                  testId={id}
-                  questionId={activeQ.id}
+                  contextId={id}
+                  slotId={activeQ.id}
                   imageUrl={activeQ.imageUrl}
                   onUploaded={(url) => updateQ(activeQ.id, { imageUrl: url })}
                   onRemoved={() => updateQ(activeQ.id, { imageUrl: undefined })}
@@ -482,7 +558,7 @@ export default function TestEditorPage() {
 
                 {activeQ.type === "mcq" && (
                   <MCQEditor
-                    testId={id}
+                    contextId={id}
                     question={activeQ as MCQQuestion}
                     onOptionChange={(optId, text) =>
                       updateMCQOption(activeQ.id, optId, text)
@@ -506,7 +582,9 @@ export default function TestEditorPage() {
                 {activeQ.type === "open" && (
                   <OpenEditor
                     question={activeQ as OpenQuestion}
-                    onChange={(patch) => updateQ(activeQ.id, patch)}
+                    onChange={(correctAnswer) =>
+                      updateQ(activeQ.id, { correctAnswer })
+                    }
                   />
                 )}
 
@@ -514,7 +592,7 @@ export default function TestEditorPage() {
                   <label className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
                     Пояснення{" "}
                     <span className="normal-case font-normal">
-                      (необов'язково)
+                      (необов`язково)
                     </span>
                   </label>
                   <textarea
@@ -534,8 +612,8 @@ export default function TestEditorPage() {
                 </div>
 
                 <QuestionImageUpload
-                  testId={id}
-                  questionId={`${activeQ.id}-explanation`}
+                  contextId={id}
+                  slotId={`${activeQ.id}-explanation`}
                   imageUrl={activeQ.explanationImageUrl}
                   onUploaded={(url) =>
                     updateQ(activeQ.id, { explanationImageUrl: url })
@@ -563,424 +641,192 @@ export default function TestEditorPage() {
           />
         )}
       </main>
-    </div>
-  );
-}
 
-function QuestionImageUpload({
-  testId,
-  questionId,
-  imageUrl,
-  onUploaded,
-  onRemoved,
-  label = "Зображення",
-}: {
-  testId: string;
-  questionId: string;
-  imageUrl?: string;
-  onUploaded: (url: string) => void;
-  onRemoved: () => void;
-  label?: string;
-}) {
-  const [uploading, setUploading] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  async function handleFile(file: File) {
-    if (!file.type.startsWith("image/")) return;
-    setUploading(true);
-    try {
-      const url = await uploadQuestionImage(testId, questionId, file);
-      onUploaded(url);
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  async function handleRemove() {
-    if (imageUrl) await deleteQuestionImage(imageUrl);
-    onRemoved();
-  }
-
-  if (imageUrl) {
-    return (
-      <div className="space-y-1">
-        <label className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
-          {label}
-        </label>
-        <div className="relative rounded-xl overflow-hidden border border-border/50 bg-muted/30 group">
-          <Image
-            src={imageUrl}
-            alt=""
-            width={800}
-            height={400}
-            className="w-full h-48 object-contain"
-          />
-          <button
-            onClick={handleRemove}
-            className="absolute top-2 right-2 w-7 h-7 rounded-lg bg-background/90 border border-border/60 flex items-center justify-center text-muted-foreground hover:text-destructive hover:border-destructive/40 transition-all"
-          >
-            <XIcon size={13} />
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-1">
-      <label className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
-        {label} <span className="normal-case font-normal">(необов'язково)</span>
-      </label>
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) handleFile(f);
-          e.target.value = "";
-        }}
-      />
-      <button
-        onClick={() => inputRef.current?.click()}
-        disabled={uploading}
-        className="w-full h-24 rounded-xl border border-dashed border-border/50 bg-muted/20 hover:border-primary/40 hover:bg-primary/5 transition-all flex flex-col items-center justify-center gap-1.5 text-muted-foreground disabled:opacity-50"
-      >
-        <ImagePlus size={20} />
-        <span className="text-xs">
-          {uploading ? "Завантаження..." : "Додати зображення"}
-        </span>
-      </button>
-    </div>
-  );
-}
-
-function MCQEditor({
-  testId,
-  question,
-  onOptionChange,
-  onCorrectChange,
-  onOptionImageChange,
-}: {
-  testId: string;
-  question: MCQQuestion;
-  onOptionChange: (optId: string, text: string) => void;
-  onCorrectChange: (optId: string) => void;
-  onOptionImageChange: (optId: string, url: string | undefined) => void;
-}) {
-  return (
-    <div className="space-y-2">
-      <label className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
-        Варіанти відповіді
-      </label>
-      <div className="space-y-3">
-        {question.options.map((opt) => (
-          <div key={opt.id} className="flex items-start gap-3">
-            <button
-              type="button"
-              onClick={() => onCorrectChange(opt.id)}
-              className={cn(
-                "w-7 h-7 rounded-full border-2 flex items-center justify-center text-xs font-bold shrink-0 transition-all mt-2",
-                question.correctOptionId === opt.id
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border hover:border-primary/60 text-muted-foreground",
-              )}
-              title="Позначити правильною"
-            >
-              {opt.id}
-            </button>
-            <div className="flex-1 space-y-1.5">
-              <textarea
-                value={opt.text}
-                onChange={(e) => onOptionChange(opt.id, e.target.value)}
-                placeholder={`Варіант ${opt.id}... Використовуйте $...$ для math`}
-                rows={1}
-                className="w-full px-3 py-2 rounded-xl border border-border/50 bg-background focus:outline-none focus:border-primary text-sm transition-colors resize-none font-mono"
-              />
-              {opt.text && opt.text.includes("$") && (
-                <div className="px-3 py-1.5 rounded-lg border border-border/30 bg-muted/30 text-sm">
-                  <MathText text={opt.text} />
-                </div>
-              )}
-              <OptionImageSlot
-                testId={testId}
-                questionId={question.id}
-                optionId={opt.id}
-                imageUrl={opt.imageUrl}
-                onUploaded={(url) => onOptionImageChange(opt.id, url)}
-                onRemoved={() => onOptionImageChange(opt.id, undefined)}
-              />
-            </div>
-          </div>
-        ))}
-      </div>
-      <p className="text-xs text-muted-foreground">
-        Клікніть на літеру — правильна відповідь
-      </p>
-    </div>
-  );
-}
-
-function OptionImageSlot({
-  testId,
-  questionId,
-  optionId,
-  imageUrl,
-  onUploaded,
-  onRemoved,
-}: {
-  testId: string;
-  questionId: string;
-  optionId: string;
-  imageUrl?: string;
-  onUploaded: (url: string) => void;
-  onRemoved: () => void;
-}) {
-  const [uploading, setUploading] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  async function handleFile(file: File) {
-    if (!file.type.startsWith("image/")) return;
-    setUploading(true);
-    try {
-      const url = await uploadQuestionImage(
-        testId,
-        `${questionId}-opt-${optionId}`,
-        file,
-      );
-      onUploaded(url);
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  if (imageUrl) {
-    return (
-      <div className="relative rounded-lg overflow-hidden border border-border/50 bg-muted/20 group">
-        <Image
-          src={imageUrl}
-          alt=""
-          width={400}
-          height={200}
-          className="w-full max-h-32 object-contain"
-        />
-        <button
-          onClick={onRemoved}
-          className="absolute top-1 right-1 w-6 h-6 rounded-md bg-background/90 border border-border/60 flex items-center justify-center text-muted-foreground hover:text-destructive transition-all opacity-0 group-hover:opacity-100"
-        >
-          <XIcon size={11} />
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <>
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) handleFile(f);
-          e.target.value = "";
-        }}
-      />
-      <button
-        onClick={() => inputRef.current?.click()}
-        disabled={uploading}
-        className="w-full h-8 rounded-lg border border-dashed border-border/40 bg-muted/10 hover:border-primary/40 hover:bg-primary/5 transition-all flex items-center justify-center gap-1.5 text-muted-foreground disabled:opacity-50"
-      >
-        <ImagePlus size={12} />
-        <span className="text-[11px]">
-          {uploading ? "Завантаження..." : "Додати зображення"}
-        </span>
-      </button>
-    </>
-  );
-}
-
-function OpenEditor({
-  question,
-  onChange,
-}: {
-  question: OpenQuestion;
-  onChange: (patch: Partial<OpenQuestion>) => void;
-}) {
-  return (
-    <div className="space-y-1">
-      <label className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
-        Правильна відповідь
-      </label>
-      <input
-        value={question.correctAnswer}
-        onChange={(e) => onChange({ correctAnswer: e.target.value })}
-        placeholder="Числова або текстова відповідь..."
-        className="w-full px-4 py-2.5 rounded-xl border border-border/50 bg-background focus:outline-none focus:border-primary text-sm transition-colors"
-      />
-    </div>
-  );
-}
-
-function MatchingEditor({
-  question,
-  onChange,
-}: {
-  question: MatchingQuestion;
-  onChange: (patch: Partial<MatchingQuestion>) => void;
-}) {
-  function updateLeft(id: string, text: string) {
-    onChange({
-      leftItems: question.leftItems.map((i) =>
-        i.id === id ? { ...i, text } : i,
-      ),
-    });
-  }
-
-  function updateRight(id: string, text: string) {
-    onChange({
-      rightOptions: question.rightOptions.map((i) =>
-        i.id === id ? { ...i, text } : i,
-      ),
-    });
-  }
-
-  function addLeft() {
-    const nextId = String(question.leftItems.length + 1);
-    onChange({ leftItems: [...question.leftItems, { id: nextId, text: "" }] });
-  }
-
-  function removeLeft(id: string) {
-    const pairs = { ...question.correctPairs };
-    delete pairs[id];
-    onChange({
-      leftItems: question.leftItems.filter((i) => i.id !== id),
-      correctPairs: pairs,
-    });
-  }
-
-  function setPair(leftId: string, rightId: string) {
-    onChange({ correctPairs: { ...question.correctPairs, [leftId]: rightId } });
-  }
-
-  return (
-    <div className="space-y-4">
-      {/* Left items */}
-      <div className="space-y-2">
-        <label className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
-          Вирази / твердження (ліва колонка)
-        </label>
-        {question.leftItems.map((item) => (
-          <div key={item.id} className="flex items-start gap-2">
-            <span className="text-xs font-semibold w-5 text-center shrink-0 text-muted-foreground mt-2.5">
-              {item.id}.
-            </span>
-            <div className="flex-1 space-y-1">
-              <textarea
-                value={item.text}
-                onChange={(e) => updateLeft(item.id, e.target.value)}
-                placeholder={`Вираз ${item.id}... Використовуйте $...$ для math`}
-                rows={1}
-                className="w-full px-3 py-2 rounded-xl border border-border/50 bg-background focus:outline-none focus:border-primary text-sm transition-colors resize-none font-mono"
-              />
-              {item.text && item.text.includes("$") && (
-                <div className="px-3 py-1.5 rounded-lg border border-border/30 bg-muted/30 text-sm">
-                  <MathText text={item.text} />
-                </div>
-              )}
-            </div>
-            <button
-              onClick={() => removeLeft(item.id)}
-              className="text-muted-foreground hover:text-destructive transition-colors text-xs px-1 mt-2.5"
-            >
-              ✕
-            </button>
-          </div>
-        ))}
-        <Button
-          variant="outline"
-          size="sm"
-          className="text-xs"
-          onClick={addLeft}
-        >
-          + Додати рядок
-        </Button>
-      </div>
-
-      {/* Right options */}
-      <div className="space-y-2">
-        <label className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
-          Варіанти відповіді (права колонка)
-        </label>
-        {question.rightOptions.map((opt) => (
-          <div key={opt.id} className="flex items-start gap-2">
-            <span className="text-xs font-semibold w-5 text-center shrink-0 text-primary mt-2.5">
-              {opt.id}.
-            </span>
-            <div className="flex-1 space-y-1">
-              <textarea
-                value={opt.text}
-                onChange={(e) => updateRight(opt.id, e.target.value)}
-                placeholder={`Варіант ${opt.id}... Використовуйте $...$ для math`}
-                rows={1}
-                className="w-full px-3 py-2 rounded-xl border border-border/50 bg-background focus:outline-none focus:border-primary text-sm transition-colors resize-none font-mono"
-              />
-              {opt.text && opt.text.includes("$") && (
-                <div className="px-3 py-1.5 rounded-lg border border-border/30 bg-muted/30 text-sm">
-                  <MathText text={opt.text} />
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Correct pairs */}
-      <div className="space-y-2">
-        <label className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
-          Правильні пари
-        </label>
-        <div className="rounded-xl border border-border/50 overflow-hidden">
-          {question.leftItems.map((item, i) => (
+      {/* Bank import modal */}
+      {showBank &&
+        (() => {
+          const s = bankSearch.toLowerCase();
+          const filtered = bankQuestions.filter((q) => {
+            if (bankTopic !== "all" && q.topicId !== bankTopic) return false;
+            if (bankType !== "all" && q.type !== bankType) return false;
+            if (bankDiff !== null && q.difficulty !== bankDiff) return false;
+            if (s && !q.text.toLowerCase().includes(s)) return false;
+            return true;
+          });
+          return (
             <div
-              key={item.id}
-              className={cn(
-                "flex items-center gap-3 px-4 py-2.5",
-                i % 2 === 0 ? "bg-muted/20" : "",
-              )}
+              className="fixed inset-0 z-80 flex items-center justify-center p-4"
+              onClick={() => setShowBank(false)}
             >
-              <span className="text-sm w-24 truncate text-foreground/80">
-                {item.id}.{" "}
-                {item.text || (
-                  <span className="italic text-muted-foreground">...</span>
-                )}
-              </span>
-              <span className="text-muted-foreground">→</span>
-              <div className="flex gap-1.5 flex-wrap">
-                {question.rightOptions.map((opt) => (
+              <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+              <div
+                className="relative z-10 w-full max-w-2xl rounded-2xl border border-border/60 bg-card shadow-2xl flex flex-col max-h-[88vh]"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Header */}
+                <div className="flex items-center justify-between px-5 py-3 border-b border-border/50 shrink-0">
+                  <span className="font-semibold text-sm">
+                    Імпорт з банку завдань
+                  </span>
                   <button
-                    key={opt.id}
-                    onClick={() => setPair(item.id, opt.id)}
-                    className={cn(
-                      "w-7 h-7 rounded-full border-2 text-xs font-bold transition-all",
-                      question.correctPairs[item.id] === opt.id
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : "border-border hover:border-primary/60 text-muted-foreground",
-                    )}
+                    onClick={() => setShowBank(false)}
+                    className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
                   >
-                    {opt.id}
+                    <X size={15} />
                   </button>
-                ))}
+                </div>
+
+                {/* Filters */}
+                <div className="flex flex-wrap gap-2 px-5 py-3 border-b border-border/50 shrink-0">
+                  <div className="relative flex-1 min-w-36">
+                    <Search
+                      size={13}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                    />
+                    <input
+                      value={bankSearch}
+                      onChange={(e) => setBankSearch(e.target.value)}
+                      placeholder="Пошук..."
+                      autoFocus
+                      className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-border/50 bg-background focus:outline-none focus:border-primary text-sm transition-colors"
+                    />
+                  </div>
+                  <Select value={bankTopic} onValueChange={setBankTopic}>
+                    <SelectItem value="all">Всі теми</SelectItem>
+                    {TOPICS.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>
+                        {t.icon} {t.name}
+                      </SelectItem>
+                    ))}
+                  </Select>
+                  <Select
+                    value={bankType}
+                    onValueChange={(v) => setBankType(v as typeof bankType)}
+                  >
+                    <SelectItem value="all">Всі типи</SelectItem>
+                    <SelectItem value="mcq">MCQ</SelectItem>
+                    <SelectItem value="open">Відповідь</SelectItem>
+                    <SelectItem value="matching">Відповідність</SelectItem>
+                  </Select>
+                  <div className="flex gap-1">
+                    {[1, 2, 3, 4, 5].map((d) => (
+                      <button
+                        key={d}
+                        onClick={() => setBankDiff(bankDiff === d ? null : d)}
+                        className={cn(
+                          "w-7 h-7 rounded-lg border text-xs font-bold transition-all",
+                          bankDiff === d
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-border/50 text-muted-foreground hover:border-primary/40",
+                        )}
+                      >
+                        {d}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* List */}
+                <div className="overflow-y-auto flex-1">
+                  {bankLoading ? (
+                    <div className="flex items-center justify-center h-32">
+                      <div className="w-6 h-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                    </div>
+                  ) : filtered.length === 0 ? (
+                    <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
+                      Немає схвалених завдань за фільтром
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-border/40">
+                      {filtered.map((bq) => {
+                        const sel = bankSelected.has(bq.id);
+                        const topic = TOPICS.find((t) => t.id === bq.topicId);
+                        return (
+                          <button
+                            key={bq.id}
+                            onClick={() =>
+                              setBankSelected((prev) => {
+                                const next = new Set(prev);
+                                sel ? next.delete(bq.id) : next.add(bq.id);
+                                return next;
+                              })
+                            }
+                            className={cn(
+                              "w-full text-left px-5 py-3 flex items-start gap-3 transition-all",
+                              sel ? "bg-primary/8" : "hover:bg-muted/40",
+                            )}
+                          >
+                            <div
+                              className={cn(
+                                "w-4 h-4 rounded border-2 shrink-0 mt-0.5 flex items-center justify-center transition-all",
+                                sel
+                                  ? "border-primary bg-primary"
+                                  : "border-border/60",
+                              )}
+                            >
+                              {sel && (
+                                <span className="text-[9px] font-bold text-primary-foreground">
+                                  ✓
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm leading-snug line-clamp-2">
+                                <MathText text={bq.text} />
+                              </p>
+                              <div className="flex gap-2 mt-1 flex-wrap">
+                                <span className="text-[10px] text-muted-foreground">
+                                  {bq.type === "mcq"
+                                    ? "MCQ"
+                                    : bq.type === "open"
+                                      ? "Відповідь"
+                                      : "Відповідність"}
+                                </span>
+                                {topic && (
+                                  <span className="text-[10px] text-muted-foreground">
+                                    {topic.icon} {topic.name}
+                                  </span>
+                                )}
+                                <span className="text-[10px] text-muted-foreground">
+                                  Рівень {bq.difficulty}
+                                </span>
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Footer */}
+                <div className="flex items-center justify-between px-5 py-3 border-t border-border/50 shrink-0">
+                  <span className="text-xs text-muted-foreground">
+                    {bankSelected.size > 0
+                      ? `Вибрано ${bankSelected.size}`
+                      : "Оберіть завдання"}
+                  </span>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowBank(false)}
+                    >
+                      Скасувати
+                    </Button>
+                    <Button
+                      size="sm"
+                      disabled={bankSelected.size === 0}
+                      onClick={importFromBank}
+                    >
+                      Імпортувати ({bankSelected.size})
+                    </Button>
+                  </div>
+                </div>
               </div>
             </div>
-          ))}
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Клікніть літеру — правильна відповідь для рядка
-        </p>
-      </div>
+          );
+        })()}
     </div>
   );
 }

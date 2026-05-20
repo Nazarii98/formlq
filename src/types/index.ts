@@ -49,6 +49,8 @@ export interface Question {
   explanation: string;
   difficulty: 1 | 2 | 3 | 4 | 5;
   hint?: string;
+  status?: "draft" | "approved" | "rejected";
+  reviewNote?: string;
 }
 
 // --- Exam question types ---

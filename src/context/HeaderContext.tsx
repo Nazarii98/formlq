@@ -21,6 +21,7 @@ const ROUTE_MAP: Record<string, { title: string; subtitle: string }> = {
   "/dashboard/reference":{ title: "Довідка",          subtitle: "Матеріали для підготовки" },
   "/admin/tests":        { title: "Тести",            subtitle: "Управління тестами" },
   "/admin/tips":         { title: "Поради дня",       subtitle: "Управління порадами" },
+  "/admin/questions":    { title: "Перевірка завдань", subtitle: "Authoring & Review Tool" },
 };
 
 export function HeaderProvider({ children }: { children: ReactNode }) {

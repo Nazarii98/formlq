@@ -1,13 +1,96 @@
 import { Question } from "@/types";
+import { BankQuestion } from "@/lib/tests";
 import {
   collection,
   query,
   where,
   getDocs,
+  getDoc,
+  doc,
+  updateDoc,
+  addDoc,
+  setDoc,
+  deleteDoc,
   limit,
   orderBy,
+  serverTimestamp,
+  Timestamp,
 } from "firebase/firestore";
 import { db } from "./firebase";
+
+// ── Daily answer ──────────────────────────────────────────────────────────────
+
+export interface DailyAnswer {
+  id: string;
+  userId: string;
+  date: string; // YYYY-MM-DD
+  questionId: string;
+  isCorrect: boolean;
+  answeredAt: Timestamp | null;
+}
+
+export function todayDateKey(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+export async function getDailyQuestion(): Promise<BankQuestion | null> {
+  const snap = await getDocs(collection(db, "questions"));
+  const approved = snap.docs
+    .map((d) => ({ id: d.id, ...d.data() }) as BankQuestion)
+    .filter((q) => q.status === "approved")
+    .sort((a, b) => {
+      if (a.dailyOrder != null && b.dailyOrder != null) return a.dailyOrder - b.dailyOrder;
+      if (a.dailyOrder != null) return -1;
+      if (b.dailyOrder != null) return 1;
+      return a.id.localeCompare(b.id);
+    });
+  if (!approved.length) return null;
+  const start = new Date(new Date().getFullYear(), 0, 0);
+  const dayOfYear = Math.floor((Date.now() - start.getTime()) / 86_400_000);
+  return approved[dayOfYear % approved.length];
+}
+
+export async function getTodayDailyAnswer(userId: string): Promise<DailyAnswer | null> {
+  const snap = await getDoc(doc(db, "dailyAnswers", `${userId}_${todayDateKey()}`));
+  if (!snap.exists()) return null;
+  return { id: snap.id, ...snap.data() } as DailyAnswer;
+}
+
+export async function saveDailyAnswer(userId: string, questionId: string, isCorrect: boolean): Promise<void> {
+  const date = todayDateKey();
+  await setDoc(doc(db, "dailyAnswers", `${userId}_${date}`), {
+    userId, date, questionId, isCorrect,
+    answeredAt: serverTimestamp(),
+  });
+}
+
+export async function getDailyAnswerDates(userId: string): Promise<string[]> {
+  const q = query(collection(db, "dailyAnswers"), where("userId", "==", userId));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => d.data().date as string);
+}
+
+export async function createQuestion(data: Omit<BankQuestion, "id">): Promise<string> {
+  const ref = await addDoc(collection(db, "questions"), data);
+  return ref.id;
+}
+
+export async function getAllQuestions(): Promise<BankQuestion[]> {
+  const snap = await getDocs(collection(db, "questions"));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as BankQuestion);
+}
+
+export async function updateQuestion(id: string, data: Partial<BankQuestion>): Promise<void> {
+  const clean = Object.fromEntries(
+    Object.entries(data).filter(([, v]) => v !== undefined)
+  );
+  await updateDoc(doc(db, "questions", id), clean);
+}
+
+export async function deleteQuestion(id: string): Promise<void> {
+  await deleteDoc(doc(db, "questions", id));
+}
 
 export async function getQuestionsByTopic(
   topicId: string,

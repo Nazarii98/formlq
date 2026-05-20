@@ -65,6 +65,77 @@ export interface MatchingQuestion {
 
 export type TestQuestion = MCQQuestion | OpenQuestion | MatchingQuestion;
 
+type BankMeta = {
+  topicId: string;
+  difficulty: 1 | 2 | 3 | 4 | 5;
+  status?: "draft" | "approved" | "rejected";
+  reviewNote?: string;
+  dailyOrder?: number;
+};
+
+export type BankMCQQuestion = Omit<MCQQuestion, "points" | "order"> & BankMeta;
+export type BankOpenQuestion = Omit<OpenQuestion, "points" | "order"> & BankMeta;
+export type BankMatchingQuestion = Omit<MatchingQuestion, "points" | "order"> & BankMeta;
+export type BankQuestion = BankMCQQuestion | BankOpenQuestion | BankMatchingQuestion;
+
+export function makeEmptyBankMCQ(topicId: string): BankMCQQuestion {
+  return {
+    id: crypto.randomUUID(),
+    type: "mcq",
+    topicId,
+    text: "",
+    options: [
+      { id: "А", text: "" },
+      { id: "Б", text: "" },
+      { id: "В", text: "" },
+      { id: "Г", text: "" },
+      { id: "Д", text: "" },
+    ],
+    correctOptionId: "А",
+    explanation: "",
+    difficulty: 1,
+    status: "draft",
+  };
+}
+
+export function makeEmptyBankOpen(topicId: string): BankOpenQuestion {
+  return {
+    id: crypto.randomUUID(),
+    type: "open",
+    topicId,
+    text: "",
+    correctAnswer: "",
+    explanation: "",
+    difficulty: 1,
+    status: "draft",
+  };
+}
+
+export function makeEmptyBankMatching(topicId: string): BankMatchingQuestion {
+  return {
+    id: crypto.randomUUID(),
+    type: "matching",
+    topicId,
+    text: "",
+    leftItems: [
+      { id: "1", text: "" },
+      { id: "2", text: "" },
+      { id: "3", text: "" },
+    ],
+    rightOptions: [
+      { id: "А", text: "" },
+      { id: "Б", text: "" },
+      { id: "В", text: "" },
+      { id: "Г", text: "" },
+      { id: "Д", text: "" },
+    ],
+    correctPairs: { "1": "А", "2": "Б", "3": "В" },
+    explanation: "",
+    difficulty: 1,
+    status: "draft",
+  };
+}
+
 // raw score → NMT score (100–200)
 export interface ScoreRow {
   raw: number;
