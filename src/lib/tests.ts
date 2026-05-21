@@ -165,6 +165,7 @@ export interface QuestionResult {
   points: number;
   userAnswer: string;
   isCorrect: boolean;
+  partialScore?: number; // earned points for partial matching (0 < partialScore < points)
   explanation?: string;
   // MCQ
   options?: QuestionOption[];
@@ -228,8 +229,10 @@ export function calcRawScore(questions: TestQuestion[], answers: Record<string, 
     if (q.type === "matching") {
       try {
         const parsed = JSON.parse(answer) as Record<string, string>;
-        const allCorrect = Object.entries(q.correctPairs).every(([k, v]) => parsed[k] === v);
-        if (allCorrect) return sum + q.points;
+        const totalPairs = Object.keys(q.correctPairs).length;
+        if (totalPairs === 0) return sum;
+        const correctCount = Object.entries(q.correctPairs).filter(([k, v]) => parsed[k] === v).length;
+        return sum + Math.round(correctCount * (q.points / totalPairs));
       } catch { /* invalid json */ }
     }
     return sum;

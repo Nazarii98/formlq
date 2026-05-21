@@ -4,6 +4,8 @@ interface Question {
   id?: string;
   isCorrect?: boolean;
   userAnswer?: string;
+  partialScore?: number;
+  points?: number;
 }
 
 interface QuestionMapProps {
@@ -16,8 +18,11 @@ export function QuestionMap({ questions, onSelect }: QuestionMapProps) {
     <div className="flex flex-wrap gap-1.5">
       {questions.map((q, i) => {
         const skipped = !q.userAnswer || q.userAnswer === "";
+        const isPartial = !q.isCorrect && !skipped && (q.partialScore ?? 0) > 0;
         const cls = q.isCorrect
           ? "bg-green-500/15 border-green-500/40 text-green-600 dark:text-green-400"
+          : isPartial
+          ? "bg-amber-500/15 border-amber-500/40 text-amber-600 dark:text-amber-400"
           : skipped
           ? "bg-muted border-border/50 text-muted-foreground"
           : "bg-red-500/15 border-red-500/40 text-red-500";

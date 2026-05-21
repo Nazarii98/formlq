@@ -47,6 +47,7 @@ export function QuestionCard({
   }
 
   const skipped = !q.userAnswer || q.userAnswer === "";
+  const isPartial = q.type === "matching" && !q.isCorrect && (q.partialScore ?? 0) > 0;
 
   return (
     <div
@@ -55,9 +56,11 @@ export function QuestionCard({
         "rounded-2xl border bg-card p-5 space-y-4 border-l-[3px]",
         q.isCorrect
           ? "border-border/50 border-l-green-500/60"
-          : skipped
-            ? "border-border/50 border-l-border"
-            : "border-border/50 border-l-red-400/70",
+          : isPartial
+            ? "border-border/50 border-l-amber-500/60"
+            : skipped
+              ? "border-border/50 border-l-border"
+              : "border-border/50 border-l-red-400/70",
       )}
     >
       {/* Header */}
@@ -86,43 +89,74 @@ export function QuestionCard({
             "shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full mt-0.5",
             q.isCorrect
               ? "bg-green-500/12 text-green-600 dark:text-green-400"
-              : skipped
-                ? "bg-muted text-muted-foreground"
-                : "bg-red-500/12 text-red-500",
+              : isPartial
+                ? "bg-amber-500/12 text-amber-600 dark:text-amber-400"
+                : skipped
+                  ? "bg-muted text-muted-foreground"
+                  : "bg-red-500/12 text-red-500",
           )}
         >
-          {q.isCorrect ? "Вірно" : skipped ? "Пропущено" : "Невірно"}
+          {q.isCorrect ? "Вірно" : isPartial ? `Частково (${q.partialScore}/${q.points})` : skipped ? "Пропущено" : "Невірно"}
         </span>
       </div>
 
       {/* Answers */}
       <div className="space-y-2 text-sm">
-        <div className="flex items-baseline gap-2">
-          <span className="text-muted-foreground text-xs shrink-0 w-32">
-            {answerLabel}
-          </span>
-          <MathText
-            text={userLabel}
-            className={cn(
-              "font-medium",
-              q.isCorrect
-                ? "text-green-600 dark:text-green-400"
-                : skipped
-                  ? "text-muted-foreground"
-                  : "text-red-500",
+        {q.type === "matching" && q.leftItems ? (() => {
+          let pairs: Record<string, string> = {};
+          try { pairs = JSON.parse(q.userAnswer); } catch { /* noop */ }
+          return (
+            <div className="space-y-1">
+              <span className="text-muted-foreground text-xs">{answerLabel}:</span>
+              {q.leftItems.map((item) => {
+                const userVal = pairs[item.id];
+                const correctVal = q.correctPairs?.[item.id];
+                const pairOk = !!userVal && userVal === correctVal;
+                return (
+                  <div key={item.id} className={cn(
+                    "flex items-center gap-1.5 text-xs font-medium",
+                    pairOk ? "text-green-600 dark:text-green-400" : "text-red-500",
+                  )}>
+                    <span className="text-muted-foreground">{item.id} →</span>
+                    <span>{userVal || "—"}</span>
+                    {!pairOk && correctVal && userVal !== correctVal && (
+                      <span className="text-green-600 dark:text-green-400 ml-1">(→ {correctVal})</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })() : (
+          <>
+            <div className="flex items-baseline gap-2">
+              <span className="text-muted-foreground text-xs shrink-0 w-32">
+                {answerLabel}
+              </span>
+              <MathText
+                text={userLabel}
+                className={cn(
+                  "font-medium",
+                  q.isCorrect
+                    ? "text-green-600 dark:text-green-400"
+                    : skipped
+                      ? "text-muted-foreground"
+                      : "text-red-500",
+                )}
+              />
+            </div>
+            {!q.isCorrect && correctLabel && (
+              <div className="flex items-baseline gap-2">
+                <span className="text-muted-foreground text-xs shrink-0 w-32">
+                  Правильна відповідь
+                </span>
+                <MathText
+                  text={correctLabel}
+                  className="font-medium text-green-600 dark:text-green-400"
+                />
+              </div>
             )}
-          />
-        </div>
-        {!q.isCorrect && correctLabel && (
-          <div className="flex items-baseline gap-2">
-            <span className="text-muted-foreground text-xs shrink-0 w-32">
-              Правильна відповідь
-            </span>
-            <MathText
-              text={correctLabel}
-              className="font-medium text-green-600 dark:text-green-400"
-            />
-          </div>
+          </>
         )}
       </div>
 

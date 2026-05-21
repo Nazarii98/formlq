@@ -158,16 +158,20 @@ export default function ExamPage() {
       let correct = false;
       if (q.type === "mcq") correct = userAnswer === q.correctOptionId;
       if (q.type === "open") correct = userAnswer.trim() === q.correctAnswer.trim();
+      let partialScore: number | undefined;
       if (q.type === "matching") {
         try {
           const p = JSON.parse(userAnswer) as Record<string, string>;
-          correct = Object.entries(q.correctPairs).every(([k, v]) => p[k] === v);
-        } catch { correct = false; }
+          const totalPairs = Object.keys(q.correctPairs).length;
+          const correctCount = Object.entries(q.correctPairs).filter(([k, v]) => p[k] === v).length;
+          correct = correctCount === totalPairs;
+          partialScore = totalPairs > 0 ? Math.round(correctCount * (q.points / totalPairs)) : 0;
+        } catch { correct = false; partialScore = 0; }
       }
       const base = { id: q.id, type: q.type, text: q.text, imageUrl: q.imageUrl ?? null, points: q.points, userAnswer, isCorrect: correct, explanation: q.explanation ?? "", explanationImageUrl: q.explanationImageUrl ?? null };
       if (q.type === "mcq") return { ...base, options: q.options, correctOptionId: q.correctOptionId };
       if (q.type === "open") return { ...base, correctAnswer: q.correctAnswer };
-      return { ...base, leftItems: q.leftItems, rightOptions: q.rightOptions, correctPairs: q.correctPairs };
+      return { ...base, leftItems: q.leftItems, rightOptions: q.rightOptions, correctPairs: q.correctPairs, partialScore };
     });
   }
 
@@ -349,11 +353,19 @@ export default function ExamPage() {
             {questions.map((q, i) => {
               const correct = isCorrect(q, answers[q.id]);
               const answered = isAnswered(q, answers[q.id]);
+              const partial = !correct && answered && q.type === "matching" && (() => {
+                try {
+                  const p = JSON.parse(answers[q.id]) as Record<string, string>;
+                  const cnt = Object.entries((q as MatchingQuestion).correctPairs).filter(([k, v]) => p[k] === v).length;
+                  return cnt > 0;
+                } catch { return false; }
+              })();
               return (
                 <a key={q.id} href={`#q-${i}`}>
                   <div className={cn(
                     "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border transition-all",
                     correct ? "bg-green-500/15 border-green-500/40 text-green-600 dark:text-green-400"
+                    : partial ? "bg-amber-500/15 border-amber-500/40 text-amber-600 dark:text-amber-400"
                     : answered ? "bg-red-500/15 border-red-500/40 text-red-500"
                     : "bg-muted border-border/50 text-muted-foreground"
                   )}>
@@ -370,6 +382,10 @@ export default function ExamPage() {
               const correct = isCorrect(q, answers[q.id]);
               const userAnswer = answers[q.id] ?? "";
 
+              let isPartial = false;
+              let partialCount = 0;
+              let totalPairsCount = 0;
+
               let userLabel = "—";
               let correctLabel = "";
 
@@ -384,9 +400,10 @@ export default function ExamPage() {
               } else if (q.type === "matching") {
                 try {
                   const parsed = JSON.parse(userAnswer) as Record<string, string>;
-                  userLabel = Object.entries(parsed).map(([k, v]) => `${k}→${v}`).join(", ") || "—";
-                } catch { userLabel = "—"; }
-                correctLabel = Object.entries((q as MatchingQuestion).correctPairs).map(([k, v]) => `${k}→${v}`).join(", ");
+                  totalPairsCount = Object.keys((q as MatchingQuestion).correctPairs).length;
+                  partialCount = Object.entries((q as MatchingQuestion).correctPairs).filter(([k, v]) => parsed[k] === v).length;
+                  isPartial = !correct && partialCount > 0;
+                } catch { /* noop */ }
               }
 
               return (
@@ -395,19 +412,26 @@ export default function ExamPage() {
                   key={q.id}
                   className={cn(
                     "rounded-2xl border p-5 space-y-3",
-                    correct ? "border-green-500/30 bg-green-500/5" : "border-red-500/30 bg-red-500/5"
+                    correct ? "border-green-500/30 bg-green-500/5"
+                    : isPartial ? "border-amber-500/30 bg-amber-500/5"
+                    : "border-red-500/30 bg-red-500/5"
                   )}
                 >
                   {/* Header */}
                   <div className="flex items-start gap-3">
                     <span className={cn(
                       "shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold mt-0.5",
-                      correct ? "bg-green-500/20 text-green-600 dark:text-green-400" : "bg-red-500/20 text-red-500"
+                      correct ? "bg-green-500/20 text-green-600 dark:text-green-400"
+                      : isPartial ? "bg-amber-500/20 text-amber-600 dark:text-amber-400"
+                      : "bg-red-500/20 text-red-500"
                     )}>
-                      {correct ? "✓" : "✗"}
+                      {correct ? "✓" : isPartial ? "~" : "✗"}
                     </span>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs text-muted-foreground mb-1">Завдання {i + 1} · {q.points} б</p>
+                      <p className="text-xs text-muted-foreground mb-1">
+                        Завдання {i + 1} · {q.points} б
+                        {isPartial && <span className="ml-1 text-amber-600 dark:text-amber-400">({partialCount}/{totalPairsCount} пар)</span>}
+                      </p>
                       <MathText text={q.text || "—"} className="text-sm text-foreground leading-relaxed" />
                       {q.imageUrl && (
                         <div className="mt-2 rounded-xl overflow-hidden border border-border/50">
@@ -419,15 +443,44 @@ export default function ExamPage() {
 
                   {/* Answers */}
                   <div className="pl-9 space-y-1.5 text-sm">
-                    <div className="flex gap-2">
-                      <span className="text-muted-foreground shrink-0 whitespace-nowrap">Ваша:</span>
-                      <span className={correct ? "text-green-600 dark:text-green-400" : "text-red-500"}>{userLabel}</span>
-                    </div>
-                    {!correct && correctLabel && (
-                      <div className="flex gap-2">
-                        <span className="text-muted-foreground shrink-0 whitespace-nowrap">Правильна:</span>
-                        <span className="text-green-600 dark:text-green-400">{correctLabel}</span>
-                      </div>
+                    {q.type === "matching" ? (() => {
+                      let pairs: Record<string, string> = {};
+                      try { pairs = JSON.parse(userAnswer); } catch { /* noop */ }
+                      return (
+                        <div className="space-y-0.5">
+                          <span className="text-muted-foreground text-xs">Ваша:</span>
+                          {(q as MatchingQuestion).leftItems.map((item) => {
+                            const uVal = pairs[item.id];
+                            const cVal = (q as MatchingQuestion).correctPairs[item.id];
+                            const ok = !!uVal && uVal === cVal;
+                            return (
+                              <div key={item.id} className={cn(
+                                "flex items-center gap-1 text-xs font-medium",
+                                ok ? "text-green-600 dark:text-green-400" : "text-red-500"
+                              )}>
+                                <span className="text-muted-foreground">{item.id} →</span>
+                                <span>{uVal || "—"}</span>
+                                {!ok && cVal && uVal !== cVal && (
+                                  <span className="text-green-600 dark:text-green-400 ml-0.5">(→ {cVal})</span>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })() : (
+                      <>
+                        <div className="flex gap-2">
+                          <span className="text-muted-foreground shrink-0 whitespace-nowrap">Ваша:</span>
+                          <span className={correct ? "text-green-600 dark:text-green-400" : "text-red-500"}>{userLabel}</span>
+                        </div>
+                        {!correct && correctLabel && (
+                          <div className="flex gap-2">
+                            <span className="text-muted-foreground shrink-0 whitespace-nowrap">Правильна:</span>
+                            <span className="text-green-600 dark:text-green-400">{correctLabel}</span>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
 
