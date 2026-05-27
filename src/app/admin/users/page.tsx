@@ -57,11 +57,9 @@ export default function AdminUsersPage() {
     return u.displayName?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q);
   });
 
-  // Online users appear first within each group.
-  const sortOnline = (a: UserProfile, b: UserProfile) =>
-    Number(onlineUids.has(b.uid)) - Number(onlineUids.has(a.uid));
-  const editors = filtered.filter((u) => u.role === "editor").sort(sortOnline);
-  const students = filtered.filter((u) => u.role === "student").sort(sortOnline);
+  const onlineUsers = filtered.filter((u) => onlineUids.has(u.uid));
+  const offlineEditors = filtered.filter((u) => u.role === "editor" && !onlineUids.has(u.uid));
+  const offlineStudents = filtered.filter((u) => u.role === "student" && !onlineUids.has(u.uid));
 
   function UserRow({ u }: { u: UserProfile }) {
     const isSelf = u.uid === currentUser?.uid;
@@ -142,21 +140,30 @@ export default function AdminUsersPage() {
 
       {isLoading ? <SpinnerPage /> : (
         <div className="space-y-4">
-          {editors.length > 0 && (
+          {onlineUsers.length > 0 && (
             <div className="space-y-2">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-1">
-                Редактори ({editors.length})
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-green-600 dark:text-green-400 px-1">
+                ● Зараз онлайн ({onlineUsers.length})
               </p>
-              {editors.map((u) => <UserRow key={u.uid} u={u} />)}
+              {onlineUsers.map((u) => <UserRow key={u.uid} u={u} />)}
             </div>
           )}
 
-          {students.length > 0 && (
+          {offlineEditors.length > 0 && (
             <div className="space-y-2">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-1">
-                Учні ({students.length})
+                Редактори ({offlineEditors.length})
               </p>
-              {students.map((u) => <UserRow key={u.uid} u={u} />)}
+              {offlineEditors.map((u) => <UserRow key={u.uid} u={u} />)}
+            </div>
+          )}
+
+          {offlineStudents.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-1">
+                Учні ({offlineStudents.length})
+              </p>
+              {offlineStudents.map((u) => <UserRow key={u.uid} u={u} />)}
             </div>
           )}
 
