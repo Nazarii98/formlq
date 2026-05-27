@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuth } from "@/context/AuthContext";
+import { useOnlineUsers } from "@/hooks/useOnlineUsers";
 import { getAllUsers, updateUserRole } from "@/lib/users";
 import { timeAgo } from "@/lib/format";
 import { SpinnerPage } from "@/components/ui/spinner";
@@ -15,15 +16,16 @@ import { useEffect, useState } from "react";
 
 export default function AdminUsersPage() {
   const { user: currentUser } = useAuth();
+  const { onlineUids, count: onlineCount } = useOnlineUsers();
   const { setHeader } = useHeader();
   const router = useRouter();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    setHeader("Користувачі", "Управління доступом");
+    setHeader("Користувачі", `Управління доступом${onlineCount > 0 ? ` · ${onlineCount} онлайн` : ""}`);
     return () => setHeader("", "");
-  }, [setHeader]);
+  }, [setHeader, onlineCount]);
 
   const { data: users = [], isLoading } = useQuery({
     queryKey: ["admin-users"],
@@ -55,12 +57,16 @@ export default function AdminUsersPage() {
     return u.displayName?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q);
   });
 
-  const editors = filtered.filter((u) => u.role === "editor");
-  const students = filtered.filter((u) => u.role === "student");
+  // Online users appear first within each group.
+  const sortOnline = (a: UserProfile, b: UserProfile) =>
+    Number(onlineUids.has(b.uid)) - Number(onlineUids.has(a.uid));
+  const editors = filtered.filter((u) => u.role === "editor").sort(sortOnline);
+  const students = filtered.filter((u) => u.role === "student").sort(sortOnline);
 
   function UserRow({ u }: { u: UserProfile }) {
     const isSelf = u.uid === currentUser?.uid;
     const isEditor = u.role === "editor";
+    const isOnline = onlineUids.has(u.uid);
     const updating = roleMutation.isPending && roleMutation.variables?.uid === u.uid;
 
     return (
@@ -71,11 +77,16 @@ export default function AdminUsersPage() {
         )}
         onClick={() => router.push(`/admin/users/${u.uid}`)}
       >
-        <div className={cn(
-          "w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold shrink-0",
-          isEditor ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground",
-        )}>
-          {u.displayName?.[0]?.toUpperCase() ?? "?"}
+        <div className="relative shrink-0">
+          <div className={cn(
+            "w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold",
+            isEditor ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground",
+          )}>
+            {u.displayName?.[0]?.toUpperCase() ?? "?"}
+          </div>
+          {isOnline && (
+            <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-green-500 border-2 border-card" />
+          )}
         </div>
 
         <div className="flex-1 min-w-0">

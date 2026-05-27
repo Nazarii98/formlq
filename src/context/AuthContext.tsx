@@ -19,6 +19,7 @@ import {
 } from "firebase/auth";
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
+import { connectPresence } from "@/lib/presence";
 import { UserProfile } from "@/types";
 
 interface AuthContextType {
@@ -61,6 +62,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       unsubscribe();
     };
   }, []);
+
+  // Online presence (Realtime Database). Marks the user online while signed in,
+  // and offline on logout / disconnect.
+  useEffect(() => {
+    if (!user) return;
+    return connectPresence(user.uid, user.displayName ?? undefined);
+  }, [user?.uid, user?.displayName]);
 
   async function createUserDoc(user: User, name?: string) {
     const ref = doc(db, "users", user.uid);
