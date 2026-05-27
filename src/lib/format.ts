@@ -69,6 +69,33 @@ export function nmtEmoji(score: number): string {
   return "📖";
 }
 
+/** Percent of max (0–100) → color classes. Used for custom (non-NMT) scales. */
+export function scoreColorPct(pct: number): { text: string; bg: string } {
+  if (pct >= 80)
+    return {
+      text: "text-green-600 dark:text-green-400",
+      bg: "bg-green-500/10",
+    };
+  if (pct >= 60)
+    return { text: "text-blue-600 dark:text-blue-400", bg: "bg-blue-500/10" };
+  if (pct >= 40)
+    return {
+      text: "text-amber-600 dark:text-amber-400",
+      bg: "bg-amber-500/10",
+    };
+  return { text: "text-red-500 dark:text-red-400", bg: "bg-red-500/10" };
+}
+
+/** Percent of max (0–100) → result emoji. Used for custom (non-NMT) scales. */
+export function emojiPct(pct: number): string {
+  if (pct >= 90) return "🏆";
+  if (pct >= 75) return "🎉";
+  if (pct >= 60) return "✨";
+  if (pct >= 40) return "👍";
+  if (pct >= 20) return "📚";
+  return "📖";
+}
+
 /** Relative time string: "5 хв тому", "щойно", etc. */
 export function timeAgo(
   date: Date | { seconds: number } | null | undefined,

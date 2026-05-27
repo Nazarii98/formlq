@@ -1,7 +1,7 @@
 "use client";
 
-import { nmtEmoji, formatTimer } from "@/lib/format";
-import type { TestResult } from "@/lib/tests";
+import { nmtEmoji, emojiPct, formatTimer } from "@/lib/format";
+import { maxScaledScore, isExamFailed, type TestResult } from "@/lib/tests";
 
 interface Props {
   result: TestResult;
@@ -14,11 +14,15 @@ export function ScoreHeader({ result }: Props) {
   const wrong = questions.filter((q) => !q.isCorrect && q.userAnswer != null && q.userAnswer !== "" && (q.partialScore ?? 0) === 0).length;
   const skipped = questions.length - correct - partial - wrong;
   const pct = questions.length ? Math.round((correct / questions.length) * 100) : 0;
-  const failed = result.rawScore < 5;
+  const isNmt = (result.scaleType ?? "nmt") === "nmt";
+  const maxScaled = isNmt ? 200 : maxScaledScore(result.scoreTable ?? []);
+  const scaledPct = maxScaled ? (result.nmtScore / maxScaled) * 100 : 0;
+  const emoji = isNmt ? nmtEmoji(result.nmtScore) : emojiPct(scaledPct);
+  const failed = isExamFailed(result.rawScore, result.scaleType ?? "nmt");
 
   return (
     <div className="rounded-2xl border border-border/50 bg-card p-6 text-center">
-      <div className="text-4xl mb-2">{failed ? "❌" : nmtEmoji(result.nmtScore)}</div>
+      <div className="text-4xl mb-2">{failed ? "❌" : emoji}</div>
       {failed ? (
         <>
           <div className="text-3xl font-bold text-red-500">Не склав</div>
@@ -27,7 +31,9 @@ export function ScoreHeader({ result }: Props) {
       ) : (
         <>
           <div className="text-5xl font-bold tabular-nums">{result.nmtScore}</div>
-          <p className="text-muted-foreground text-sm mt-1">балів НМТ (з 200)</p>
+          <p className="text-muted-foreground text-sm mt-1">
+            {isNmt ? "балів НМТ (з 200)" : `балів (з ${maxScaled})`}
+          </p>
           <p className="text-muted-foreground text-xs mt-0.5">
             первинний: <b className="text-foreground">{result.rawScore}/{result.maxRaw}</b>
           </p>

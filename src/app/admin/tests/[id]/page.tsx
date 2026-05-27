@@ -18,8 +18,10 @@ import {
   OpenQuestion,
   MatchingQuestion,
   ScoreRow,
+  ScaleType,
   NMT_2025_TABLE,
   maxRawScore,
+  makeLinearTable,
 } from "@/lib/tests";
 import {
   QuestionImageUpload,
@@ -43,6 +45,7 @@ export default function TestEditorPage() {
   const [durationMinutes, setDurationMinutes] = useState(150);
   const [questions, setQuestions] = useState<TestQuestion[]>([]);
   const [scoreTable, setScoreTable] = useState<ScoreRow[]>(NMT_2025_TABLE);
+  const [scaleType, setScaleType] = useState<ScaleType>("nmt");
   const [activeQId, setActiveQId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"questions" | "scoring">(
     "questions",
@@ -79,6 +82,7 @@ export default function TestEditorPage() {
       durationMinutes,
       questions,
       scoreTable,
+      scaleType,
     });
   const isDirty = !saved && snapshot() !== savedSnapshot;
 
@@ -94,7 +98,9 @@ export default function TestEditorPage() {
       setDurationMinutes(test.durationMinutes ?? 150);
       setQuestions(test.questions ?? []);
       const table = test.scoreTable?.length ? test.scoreTable : NMT_2025_TABLE;
+      const type = test.scaleType ?? "nmt";
       setScoreTable(table);
+      setScaleType(type);
       setSavedSnapshot(
         JSON.stringify({
           title: test.title,
@@ -103,6 +109,7 @@ export default function TestEditorPage() {
           durationMinutes: test.durationMinutes ?? 150,
           questions: test.questions ?? [],
           scoreTable: table,
+          scaleType: type,
         }),
       );
       setLoading(false);
@@ -118,6 +125,7 @@ export default function TestEditorPage() {
       durationMinutes,
       questions,
       scoreTable,
+      scaleType,
     });
     setSavedSnapshot(
       JSON.stringify({
@@ -127,6 +135,7 @@ export default function TestEditorPage() {
         durationMinutes,
         questions,
         scoreTable,
+        scaleType,
       }),
     );
     setSaving(false);
@@ -140,6 +149,7 @@ export default function TestEditorPage() {
     durationMinutes,
     questions,
     scoreTable,
+    scaleType,
     setSavedSnapshot,
   ]);
 
@@ -680,6 +690,13 @@ export default function TestEditorPage() {
           <ScoreTableEditor
             table={scoreTable}
             onChange={setScoreTable}
+            scaleType={scaleType}
+            onScaleTypeChange={(type) => {
+              setScaleType(type);
+              setScoreTable(
+                type === "nmt" ? NMT_2025_TABLE : makeLinearTable(totalPoints),
+              );
+            }}
             maxRaw={totalPoints}
           />
         )}
@@ -1055,13 +1072,18 @@ export default function TestEditorPage() {
 function ScoreTableEditor({
   table,
   onChange,
+  scaleType,
+  onScaleTypeChange,
   maxRaw,
 }: {
   table: ScoreRow[];
   onChange: (t: ScoreRow[]) => void;
+  scaleType: ScaleType;
+  onScaleTypeChange: (t: ScaleType) => void;
   maxRaw: number;
 }) {
   const sorted = [...table].sort((a, b) => a.raw - b.raw);
+  const isNmt = scaleType === "nmt";
 
   function updateRow(idx: number, field: "raw" | "nmt", val: string) {
     const num = parseInt(val, 10);
@@ -1073,35 +1095,56 @@ function ScoreTableEditor({
 
   function addRow() {
     const lastRaw = sorted[sorted.length - 1]?.raw ?? 0;
-    onChange([...sorted, { raw: lastRaw + 1, nmt: 100 }]);
+    onChange([...sorted, { raw: lastRaw + 1, nmt: isNmt ? 100 : lastRaw + 1 }]);
   }
 
   function removeRow(idx: number) {
     onChange(sorted.filter((_, i) => i !== idx));
   }
 
-  function resetToNMT2025() {
-    onChange(NMT_2025_TABLE);
+  function reset() {
+    onChange(isNmt ? NMT_2025_TABLE : makeLinearTable(maxRaw));
   }
+
+  const defaultTable = isNmt ? NMT_2025_TABLE : makeLinearTable(maxRaw);
 
   return (
     <div className="space-y-4">
+      {/* Scale type switcher */}
+      <div className="flex gap-1 bg-muted/40 p-1 rounded-xl w-fit">
+        {(["nmt", "custom"] as const).map((t) => (
+          <button
+            key={t}
+            onClick={() => onScaleTypeChange(t)}
+            className={cn(
+              "px-4 py-1.5 rounded-lg text-sm font-medium transition-all",
+              scaleType === t
+                ? "bg-background shadow-sm text-foreground"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {t === "nmt" ? "Шкала НМТ (100–200)" : "Звичайна шкала"}
+          </button>
+        ))}
+      </div>
+
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm font-medium">Таблиця переведення балів</p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Тестовий бал → Бал за шкалою 100–200. Максимум тесту: {maxRaw}{" "}
-            балів.
+            {isNmt
+              ? `Тестовий бал → Бал за шкалою 100–200. Максимум тесту: ${maxRaw} балів.`
+              : `Тестовий бал → Власний бал (будь-які числа). Максимум тесту: ${maxRaw} балів.`}
           </p>
         </div>
         <Button
           variant="outline"
           size="sm"
           className="text-xs"
-          onClick={resetToNMT2025}
+          onClick={reset}
           disabled={
             JSON.stringify(sorted) ===
-            JSON.stringify([...NMT_2025_TABLE].sort((a, b) => a.raw - b.raw))
+            JSON.stringify([...defaultTable].sort((a, b) => a.raw - b.raw))
           }
         >
           ↺ Скинути
@@ -1111,7 +1154,7 @@ function ScoreTableEditor({
       <div className="rounded-2xl border border-border/50 bg-card overflow-hidden">
         <div className="grid grid-cols-[1fr_1fr_40px] text-xs text-muted-foreground uppercase tracking-wide font-medium px-4 py-2.5 border-b border-border/50 bg-muted/30">
           <span>Тестовий бал</span>
-          <span>Бал (100–200)</span>
+          <span>{isNmt ? "Бал (100–200)" : "Бал"}</span>
           <span />
         </div>
         <div className="divide-y divide-border/30 max-h-[400px] overflow-y-auto">
@@ -1129,8 +1172,8 @@ function ScoreTableEditor({
               <input
                 type="number"
                 value={row.nmt}
-                min={100}
-                max={200}
+                min={isNmt ? 100 : undefined}
+                max={isNmt ? 200 : undefined}
                 onChange={(e) => updateRow(i, "nmt", e.target.value)}
                 className="w-full px-3 py-1.5 rounded-lg border border-border/50 bg-background focus:outline-none focus:border-primary text-sm transition-colors"
               />

@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { ChevronRight, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { scoreColor, formatDuration, formatDate } from "@/lib/format";
-import type { TestResult } from "@/lib/tests";
+import { scoreColor, scoreColorPct, formatDuration, formatDate } from "@/lib/format";
+import { maxScaledScore, isExamFailed, type TestResult } from "@/lib/tests";
 
 interface ResultListItemProps {
   result: TestResult;
@@ -10,11 +10,14 @@ interface ResultListItemProps {
 }
 
 export function ResultListItem({ result, href }: ResultListItemProps) {
-  const { text, bg } = scoreColor(result.nmtScore);
+  const isNmt = (result.scaleType ?? "nmt") === "nmt";
+  const maxScaled = isNmt ? 200 : maxScaledScore(result.scoreTable ?? []);
+  const scaledPct = maxScaled ? (result.nmtScore / maxScaled) * 100 : 0;
+  const { text, bg } = isNmt ? scoreColor(result.nmtScore) : scoreColorPct(scaledPct);
   const questions = result.questions ?? [];
   const correct = questions.filter((q) => q.isCorrect).length;
   const pct = questions.length ? Math.round((correct / questions.length) * 100) : 0;
-  const failed = result.rawScore < 5;
+  const failed = isExamFailed(result.rawScore, result.scaleType ?? "nmt");
 
   return (
     <Link href={href} className="block">
@@ -27,7 +30,7 @@ export function ResultListItem({ result, href }: ResultListItemProps) {
         ) : (
           <div className={cn("w-12 h-12 rounded-xl flex flex-col items-center justify-center shrink-0", bg)}>
             <span className={cn("text-lg font-bold leading-none tabular-nums", text)}>{result.nmtScore}</span>
-            <span className={cn("text-[9px] font-medium leading-none mt-0.5", text)}>НМТ</span>
+            <span className={cn("text-[9px] font-medium leading-none mt-0.5", text)}>{isNmt ? "НМТ" : "БАЛ"}</span>
           </div>
         )}
 

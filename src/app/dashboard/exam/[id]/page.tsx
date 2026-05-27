@@ -17,6 +17,8 @@ import {
   calcRawScore,
   rawToNMT,
   maxRawScore,
+  maxScaledScore,
+  isExamFailed,
   saveTestResult,
   getUserResults,
   QuestionResult,
@@ -114,11 +116,18 @@ export default function ExamPage() {
     if (phase !== "results" || !test) return;
     const rawScore = calcRawScore(test.questions ?? [], answers);
     const nmtScore = rawToNMT(rawScore, test.scoreTable ?? []);
-    const duration = nmtScore >= 180 ? 4000 : nmtScore >= 150 ? 2500 : 1500;
+    const isNmt = (test.scaleType ?? "nmt") === "nmt";
+    const maxScaled = isNmt ? 200 : maxScaledScore(test.scoreTable ?? []);
+    const pct = isNmt
+      ? Math.max(0, nmtScore - 100)
+      : maxScaled
+        ? (nmtScore / maxScaled) * 100
+        : 0;
+    const duration = pct >= 80 ? 4000 : pct >= 50 ? 2500 : 1500;
     const end = Date.now() + duration;
-    const colors = nmtScore >= 180
+    const colors = pct >= 80
       ? ["#f59e0b", "#fbbf24", "#fde68a", "#ffffff"]
-      : nmtScore >= 150
+      : pct >= 50
       ? ["#6366f1", "#818cf8", "#a5b4fc", "#ffffff"]
       : ["#64748b", "#94a3b8", "#cbd5e1", "#ffffff"];
 
@@ -193,6 +202,7 @@ export default function ExamPage() {
       answers: currentAnswers,
       questions: buildQuestionResults(qs, currentAnswers),
       scoreTable: test.scoreTable ?? [],
+      scaleType: test.scaleType ?? "nmt",
     });
 
     // recalc streak
@@ -263,6 +273,8 @@ export default function ExamPage() {
     const openCount = questions.filter((q) => q.type === "open").length;
     const mcqPoints = questions.filter((q) => q.type === "mcq").reduce((s, q) => s + q.points, 0);
     const openPoints = questions.filter((q) => q.type === "open").reduce((s, q) => s + q.points, 0);
+    const isNmt = (test.scaleType ?? "nmt") === "nmt";
+    const maxScaled = maxScaledScore(test.scoreTable ?? []);
 
     return (
       <div className="-m-6 min-h-[calc(100vh-3.5rem)] flex items-center justify-center px-6">
@@ -281,7 +293,7 @@ export default function ExamPage() {
                 [`${test.durationMinutes ?? 150} хв`, "Часу"],
                 [`${mcqCount} × ${questions.find(q=>q.type==="mcq")?.points ?? 1}б`, "Вибір"],
                 [`${openCount} × ${questions.find(q=>q.type==="open")?.points ?? 2}б`, "Відповідь"],
-                ["100–200", "Шкала НМТ"],
+                isNmt ? ["100–200", "Шкала НМТ"] : [`до ${maxScaled}`, "Шкала балів"],
               ].map(([val, label]) => (
                 <div key={label} className="rounded-xl bg-muted/50 px-3 py-3 text-center">
                   <div className="font-bold tabular-nums">{val}</div>
@@ -292,7 +304,11 @@ export default function ExamPage() {
             <div className="border-t border-border/50 pt-4 space-y-1.5 text-sm text-muted-foreground">
               <p>• Відповідь можна змінити до завершення</p>
               <p>• Таймер запускається після «Почати»</p>
-              <p>• Результат конвертується у бали НМТ (100–200)</p>
+              {isNmt ? (
+                <p>• Результат конвертується у бали НМТ (100–200)</p>
+              ) : (
+                <p>• Результат конвертується у бали за шкалою (до {maxScaled})</p>
+              )}
             </div>
           </div>
 
@@ -322,8 +338,15 @@ export default function ExamPage() {
   if (phase === "results") {
     const rawScore = calcRawScore(questions, answers);
     const nmtScore = rawToNMT(rawScore, test.scoreTable ?? []);
-    const failed = rawScore < 5;
-    const emoji = nmtScore >= 180 ? "🏆" : nmtScore >= 160 ? "🎉" : nmtScore >= 140 ? "👍" : "💪";
+    const isNmt = (test.scaleType ?? "nmt") === "nmt";
+    const maxScaled = isNmt ? 200 : maxScaledScore(test.scoreTable ?? []);
+    const failed = isExamFailed(rawScore, test.scaleType ?? "nmt");
+    const pct = isNmt
+      ? Math.max(0, nmtScore - 100)
+      : maxScaled
+        ? (nmtScore / maxScaled) * 100
+        : 0;
+    const emoji = pct >= 80 ? "🏆" : pct >= 60 ? "🎉" : pct >= 40 ? "👍" : "💪";
 
     return (
       <div className="min-h-screen bg-background">
@@ -339,7 +362,9 @@ export default function ExamPage() {
             ) : (
               <>
                 <div className="text-5xl font-bold tabular-nums">{nmtScore}</div>
-                <p className="text-muted-foreground text-sm">балів НМТ (з 200)</p>
+                <p className="text-muted-foreground text-sm">
+                  {isNmt ? "балів НМТ (з 200)" : `балів (з ${maxScaled})`}
+                </p>
               </>
             )}
             <div className="flex justify-center gap-4 pt-3 text-sm text-muted-foreground">

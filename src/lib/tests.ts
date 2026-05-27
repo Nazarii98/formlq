@@ -136,11 +136,15 @@ export function makeEmptyBankMatching(topicId: string): BankMatchingQuestion {
   };
 }
 
-// raw score → NMT score (100–200)
+// raw score → scaled score (NMT 100–200, or a custom scale)
 export interface ScoreRow {
   raw: number;
-  nmt: number;
+  nmt: number; // scaled score for this raw bracket
 }
+
+// "nmt" = official НМТ scale (100–200, ≥5 raw to pass);
+// "custom" = teacher-defined scale, any numbers, no minimum
+export type ScaleType = "nmt" | "custom";
 
 export interface TestDoc {
   id: string;
@@ -152,6 +156,7 @@ export interface TestDoc {
   updatedAt: Timestamp | null;
   questions: TestQuestion[];
   scoreTable: ScoreRow[];
+  scaleType?: ScaleType; // defaults to "nmt" when absent
   durationMinutes?: number;
   order?: number;
 }
@@ -187,11 +192,12 @@ export interface TestResult {
   completedAt: Timestamp | null;
   timeSpent: number;
   rawScore: number;
-  nmtScore: number;
+  nmtScore: number; // scaled score
   maxRaw: number;
   answers: Record<string, string>;
   questions: QuestionResult[];
   scoreTable: ScoreRow[];
+  scaleType?: ScaleType; // defaults to "nmt" when absent
 }
 
 export async function saveTestResult(data: Omit<TestResult, "id" | "completedAt">): Promise<string> {
@@ -250,6 +256,23 @@ export function maxRawScore(questions: TestQuestion[]): number {
   return questions.reduce((s, q) => s + q.points, 0);
 }
 
+/** Top scaled score in a table (denominator for the result, e.g. 200 for НМТ). */
+export function maxScaledScore(scoreTable: ScoreRow[]): number {
+  if (!scoreTable.length) return 0;
+  return Math.max(...scoreTable.map((r) => r.nmt));
+}
+
+/** Identity scale: each raw point maps to itself (0..maxRaw). Default for custom. */
+export function makeLinearTable(maxRaw: number): ScoreRow[] {
+  const top = Math.max(0, maxRaw);
+  return Array.from({ length: top + 1 }, (_, r) => ({ raw: r, nmt: r }));
+}
+
+/** НМТ counts a test as failed below 5 raw points; custom scales have no minimum. */
+export function isExamFailed(rawScore: number, scaleType: ScaleType = "nmt"): boolean {
+  return scaleType === "nmt" && rawScore < 5;
+}
+
 export async function getPublishedTests(): Promise<TestDoc[]> {
   const snap = await getDocs(collection(db, "tests"));
   return snap.docs
@@ -278,6 +301,7 @@ export async function createTest(createdBy: string): Promise<string> {
     updatedAt: serverTimestamp(),
     questions: [],
     scoreTable: NMT_2025_TABLE,
+    scaleType: "nmt",
   });
   return ref.id;
 }
