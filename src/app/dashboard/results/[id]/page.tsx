@@ -38,7 +38,19 @@ export default function ResultPage() {
   if (authLoading || loading) return <SpinnerPage size="lg" />;
   if (!result) return null;
 
-  const questions = result.questions ?? [];
+  // Enrich old results that were saved before partial-score logic existed
+  const questions = (result.questions ?? []).map((q) => {
+    if (q.type === "matching" && !q.isCorrect && q.partialScore === undefined && q.userAnswer) {
+      try {
+        const pairs = JSON.parse(q.userAnswer) as Record<string, string>;
+        const totalPairs = Object.keys(q.correctPairs ?? {}).length;
+        const correctCount = Object.entries(q.correctPairs ?? {}).filter(([k, v]) => pairs[k] === v).length;
+        const partialScore = totalPairs > 0 ? Math.round(correctCount * (q.points / totalPairs)) : 0;
+        return { ...q, partialScore };
+      } catch { /* noop */ }
+    }
+    return q;
+  });
 
   return (
     <div className="max-w-2xl mx-auto space-y-6 pb-8">
