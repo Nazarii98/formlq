@@ -4,11 +4,12 @@ import { useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getUserById } from "@/lib/users";
 import { getUserResults } from "@/lib/tests";
-import { formatDuration, scoreColor } from "@/lib/format";
+import { formatDuration, scoreColor, timeAgo } from "@/lib/format";
 import { SpinnerPage } from "@/components/ui/spinner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ResultListItem } from "@/components/exam/ResultListItem";
 import { useHeader } from "@/context/HeaderContext";
+import { useOnlineUsers } from "@/hooks/useOnlineUsers";
 import { cn } from "@/lib/utils";
 import { ArrowLeft, Flame } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -17,6 +18,8 @@ export default function AdminUserHistoryPage() {
   const { uid } = useParams<{ uid: string }>();
   const router = useRouter();
   const { setHeader } = useHeader();
+
+  const { onlineUids, presence } = useOnlineUsers();
 
   const { data: profile, isLoading: profileLoading } = useQuery({
     queryKey: ["user", uid],
@@ -52,20 +55,43 @@ export default function AdminUserHistoryPage() {
         <ArrowLeft size={14} /> Користувачі
       </button>
 
-      {profile && (
-        <div className="rounded-2xl border border-border/50 bg-card px-5 py-4 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-xl font-bold text-primary shrink-0">
-            {profile.displayName?.[0]?.toUpperCase() ?? "?"}
+      {profile && (() => {
+        const online = onlineUids.has(uid);
+        const entry = presence[uid];
+        const lastSeen = entry?.lastChanged
+          ? new Date(entry.lastChanged)
+          : null;
+
+        return (
+          <div className="rounded-2xl border border-border/50 bg-card px-5 py-4 flex items-center gap-4">
+            <div className="relative shrink-0">
+              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-xl font-bold text-primary">
+                {profile.displayName?.[0]?.toUpperCase() ?? "?"}
+              </div>
+              {online && (
+                <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-green-500 border-2 border-card" />
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold">{profile.displayName}</p>
+              <p className="text-xs text-muted-foreground">{profile.email}</p>
+              <p className={cn(
+                "text-[11px] mt-0.5 font-medium",
+                online ? "text-green-600 dark:text-green-400" : "text-muted-foreground",
+              )}>
+                {online
+                  ? "● Онлайн"
+                  : lastSeen
+                    ? `Був(ла) ${timeAgo(lastSeen)}`
+                    : "Офлайн"}
+              </p>
+            </div>
+            <div className="flex items-center gap-1.5 text-sm font-semibold text-orange-500">
+              <Flame size={14} /> {profile.streak}
+            </div>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="font-semibold">{profile.displayName}</p>
-            <p className="text-xs text-muted-foreground">{profile.email}</p>
-          </div>
-          <div className="flex items-center gap-1.5 text-sm font-semibold text-orange-500">
-            <Flame size={14} /> {profile.streak}
-          </div>
-        </div>
-      )}
+        );
+      })()}
 
       {results.length > 0 && (
         <div className="grid grid-cols-3 gap-2">
