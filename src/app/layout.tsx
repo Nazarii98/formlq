@@ -79,9 +79,83 @@ const geologica = Geologica({
 });
 
 export const metadata: Metadata = {
-  title: "formlq — підготовка до НМТ з математики",
+  title: {
+    default: "formlq — підготовка до НМТ з математики",
+    template: "%s | formlq",
+  },
   description:
-    "Платформа для підготовки до НМТ з математики. Тренування, пробні тести, прогрес.",
+    "Безкоштовна онлайн-платформа для підготовки до НМТ з математики. Пробні тести, тренувальні завдання, детальний аналіз результатів. НМТ 2025 математика.",
+  keywords: [
+    "НМТ математика",
+    "підготовка до НМТ",
+    "НМТ 2025",
+    "пробне НМТ",
+    "тести НМТ математика",
+    "НМТ завдання",
+    "онлайн тести НМТ",
+    "тренування НМТ",
+    "математика НМТ онлайн",
+    "formlq",
+    "підготовка до іспиту математика",
+    "НМТ підготовка безкоштовно",
+  ],
+  authors: [{ name: "formlq" }],
+  creator: "formlq",
+  metadataBase: new URL("https://www.formlq.com"),
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    type: "website",
+    locale: "uk_UA",
+    url: "https://www.formlq.com",
+    siteName: "formlq",
+    title: "formlq — підготовка до НМТ з математики",
+    description:
+      "Безкоштовна онлайн-платформа для підготовки до НМТ з математики. Пробні тести, тренувальні завдання, аналіз результатів.",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "formlq — підготовка до НМТ з математики",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "formlq — підготовка до НМТ з математики",
+    description:
+      "Безкоштовна онлайн-платформа для підготовки до НМТ з математики. Пробні тести, аналіз результатів.",
+    images: ["/og-image.png"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+};
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "EducationalOrganization",
+  name: "formlq",
+  url: "https://www.formlq.com",
+  description:
+    "Онлайн-платформа для підготовки до НМТ з математики. Пробні тести, тренувальні завдання, аналіз результатів.",
+  inLanguage: "uk",
+  offers: {
+    "@type": "Offer",
+    price: "0",
+    priceCurrency: "UAH",
+    description: "Безкоштовна підготовка до НМТ з математики",
+  },
 };
 
 export default function RootLayout({
@@ -95,7 +169,12 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} ${nunito.variable} ${roboto.variable} ${montserrat.variable} ${unbounded.variable} ${comfortaa.variable} ${geologica.variable} ${fredoka.variable} ${bubbleboddy.variable} h-full antialiased`}
       suppressHydrationWarning
     >
-      <head></head>
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+      </head>
       <body className="min-h-full flex flex-col">
         <QueryProvider>
           <ThemeProvider>
