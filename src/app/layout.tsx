@@ -130,7 +130,7 @@ export const metadata: Metadata = {
     images: ["/og-image.png"],
   },
   verification: {
-    google: "google6e99d53ac0180b1f",
+    google: "ahC7fZQ4gnq-HvyKoPf5o7Isk317_IwrQ8KrtnXwbx4",
   },
   robots: {
     index: true,
