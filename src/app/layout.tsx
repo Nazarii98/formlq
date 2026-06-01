@@ -129,6 +129,9 @@ export const metadata: Metadata = {
       "Безкоштовна онлайн-платформа для підготовки до НМТ з математики. Пробні тести, аналіз результатів.",
     images: ["/og-image.png"],
   },
+  verification: {
+    google: "google6e99d53ac0180b1f",
+  },
   robots: {
     index: true,
     follow: true,
