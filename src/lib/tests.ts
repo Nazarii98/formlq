@@ -277,7 +277,8 @@ export async function getPublishedTests(): Promise<TestDoc[]> {
   const snap = await getDocs(collection(db, "tests"));
   return snap.docs
     .map((d) => ({ id: d.id, ...d.data() } as TestDoc))
-    .filter((t) => t.published);
+    .filter((t) => t.published)
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 }
 
 export async function getAllTests(): Promise<TestDoc[]> {

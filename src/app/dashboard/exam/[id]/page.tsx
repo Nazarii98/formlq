@@ -47,10 +47,14 @@ function isAnswered(q: TestQuestion, answer: string | undefined): boolean {
   return answer.trim().length > 0;
 }
 
+function normalizeOpenAnswer(s: string) {
+  return s.trim().replace(/\./g, ",");
+}
+
 function isCorrect(q: TestQuestion, answer: string | undefined): boolean {
   if (!answer) return false;
   if (q.type === "mcq") return answer === q.correctOptionId;
-  if (q.type === "open") return answer.trim() === q.correctAnswer.trim();
+  if (q.type === "open") return normalizeOpenAnswer(answer) === normalizeOpenAnswer(q.correctAnswer);
   if (q.type === "matching") {
     try {
       const p = JSON.parse(answer) as Record<string, string>;
@@ -166,7 +170,7 @@ export default function ExamPage() {
       const userAnswer = ans[q.id] ?? "";
       let correct = false;
       if (q.type === "mcq") correct = userAnswer === q.correctOptionId;
-      if (q.type === "open") correct = userAnswer.trim() === q.correctAnswer.trim();
+      if (q.type === "open") correct = normalizeOpenAnswer(userAnswer) === normalizeOpenAnswer(q.correctAnswer);
       let partialScore: number | undefined;
       if (q.type === "matching") {
         try {

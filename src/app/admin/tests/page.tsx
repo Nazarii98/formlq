@@ -5,7 +5,6 @@ import { useState } from "react";
 import { useDragReorder } from "@/hooks/useDragReorder";
 import { useAuth } from "@/context/AuthContext";
 import { getAllTests, updateTest, createTest, deleteTest } from "@/lib/tests";
-import { getDayIndex } from "@/lib/format";
 import { SpinnerPage } from "@/components/ui/spinner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
@@ -89,25 +88,6 @@ export default function AdminTestsPage() {
     deleteMutation.mutate(id);
   }
 
-  const dayIdx = getDayIndex();
-  const baseIdx = tests.length > 0 ? dayIdx % tests.length : -1;
-  let todayIdx = -1;
-  for (let i = 0; i < tests.length; i++) {
-    const idx = (baseIdx + i) % tests.length;
-    if (tests[idx].published) {
-      todayIdx = idx;
-      break;
-    }
-  }
-  let tomorrowIdx = -1;
-  for (let i = 1; i < tests.length; i++) {
-    const idx = (todayIdx + i) % tests.length;
-    if (tests[idx].published) {
-      tomorrowIdx = idx;
-      break;
-    }
-  }
-
   return (
     <div className="max-w-2xl mx-auto space-y-4">
       <div className="flex justify-end">
@@ -132,12 +112,6 @@ export default function AdminTestsPage() {
       ) : (
         <div className="space-y-2">
           {tests.map((test, i) => {
-            const badge: "today" | "tomorrow" | undefined =
-              i === todayIdx
-                ? "today"
-                : i === tomorrowIdx
-                  ? "tomorrow"
-                  : undefined;
             const isSrc = isDragSrc(i);
             const isOver = isDragOver(i);
 
@@ -153,10 +127,7 @@ export default function AdminTestsPage() {
                 className={cn(
                   "rounded-2xl border bg-card px-4 py-3 flex items-center gap-3 group transition-all select-none relative overflow-hidden",
                   !test.published && "border-border/30 opacity-60",
-                  badge === "today" &&
-                    !isOver &&
-                    "border-primary/40 bg-primary/5",
-                  !badge && test.published && !isOver && "border-border/50",
+                  test.published && !isOver && "border-border/50",
                   isSrc && "opacity-40",
                   isOver && "border-primary/60 bg-primary/5 scale-[1.01]",
                 )}
@@ -209,27 +180,21 @@ export default function AdminTestsPage() {
                   className="relative shrink-0 ml-auto flex items-center"
                   style={{ minWidth: "fit-content" }}
                 >
-                  {badge && (
-                    <span
-                      className={cn(
-                        "text-[10px] font-semibold px-2.5 py-1 rounded-full whitespace-nowrap transition-all duration-150",
-                        "group-hover:opacity-0 group-hover:scale-90 group-hover:pointer-events-none",
-                        "[@media(hover:none)]:hidden",
-                        badge === "today"
-                          ? "bg-primary/15 text-primary"
-                          : "bg-muted text-muted-foreground",
-                      )}
-                    >
-                      {badge === "today" ? "Сьогодні" : "Завтра"}
-                    </span>
-                  )}
+                  <span
+                    className={cn(
+                      "text-[10px] font-semibold px-2.5 py-1 rounded-full whitespace-nowrap transition-all duration-150",
+                      "group-hover:opacity-0 group-hover:scale-90 group-hover:pointer-events-none",
+                      "[@media(hover:none)]:hidden",
+                      "bg-muted text-muted-foreground",
+                    )}
+                  >
+                    #{i + 1}
+                  </span>
 
                   <div
                     className={cn(
                       "flex items-center gap-1 transition-all duration-150",
-                      badge
-                        ? "absolute right-0 opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100 [@media(hover:none)]:static [@media(hover:none)]:opacity-100 [@media(hover:none)]:scale-100"
-                        : "opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100",
+                      "absolute right-0 opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100 [@media(hover:none)]:static [@media(hover:none)]:opacity-100 [@media(hover:none)]:scale-100",
                     )}
                   >
                     <div className="hidden sm:flex items-center gap-1 text-xs text-muted-foreground mr-1">
