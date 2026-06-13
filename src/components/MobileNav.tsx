@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Menu, X, Home, FileText, History, BookOpen, ShieldCheck, Lightbulb, Users, LogOut } from "lucide-react";
+import { Menu, X, Home, FileText, History, BookOpen, ShieldCheck, Lightbulb, Users, LogOut, ClipboardCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { useExamGuard } from "@/context/ExamGuardContext";
@@ -19,6 +19,7 @@ const ADMIN_NAV = [
   { icon: ShieldCheck, href: "/admin/tests", label: "Тести" },
   { icon: Lightbulb,   href: "/admin/tips",  label: "Поради" },
   { icon: Users,       href: "/admin/users", label: "Користувачі" },
+  {icon: ClipboardCheck, href: "/admin/questions", label: "Завдання"}
 ];
 
 export function MobileNav() {
