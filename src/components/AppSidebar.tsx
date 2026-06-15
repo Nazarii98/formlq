@@ -10,6 +10,7 @@ import {
   Lightbulb,
   Users,
   ClipboardCheck,
+  CalendarDays,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
@@ -19,8 +20,16 @@ import { useReferenceDrawer } from "@/context/ReferenceDrawerContext";
 const NAV = [
   { icon: Home, href: "/dashboard", label: "Головна" },
   { icon: FileText, href: "/dashboard/tests", label: "Тести" },
+  { icon: ClipboardCheck, href: "/dashboard/homework", label: "Домашні" },
+  { icon: CalendarDays, href: "/dashboard/calendar", label: "Календар" },
   { icon: History, href: "/dashboard/history", label: "Історія" },
   { icon: BookOpen, href: "__drawer__", label: "Довідка" },
+];
+
+const TUTOR_NAV = [
+  { icon: Users, href: "/tutor/students", label: "Учні" },
+  { icon: ClipboardCheck, href: "/tutor/homework", label: "Домашні" },
+  { icon: CalendarDays, href: "/tutor/calendar", label: "Календар" },
 ];
 
 const ADMIN_NAV = [
@@ -75,8 +84,8 @@ export function AppSidebar() {
   }
 
   return (
-    <aside className="fixed left-4 top-16 h-[calc(100vh-4rem)] w-16 hidden md:flex flex-col items-center py-6 z-40 gap-3">
-      {/* User nav island */}
+    <aside className="fixed left-4 top-1/2 -translate-y-1/2 w-16 hidden md:flex flex-col items-center z-40">
+      {/* Single nav island — sections split by dividers */}
       <div
         className={cn(
           "flex flex-col items-center gap-1 p-1.5 rounded-3xl",
@@ -87,25 +96,25 @@ export function AppSidebar() {
         {NAV.map(({ icon: Icon, href, label }) => (
           <NavItem key={href} href={href} label={label} Icon={Icon} />
         ))}
-      </div>
 
-      {/* Admin nav island — pinned to bottom */}
-      {userProfile?.role === "editor" && (
-        <div
-          className={cn(
-            "mt-auto flex flex-col items-center gap-1 p-1.5 rounded-3xl",
-            "bg-card border border-border/50",
-            "shadow-[0_2px_16px_rgba(0,0,0,0.07),0_0_0_1px_rgba(0,0,0,0.03)]",
-          )}
-        >
-          <span className="text-[8px] uppercase tracking-widest text-muted-foreground/40 font-semibold py-0.5 select-none">
-            ADM
-          </span>
-          {ADMIN_NAV.map(({ icon: Icon, href, label }) => (
-            <NavItem key={href} href={href} label={label} Icon={Icon} />
-          ))}
-        </div>
-      )}
+        {(userProfile?.role === "tutor" || userProfile?.role === "editor") && (
+          <>
+            <div className="h-px w-7 bg-border/60 my-1" />
+            {TUTOR_NAV.map(({ icon: Icon, href, label }) => (
+              <NavItem key={href} href={href} label={label} Icon={Icon} />
+            ))}
+          </>
+        )}
+
+        {userProfile?.role === "editor" && (
+          <>
+            <div className="h-px w-7 bg-border/60 my-1" />
+            {ADMIN_NAV.map(({ icon: Icon, href, label }) => (
+              <NavItem key={href} href={href} label={label} Icon={Icon} />
+            ))}
+          </>
+        )}
+      </div>
     </aside>
   );
 }

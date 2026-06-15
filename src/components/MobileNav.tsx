@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Menu, X, Home, FileText, History, BookOpen, ShieldCheck, Lightbulb, Users, LogOut, ClipboardCheck } from "lucide-react";
+import { Menu, X, Home, FileText, History, BookOpen, ShieldCheck, Lightbulb, Users, LogOut, ClipboardCheck, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { useExamGuard } from "@/context/ExamGuardContext";
@@ -13,6 +13,12 @@ const NAV = [
   { icon: FileText, href: "/dashboard/tests",   label: "Тести" },
   { icon: History,  href: "/dashboard/history", label: "Історія" },
   { icon: BookOpen, href: "__drawer__",          label: "Довідка" },
+];
+
+const TUTOR_NAV = [
+  { icon: Users,          href: "/tutor/students", label: "Учні" },
+  { icon: ClipboardCheck, href: "/tutor/homework", label: "Домашні" },
+  { icon: CalendarDays,   href: "/tutor/calendar", label: "Календар" },
 ];
 
 const ADMIN_NAV = [
@@ -94,6 +100,33 @@ export function MobileNav() {
               </button>
             );
           })}
+
+          {(userProfile?.role === "tutor" || userProfile?.role === "editor") && (
+            <>
+              <div className="my-1 h-px bg-border/50 mx-2" />
+              <p className="text-[9px] uppercase tracking-widest text-muted-foreground/40 font-semibold px-3 pb-0.5">
+                Кабінет вчителя
+              </p>
+              {TUTOR_NAV.map(({ icon: Icon, href, label }) => {
+                const active = path === href || path.startsWith(href);
+                return (
+                  <button
+                    key={href}
+                    onClick={() => handleNav(href)}
+                    className={cn(
+                      "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm w-full text-left transition-all",
+                      active
+                        ? "bg-primary text-primary-foreground font-medium"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted",
+                    )}
+                  >
+                    <Icon size={16} />
+                    {label}
+                  </button>
+                );
+              })}
+            </>
+          )}
 
           {userProfile?.role === "editor" && (
             <>

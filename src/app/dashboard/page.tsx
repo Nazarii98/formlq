@@ -1,15 +1,16 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
 import { getUserResults, TestResult } from "@/lib/tests";
 import { getTips, Tip } from "@/lib/tips";
+import { getStudentHomework, Homework } from "@/lib/tutor";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useQuery } from "@tanstack/react-query";
-import { useColorTheme } from "@/context/ThemeContext";
-import { CheckCircle2, XCircle } from "lucide-react";
+import { CheckCircle2, XCircle, ClipboardCheck, CalendarClock, ArrowRight } from "lucide-react";
 import Image from "next/image";
 import { MathText } from "@/components/MathText";
 import { Select, SelectItem } from "@/components/ui/select";
@@ -26,16 +27,7 @@ import {
   BankOpenQuestion,
   BankMatchingQuestion,
 } from "@/lib/tests";
-import { formatDuration } from "@/lib/format";
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
+import { formatDate } from "@/lib/format";
 
 // ── Daily Tip ─────────────────────────────────────────────────
 function DailyTip({ tips }: { tips: Tip[] }) {
@@ -126,405 +118,80 @@ function MiniCalendar({ activeDays = [] }: { activeDays?: number[] }) {
   );
 }
 
-// ── Progress Chart ─────────────────────────────────────────────
-type Range = "day" | "week" | "month";
-type MonthStep = "week" | "month";
-interface ChartPoint {
-  label: string;
-  score: number | null;
-  count: number;
-  totalTime: number;
-  best: number | null;
-}
-
-function buildChartData(
-  results: TestResult[],
-  range: Range,
-  monthStep: MonthStep,
-): ChartPoint[] {
-  const now = new Date();
-  const points: ChartPoint[] = [];
-
-  if (range === "day") {
-    // today 00:00 → current hour, step = 1h
-    const hours = now.getHours() + 1;
-    for (let i = 0; i < hours; i++) {
-      const start = new Date(now);
-      start.setHours(i, 0, 0, 0);
-      const end = new Date(start);
-      end.setHours(i + 1);
-      const label = `${String(i).padStart(2, "0")}:00`;
-      const bucket = results.filter((r) => {
-        if (!r.completedAt) return false;
-        const t = r.completedAt.toDate().getTime();
-        return t >= start.getTime() && t < end.getTime();
-      });
-      const best = bucket.length
-        ? Math.max(...bucket.map((r) => r.nmtScore))
-        : null;
-      const avg = bucket.length
-        ? Math.round(bucket.reduce((s, r) => s + r.nmtScore, 0) / bucket.length)
-        : null;
-      const totalTime = bucket.reduce((s, r) => s + (r.timeSpent ?? 0), 0);
-      points.push({
-        label,
-        score: best,
-        count: bucket.length,
-        totalTime,
-        best: avg,
-      });
-    }
-  } else if (range === "week") {
-    // last 7 days, step = 1 day
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(now);
-      d.setDate(now.getDate() - i);
-      d.setHours(0, 0, 0, 0);
-      const nextD = new Date(d);
-      nextD.setDate(d.getDate() + 1);
-      const label = d.toLocaleString("uk", { day: "numeric", month: "short" });
-      const bucket = results.filter((r) => {
-        if (!r.completedAt) return false;
-        const t = r.completedAt.toDate().getTime();
-        return t >= d.getTime() && t < nextD.getTime();
-      });
-      const best = bucket.length
-        ? Math.max(...bucket.map((r) => r.nmtScore))
-        : null;
-      const avg = bucket.length
-        ? Math.round(bucket.reduce((s, r) => s + r.nmtScore, 0) / bucket.length)
-        : null;
-      const totalTime = bucket.reduce((s, r) => s + (r.timeSpent ?? 0), 0);
-      points.push({
-        label,
-        score: best,
-        count: bucket.length,
-        totalTime,
-        best: avg,
-      });
-    }
-  } else if (monthStep === "week") {
-    // last 8 weeks, step = 1 week
-    for (let i = 7; i >= 0; i--) {
-      const weekStart = new Date(now);
-      weekStart.setDate(now.getDate() - i * 7);
-      weekStart.setHours(0, 0, 0, 0);
-      const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekStart.getDate() + 7);
-      const label = weekStart.toLocaleString("uk", {
-        day: "numeric",
-        month: "short",
-      });
-      const bucket = results.filter((r) => {
-        if (!r.completedAt) return false;
-        const t = r.completedAt.toDate().getTime();
-        return t >= weekStart.getTime() && t < weekEnd.getTime();
-      });
-      const best = bucket.length
-        ? Math.max(...bucket.map((r) => r.nmtScore))
-        : null;
-      const avg = bucket.length
-        ? Math.round(bucket.reduce((s, r) => s + r.nmtScore, 0) / bucket.length)
-        : null;
-      const totalTime = bucket.reduce((s, r) => s + (r.timeSpent ?? 0), 0);
-      points.push({
-        label,
-        score: best,
-        count: bucket.length,
-        totalTime,
-        best: avg,
-      });
-    }
-  } else {
-    // last 6 months, step = 1 month
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const key = `${d.getFullYear()}-${d.getMonth()}`;
-      const label = d.toLocaleString("uk", { month: "short" });
-      const bucket = results.filter((r) => {
-        if (!r.completedAt) return false;
-        const rd = r.completedAt.toDate();
-        return `${rd.getFullYear()}-${rd.getMonth()}` === key;
-      });
-      const best = bucket.length
-        ? Math.max(...bucket.map((r) => r.nmtScore))
-        : null;
-      const avg = bucket.length
-        ? Math.round(bucket.reduce((s, r) => s + r.nmtScore, 0) / bucket.length)
-        : null;
-      const totalTime = bucket.reduce((s, r) => s + (r.timeSpent ?? 0), 0);
-      points.push({
-        label,
-        score: best,
-        count: bucket.length,
-        totalTime,
-        best: avg,
-      });
-    }
-  }
-
-  const firstReal = points.findIndex((p) => p.score !== null);
-  return firstReal > 0 ? points.slice(firstReal) : points;
-}
-
-function CustomTooltip({
-  active,
-  payload,
-  label,
-}: {
-  active?: boolean;
-  payload?: { value: number; payload: ChartPoint }[];
-  label?: string;
-}) {
-  if (!active || !payload?.length || payload[0]?.value == null) return null;
-  const pt = payload[0].payload;
-  return (
-    <div className="rounded-xl border border-border/60 bg-card px-3 py-2.5 shadow-lg text-sm space-y-1.5 min-w-[140px]">
-      {label && <p className="text-muted-foreground text-xs">{label}</p>}
-      <div>
-        <p className="font-bold text-primary text-lg leading-none">
-          {payload[0].value}
-        </p>
-        <p className="text-[10px] text-muted-foreground">найкращий бал НМТ</p>
-      </div>
-      {pt.best !== null && pt.best !== payload[0].value && (
-        <p className="text-xs text-muted-foreground">
-          Середній:{" "}
-          <span className="font-semibold text-foreground">{pt.best}</span>
-        </p>
-      )}
-      <div className="border-t border-border/40 pt-1.5 space-y-0.5">
-        <p className="text-xs text-muted-foreground">
-          Спроб:{" "}
-          <span className="font-semibold text-foreground">{pt.count}</span>
-        </p>
-        {pt.totalTime > 0 && (
-          <p className="text-xs text-muted-foreground">
-            Час:{" "}
-            <span className="font-semibold text-foreground">
-              {formatDuration(pt.totalTime)}
-            </span>
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-const RANGE_LABELS: { value: Range; label: string }[] = [
-  { value: "day", label: "День" },
-  { value: "week", label: "Тиждень" },
-  { value: "month", label: "Місяць" },
-];
-
-const MONTH_STEP_LABELS: { value: MonthStep; label: string }[] = [
-  { value: "week", label: "По тижнях" },
-  { value: "month", label: "По місяцях" },
-];
-
-const THEME_COLORS: Record<string, string> = {
-  violet: "oklch(0.52 0.28 290)",
-  blue: "oklch(0.50 0.26 250)",
-  green: "oklch(0.50 0.20 155)",
-  rose: "oklch(0.54 0.26 10)",
-  orange: "oklch(0.60 0.22 45)",
-  teal: "oklch(0.52 0.18 185)",
-  amber: "oklch(0.62 0.18 75)",
-  indigo: "oklch(0.50 0.26 268)",
-};
-
-function ProgressSection({ results }: { results: TestResult[] }) {
-  const { distinctDays, distinctWeeks, distinctMonths } = useMemo(() => {
-    const withDate = results.filter((r) => r.completedAt);
-    return {
-      distinctDays: new Set(
-        withDate.map((r) => {
-          const d = r.completedAt!.toDate();
-          return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-        }),
-      ).size,
-      distinctWeeks: new Set(
-        withDate.map((r) => {
-          const d = r.completedAt!.toDate();
-          return `${d.getFullYear()}-${d.getMonth()}-${Math.floor(d.getDate() / 7)}`;
-        }),
-      ).size,
-      distinctMonths: new Set(
-        withDate.map((r) => {
-          const d = r.completedAt!.toDate();
-          return `${d.getFullYear()}-${d.getMonth()}`;
-        }),
-      ).size,
-    };
-  }, [results]);
-
-  const [range, setRange] = useState<Range>(() =>
-    distinctDays > 1 ? "week" : "day",
-  );
-  const [monthStep, setMonthStep] = useState<MonthStep>("week");
-  const { colorTheme } = useColorTheme();
-  const primary = THEME_COLORS[colorTheme] ?? THEME_COLORS.violet;
-  const data = useMemo(
-    () => buildChartData(results, range, monthStep),
-    [results, range, monthStep],
-  );
-  const hasData = data.some((d) => d.score !== null);
-  const showStepSelector =
-    range === "month" && (distinctWeeks > 1 || distinctMonths > 1);
-
-  const availableRanges = RANGE_LABELS.filter(({ value }) => {
-    if (value === "day") return true;
-    if (value === "week") return distinctDays > 1;
-    if (value === "month") return distinctWeeks > 1;
-    return false;
+// ── Upcoming Homework ──────────────────────────────────────────
+function UpcomingHomework({ userId }: { userId: string }) {
+  const router = useRouter();
+  const { data: list = [], isLoading } = useQuery<Homework[]>({
+    queryKey: ["student-homework", userId],
+    queryFn: () => getStudentHomework(userId),
+    staleTime: 60 * 1000,
   });
 
-  const visibleScores = data
-    .map((d) => d.score)
-    .filter((s): s is number => s !== null);
-  const yMin = visibleScores.length
-    ? Math.max(100, Math.min(...visibleScores) - 20)
-    : 100;
-  const yMax = visibleScores.length
-    ? Math.min(200, Math.max(...visibleScores) + 20)
-    : 200;
+  const next = useMemo(() => {
+    const pending = list.filter((h) => h.status !== "completed");
+    return [...pending].sort((a, b) => {
+      const ad = a.dueAt?.toMillis() ?? Number.MAX_SAFE_INTEGER;
+      const bd = b.dueAt?.toMillis() ?? Number.MAX_SAFE_INTEGER;
+      if (ad !== bd) return ad - bd;
+      return (b.assignedAt?.toMillis() ?? 0) - (a.assignedAt?.toMillis() ?? 0);
+    })[0];
+  }, [list]);
 
   return (
-    <section
-      className="rounded-2xl border border-border/50 bg-card p-5 flex flex-col gap-4"
-      style={{ minHeight: "420px" }}
-    >
-      {/* Header row */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h2 className="font-semibold text-base">Прогрес</h2>
-        <div className="flex items-center gap-2 flex-wrap justify-end">
-          {showStepSelector && (
-            <div className="flex gap-1 bg-muted/40 p-1 rounded-xl">
-              {MONTH_STEP_LABELS.map(({ value, label }) => (
-                <button
-                  key={value}
-                  onClick={() => setMonthStep(value)}
-                  className={cn(
-                    "px-3 py-1 rounded-lg text-xs font-medium transition-all",
-                    monthStep === value
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          )}
-          {availableRanges.length > 1 && (
-            <div className="flex gap-1 bg-muted/40 p-1 rounded-xl">
-              {availableRanges.map(({ value, label }) => (
-                <button
-                  key={value}
-                  onClick={() => setRange(value)}
-                  className={cn(
-                    "px-3 py-1 rounded-lg text-xs font-medium transition-all",
-                    range === value
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+    <section className="rounded-2xl border border-border/50 bg-card p-5 flex flex-col gap-4">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="font-semibold text-base">Найближче домашнє завдання</h2>
+        <button
+          onClick={() => router.push("/dashboard/homework")}
+          className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+        >
+          Усі <ArrowRight size={13} />
+        </button>
       </div>
 
-      {/* Chart */}
-      {!hasData ? (
-        <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground text-sm gap-1">
-          <span className="text-2xl">📈</span>
-          <p>Пройдіть перший тест — графік з`явиться тут</p>
+      {isLoading ? (
+        <div className="flex justify-center py-8">
+          <div className="w-5 h-5 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+        </div>
+      ) : !next ? (
+        <div className="flex flex-col items-center justify-center text-muted-foreground text-sm gap-1 py-8">
+          <span className="text-2xl">✅</span>
+          <p>Немає активних домашніх завдань</p>
         </div>
       ) : (
-        <div className="flex-1">
-          <ResponsiveContainer width="100%" height={320}>
-            <AreaChart
-              data={data}
-              margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
-            >
-              <defs>
-                <linearGradient id="scoreGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={primary} stopOpacity={0.25} />
-                  <stop offset="100%" stopColor={primary} stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid
-                strokeDasharray="3 3"
-                stroke="hsl(var(--border))"
-                opacity={0.5}
-                vertical={false}
-              />
-              <XAxis
-                dataKey="label"
-                tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
-                axisLine={false}
-                tickLine={false}
-                interval="preserveStartEnd"
-                minTickGap={40}
-              />
-              <YAxis
-                domain={[yMin, yMax]}
-                tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
-                axisLine={false}
-                tickLine={false}
-                tickCount={4}
-                width={36}
-              />
-              <Tooltip
-                content={<CustomTooltip />}
-                cursor={{ stroke: "hsl(var(--border))", strokeWidth: 1 }}
-              />
-              <Area
-                type="monotone"
-                dataKey="score"
-                stroke={primary}
-                strokeWidth={2.5}
-                fill="url(#scoreGrad)"
-                dot={(props: { cx?: number; cy?: number; value?: number }) => {
-                  if (props.value == null || !props.cx || !props.cy)
-                    return <g key="empty" />;
-                  return (
-                    <circle
-                      key={`${props.cx}-${props.cy}`}
-                      cx={props.cx}
-                      cy={props.cy}
-                      r={3.5}
-                      fill="hsl(var(--card))"
-                      stroke={primary}
-                      strokeWidth={2}
-                    />
-                  );
-                }}
-                activeDot={(props: { cx?: number; cy?: number }) => (
-                  <circle
-                    key={`active-${props.cx}`}
-                    cx={props.cx}
-                    cy={props.cy}
-                    r={5}
-                    fill={primary}
-                    stroke={primary}
-                    strokeWidth={0}
-                  />
-                )}
-                connectNulls
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
+        <button
+          onClick={() => router.push(`/dashboard/homework/${next.id}`)}
+          className="group text-left rounded-2xl border border-border/50 bg-background hover:border-primary/40 hover:bg-muted/30 transition-all p-4 flex items-center gap-4"
+        >
+          <div className="w-11 h-11 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+            <ClipboardCheck size={20} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold truncate">{next.title}</p>
+            <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2">
+              {next.status === "in_progress" && (
+                <span className="text-amber-600 dark:text-amber-400 font-medium">Розпочато</span>
+              )}
+              {next.dueAt ? (
+                <span className="inline-flex items-center gap-1">
+                  <CalendarClock size={12} /> до {formatDate(next.dueAt, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                </span>
+              ) : (
+                <span>Без дедлайну</span>
+              )}
+            </p>
+          </div>
+          <span className="shrink-0 text-sm font-medium text-primary inline-flex items-center gap-1 group-hover:gap-2 transition-all">
+            {next.status === "in_progress" ? "Продовжити" : "Почати"}
+            <ArrowRight size={15} />
+          </span>
+        </button>
       )}
     </section>
   );
 }
 
-// ── Recommended Test ───────────────────────────────────────────
+// ── Daily Question ─────────────────────────────────────────────
 function DailyQuestion({
   userId,
   onAnswered,
@@ -954,7 +621,7 @@ export default function DashboardPage() {
             onAnswered={() => refetchDailyDates()}
           />
         )}
-        <ProgressSection results={results} />
+        {user && <UpcomingHomework userId={user.uid} />}
       </div>
 
       {/* Right */}

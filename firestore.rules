@@ -6,18 +6,32 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function role() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
     function isEditor() {
-      return isAuth() &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "editor";
+      return isAuth() && role() == "editor";
+    }
+
+    function isTutor() {
+      return isAuth() && (role() == "tutor" || role() == "editor");
     }
 
     function isOwner(uid) {
       return isAuth() && request.auth.uid == uid;
     }
 
-    // Users — own profile or editor
+    // True when the given homework doc belongs to the current tutor.
+    function ownsHomework(hwId) {
+      return isAuth() &&
+        get(/databases/$(database)/documents/homework/$(hwId)).data.tutorId == request.auth.uid;
+    }
+
+    // Users — any signed-in user may read profiles (needed to find students by email);
+    // writes only by the owner or an editor.
     match /users/{uid} {
-      allow read: if isOwner(uid) || isEditor();
+      allow read: if isAuth();
       allow write: if isOwner(uid) || isEditor();
     }
 
@@ -27,13 +41,62 @@ service cloud.firestore {
       allow write: if isEditor();
     }
 
-    // Test results — read by owner or editor, create by any auth user
+    // Test results
     match /testResults/{resultId} {
       allow read: if isAuth() && (
-        resource.data.userId == request.auth.uid || isEditor()
+        resource.data.userId == request.auth.uid
+        || isEditor()
+        || (isTutor() && ("homeworkId" in resource.data) && ownsHomework(resource.data.homeworkId))
       );
-      allow create: if isAuth();
-      allow update, delete: if isEditor();
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      // Owner may update their own result (e.g. duck flags); the owning tutor may add comments.
+      allow update: if isAuth() && (
+        resource.data.userId == request.auth.uid
+        || isEditor()
+        || (isTutor() && ("homeworkId" in resource.data) && ownsHomework(resource.data.homeworkId))
+      );
+      allow delete: if isEditor();
+    }
+
+    // Homework assignments
+    match /homework/{hwId} {
+      allow read: if isAuth() && (
+        resource.data.tutorId == request.auth.uid
+        || resource.data.studentId == request.auth.uid
+        || isEditor()
+      );
+      allow create: if isTutor() && request.resource.data.tutorId == request.auth.uid;
+      // Tutor owns it; student may update their own (status, resultId) on submit.
+      allow update: if isAuth() && (
+        resource.data.tutorId == request.auth.uid
+        || resource.data.studentId == request.auth.uid
+        || isEditor()
+      );
+      allow delete: if isAuth() && (resource.data.tutorId == request.auth.uid || isEditor());
+    }
+
+    // Tutor ↔ student links
+    match /tutorStudents/{linkId} {
+      // resource == null allows reading a not-yet-existing link (the dup-check before create)
+      allow read: if isAuth() && (
+        resource == null
+        || resource.data.tutorId == request.auth.uid
+        || resource.data.studentId == request.auth.uid
+        || isEditor()
+      );
+      allow create: if isTutor() && request.resource.data.tutorId == request.auth.uid;
+      allow delete: if isAuth() && (resource.data.tutorId == request.auth.uid || isEditor());
+    }
+
+    // Lessons (calendar)
+    match /lessons/{lessonId} {
+      allow read: if isAuth() && (
+        resource.data.tutorId == request.auth.uid
+        || resource.data.studentId == request.auth.uid
+        || isEditor()
+      );
+      allow create: if isTutor() && request.resource.data.tutorId == request.auth.uid;
+      allow update, delete: if isAuth() && (resource.data.tutorId == request.auth.uid || isEditor());
     }
 
     // Tips — read by any auth user, write by editors only

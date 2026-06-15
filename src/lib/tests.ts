@@ -74,9 +74,33 @@ type BankMeta = {
 };
 
 export type BankMCQQuestion = Omit<MCQQuestion, "points" | "order"> & BankMeta;
-export type BankOpenQuestion = Omit<OpenQuestion, "points" | "order"> & BankMeta;
-export type BankMatchingQuestion = Omit<MatchingQuestion, "points" | "order"> & BankMeta;
-export type BankQuestion = BankMCQQuestion | BankOpenQuestion | BankMatchingQuestion;
+export type BankOpenQuestion = Omit<OpenQuestion, "points" | "order"> &
+  BankMeta;
+export type BankMatchingQuestion = Omit<MatchingQuestion, "points" | "order"> &
+  BankMeta;
+export type BankQuestion =
+  | BankMCQQuestion
+  | BankOpenQuestion
+  | BankMatchingQuestion;
+
+/** Default points per question type (НМТ convention): mcq 1, open 2, matching 3. */
+export const DEFAULT_POINTS = { mcq: 1, open: 2, matching: 3 } as const;
+
+/** Convert a bank question into a test question (strips bank meta, adds points + order). */
+export function bankToTestQuestion(
+  bq: BankQuestion,
+  order: number,
+): TestQuestion {
+  const {
+    topicId: _t,
+    difficulty: _d,
+    status: _s,
+    reviewNote: _r,
+    dailyOrder: _o,
+    ...rest
+  } = bq as BankQuestion & { dailyOrder?: number };
+  return { ...rest, points: DEFAULT_POINTS[rest.type], order } as TestQuestion;
+}
 
 export function makeEmptyBankMCQ(topicId: string): BankMCQQuestion {
   return {
@@ -198,14 +222,50 @@ export interface TestResult {
   questions: QuestionResult[];
   scoreTable: ScoreRow[];
   scaleType?: ScaleType; // defaults to "nmt" when absent
+  // --- Homework extensions (absent on regular self-taken tests) ---
+  homeworkId?: string; // set when this result came from a tutor assignment
+  answerImages?: Record<string, string>; // questionId → uploaded photo url (open answers)
+  flaggedQuestions?: string[]; // questionIds the student flagged with a duck 🦆
+  tutorComments?: Record<string, string>; // questionId → tutor's note
+  tutorNote?: string; // overall tutor note on the attempt
+  reviewedAt?: Timestamp | null; // set when tutor has reviewed
 }
 
-export async function saveTestResult(data: Omit<TestResult, "id" | "completedAt">): Promise<string> {
+export async function saveTestResult(
+  data: Omit<TestResult, "id" | "completedAt">,
+): Promise<string> {
   const ref = await addDoc(collection(db, "testResults"), {
     ...data,
     completedAt: serverTimestamp(),
   });
   return ref.id;
+}
+
+/**
+ * Recompute a user's daily activity streak from their test results and persist it.
+ * Shared by the exam and homework runners. Caller should refreshProfile() after.
+ */
+export async function recalcStreak(userId: string): Promise<number> {
+  const allResults = await getUserResults(userId);
+  const activeDays = new Set(
+    allResults
+      .filter((r) => r.completedAt)
+      .map((r) => {
+        const d = r.completedAt!.toDate();
+        return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+      }),
+  );
+  let streak = 0;
+  const now = new Date();
+  for (let i = 0; i < 365; i++) {
+    const d = new Date(now);
+    d.setDate(now.getDate() - i);
+    const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+    if (activeDays.has(key)) streak++;
+    else break;
+  }
+  await updateDoc(doc(db, "users", userId), { streak });
+  return streak;
 }
 
 export async function getResult(id: string): Promise<TestResult | null> {
@@ -214,11 +274,18 @@ export async function getResult(id: string): Promise<TestResult | null> {
   return { id: snap.id, ...snap.data() } as TestResult;
 }
 
+export async function updateResult(
+  id: string,
+  patch: Partial<TestResult>,
+): Promise<void> {
+  await updateDoc(doc(db, "testResults", id), patch);
+}
+
 export async function getUserResults(userId: string): Promise<TestResult[]> {
   const q = query(collection(db, "testResults"), where("userId", "==", userId));
   const snap = await getDocs(q);
   return snap.docs
-    .map((d) => ({ id: d.id, ...d.data() } as TestResult))
+    .map((d) => ({ id: d.id, ...d.data() }) as TestResult)
     .sort((a, b) => {
       const ta = a.completedAt?.toMillis() ?? 0;
       const tb = b.completedAt?.toMillis() ?? 0;
@@ -226,20 +293,28 @@ export async function getUserResults(userId: string): Promise<TestResult[]> {
     });
 }
 
-export function calcRawScore(questions: TestQuestion[], answers: Record<string, string>): number {
+export function calcRawScore(
+  questions: TestQuestion[],
+  answers: Record<string, string>,
+): number {
   return questions.reduce((sum, q) => {
     const answer = answers[q.id];
     if (!answer) return sum;
     if (q.type === "mcq" && answer === q.correctOptionId) return sum + q.points;
-    if (q.type === "open" && answer.trim() === q.correctAnswer.trim()) return sum + q.points;
+    if (q.type === "open" && answer.trim() === q.correctAnswer.trim())
+      return sum + q.points;
     if (q.type === "matching") {
       try {
         const parsed = JSON.parse(answer) as Record<string, string>;
         const totalPairs = Object.keys(q.correctPairs).length;
         if (totalPairs === 0) return sum;
-        const correctCount = Object.entries(q.correctPairs).filter(([k, v]) => parsed[k] === v).length;
+        const correctCount = Object.entries(q.correctPairs).filter(
+          ([k, v]) => parsed[k] === v,
+        ).length;
         return sum + Math.round(correctCount * (q.points / totalPairs));
-      } catch { /* invalid json */ }
+      } catch {
+        /* invalid json */
+      }
     }
     return sum;
   }, 0);
@@ -269,21 +344,24 @@ export function makeLinearTable(maxRaw: number): ScoreRow[] {
 }
 
 /** НМТ counts a test as failed below 5 raw points; custom scales have no minimum. */
-export function isExamFailed(rawScore: number, scaleType: ScaleType = "nmt"): boolean {
+export function isExamFailed(
+  rawScore: number,
+  scaleType: ScaleType = "nmt",
+): boolean {
   return scaleType === "nmt" && rawScore < 5;
 }
 
 export async function getPublishedTests(): Promise<TestDoc[]> {
   const snap = await getDocs(collection(db, "tests"));
   return snap.docs
-    .map((d) => ({ id: d.id, ...d.data() } as TestDoc))
+    .map((d) => ({ id: d.id, ...d.data() }) as TestDoc)
     .filter((t) => t.published)
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 }
 
 export async function getAllTests(): Promise<TestDoc[]> {
   const snap = await getDocs(collection(db, "tests"));
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as TestDoc));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as TestDoc);
 }
 
 export async function getTest(id: string): Promise<TestDoc | null> {
@@ -309,7 +387,7 @@ export async function createTest(createdBy: string): Promise<string> {
 
 export async function updateTest(
   id: string,
-  data: Partial<Omit<TestDoc, "id" | "createdAt">>
+  data: Partial<Omit<TestDoc, "id" | "createdAt">>,
 ): Promise<void> {
   await updateDoc(doc(db, "tests", id), {
     ...data,

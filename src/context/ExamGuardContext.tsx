@@ -3,9 +3,21 @@
 import { createContext, useContext, useState, useCallback, ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
+interface GuardCopy {
+  title: string;
+  message: string;
+  confirmLabel: string;
+}
+
+const DEFAULT_COPY: GuardCopy = {
+  title: "Вийти з іспиту?",
+  message: "Прогрес не збережеться. Таймер зупиниться і результат не зарахується.",
+  confirmLabel: "Вийти",
+};
+
 interface ExamGuardContextType {
   isGuarded: boolean;
-  setGuarded: (v: boolean) => void;
+  setGuarded: (v: boolean, copy?: Partial<GuardCopy>) => void;
   requestNav: (href: string) => void;
   requestAction: (fn: () => void) => void;
 }
@@ -19,8 +31,14 @@ const ExamGuardContext = createContext<ExamGuardContextType>({
 
 export function ExamGuardProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const [isGuarded, setGuarded] = useState(false);
+  const [isGuarded, setGuardedState] = useState(false);
+  const [copy, setCopy] = useState<GuardCopy>(DEFAULT_COPY);
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
+
+  const setGuarded = useCallback((v: boolean, c?: Partial<GuardCopy>) => {
+    setGuardedState(v);
+    setCopy(v && c ? { ...DEFAULT_COPY, ...c } : DEFAULT_COPY);
+  }, []);
 
   const requestNav = useCallback((href: string) => {
     if (isGuarded) {
@@ -55,8 +73,8 @@ export function ExamGuardProvider({ children }: { children: ReactNode }) {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="bg-card border border-border/60 rounded-2xl p-6 shadow-xl max-w-sm w-full mx-4 space-y-4">
             <div className="space-y-1">
-              <p className="font-semibold text-base">Вийти з іспиту?</p>
-              <p className="text-sm text-muted-foreground">Прогрес не збережеться. Таймер зупиниться і результат не зарахується.</p>
+              <p className="font-semibold text-base">{copy.title}</p>
+              <p className="text-sm text-muted-foreground">{copy.message}</p>
             </div>
             <div className="flex gap-2">
               <button
@@ -69,7 +87,7 @@ export function ExamGuardProvider({ children }: { children: ReactNode }) {
                 onClick={confirm}
                 className="flex-1 px-4 py-2 rounded-xl bg-destructive text-destructive-foreground text-sm font-medium hover:opacity-90 transition-opacity"
               >
-                Вийти
+                {copy.confirmLabel}
               </button>
             </div>
           </div>

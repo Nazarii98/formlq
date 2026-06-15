@@ -1,6 +1,6 @@
 import type { Timestamp } from "firebase/firestore";
 
-export type UserRole = "student" | "editor";
+export type UserRole = "student" | "editor" | "tutor";
 
 export interface UserProfile {
   uid: string;
@@ -95,4 +95,7 @@ export interface OpenExamQuestion {
   explanation: string;
 }
 
-export type ExamQuestion = MCQExamQuestion | MatchingExamQuestion | OpenExamQuestion;
+export type ExamQuestion =
+  | MCQExamQuestion
+  | MatchingExamQuestion
+  | OpenExamQuestion;

@@ -40,6 +40,8 @@ export function MathText({ text, className }: { text: string; className?: string
             displayMode: p.type === "block",
             throwOnError: false,
             output: "html",
+            // Cyrillic inside math (e.g. "$АВ_1$") is intentional here — don't warn.
+            strict: false,
           });
           return (
             <span
