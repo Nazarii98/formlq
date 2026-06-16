@@ -82,7 +82,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email: user.email ?? "",
         displayName: name || user.displayName || "Учень",
         photoURL: user.photoURL ?? undefined,
-        streak: 0,
         totalXP: 0,
         role: "student",
         createdAt: serverTimestamp(),

@@ -17,7 +17,7 @@ const ReferenceDrawer = dynamic(
     })),
   { ssr: false },
 );
-import { Flame, LogOut } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function DashboardLayout({
@@ -71,7 +71,6 @@ export default function DashboardLayout({
   }
   if (!user) return null;
 
-  const streak = userProfile?.streak ?? 0;
   const fullName = userProfile?.displayName ?? user.displayName ?? "Учень";
   const firstName = fullName.split(" ")[0];
   const isHome = pathname === "/dashboard";
@@ -121,39 +120,6 @@ export default function DashboardLayout({
           )}
 
           <div className="flex items-center gap-2">
-            {/* Streak */}
-            <div className="relative group/streak">
-              <div
-                className={cn(
-                  "flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-sm font-semibold transition-all cursor-default",
-                  streak > 0
-                    ? "bg-orange-500/10 text-orange-500 dark:text-orange-400"
-                    : "bg-muted/50 text-muted-foreground",
-                )}
-              >
-                <Flame
-                  size={16}
-                  className={
-                    streak > 0
-                      ? "text-orange-500 dark:text-orange-400"
-                      : "text-muted-foreground"
-                  }
-                />
-                <span className="tabular-nums leading-none">{streak}</span>
-              </div>
-              <div className="pointer-events-none absolute right-0 top-[calc(100%+8px)] z-50 px-3 py-2 rounded-xl bg-popover border border-border/50 shadow-lg text-xs font-medium text-foreground whitespace-nowrap opacity-0 translate-y-1 group-hover/streak:opacity-100 group-hover/streak:translate-y-0 transition-all duration-150">
-                {streak === 0
-                  ? "Почни сьогодні — перший день стріку! 🚀"
-                  : streak === 1
-                    ? "Відмінний старт! Не зупиняйся 💪"
-                    : streak < 7
-                      ? `${streak} дні поспіль — так тримати! 🔥`
-                      : streak < 30
-                        ? `${streak} днів поспіль — ти в потоці! ⚡`
-                        : `${streak} днів — легенда! Неймовірно 🏆`}
-              </div>
-            </div>
-
             <ThemeSelector />
             <div className="hidden md:contents">
               <div className="relative group">

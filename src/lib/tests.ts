@@ -241,33 +241,6 @@ export async function saveTestResult(
   return ref.id;
 }
 
-/**
- * Recompute a user's daily activity streak from their test results and persist it.
- * Shared by the exam and homework runners. Caller should refreshProfile() after.
- */
-export async function recalcStreak(userId: string): Promise<number> {
-  const allResults = await getUserResults(userId);
-  const activeDays = new Set(
-    allResults
-      .filter((r) => r.completedAt)
-      .map((r) => {
-        const d = r.completedAt!.toDate();
-        return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-      }),
-  );
-  let streak = 0;
-  const now = new Date();
-  for (let i = 0; i < 365; i++) {
-    const d = new Date(now);
-    d.setDate(now.getDate() - i);
-    const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-    if (activeDays.has(key)) streak++;
-    else break;
-  }
-  await updateDoc(doc(db, "users", userId), { streak });
-  return streak;
-}
-
 export async function getResult(id: string): Promise<TestResult | null> {
   const snap = await getDoc(doc(db, "testResults", id));
   if (!snap.exists()) return null;

@@ -4,11 +4,8 @@ import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
-import { getUserResults, TestResult } from "@/lib/tests";
 import { getTips, Tip } from "@/lib/tips";
 import { getStudentHomework, Homework } from "@/lib/tutor";
-import { doc, updateDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import { useQuery } from "@tanstack/react-query";
 import { CheckCircle2, XCircle, ClipboardCheck, CalendarClock, ArrowRight } from "lucide-react";
 import Image from "next/image";
@@ -18,7 +15,6 @@ import {
   getDailyQuestion,
   getTodayDailyAnswer,
   saveDailyAnswer,
-  getDailyAnswerDates,
   DailyAnswer,
 } from "@/lib/questions";
 import {
@@ -61,7 +57,7 @@ function DailyTip({ tips }: { tips: Tip[] }) {
 }
 
 // ── Mini Calendar ──────────────────────────────────────────────
-function MiniCalendar({ activeDays = [] }: { activeDays?: number[] }) {
+function MiniCalendar() {
   const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth();
@@ -92,24 +88,18 @@ function MiniCalendar({ activeDays = [] }: { activeDays?: number[] }) {
           </div>
         ))}
         {cells.map((day, i) => {
-          const isActive = day !== null && activeDays.includes(day);
           const isToday = day === today;
           return (
             <div
               key={i}
               className={cn(
-                "aspect-square flex items-center justify-center rounded-lg text-xs transition-all relative",
+                "aspect-square flex items-center justify-center rounded-lg text-xs transition-all",
                 !day && "invisible",
                 isToday && "bg-primary text-primary-foreground font-bold",
                 !isToday && "text-foreground/70 hover:bg-muted",
               )}
             >
               <span>{day}</span>
-              {isActive && (
-                <span className="absolute top-0.5 right-0.5 text-[10px] leading-none pointer-events-none">
-                  🔥
-                </span>
-              )}
             </div>
           );
         })}
@@ -536,7 +526,7 @@ function DailyQuestion({
 
 // ── Main ───────────────────────────────────────────────────────
 export default function DashboardPage() {
-  const { user, refreshProfile } = useAuth();
+  const { user } = useAuth();
 
   const { data: tips = [] } = useQuery({
     queryKey: ["tips"],
@@ -545,89 +535,19 @@ export default function DashboardPage() {
     staleTime: 10 * 60 * 1000,
   });
 
-  const { data: results = [] } = useQuery<TestResult[]>({
-    queryKey: ["results", user?.uid],
-    queryFn: () => getUserResults(user!.uid),
-    enabled: !!user,
-    staleTime: 60 * 1000,
-  });
-
-  const { data: dailyDates = [], refetch: refetchDailyDates } = useQuery<
-    string[]
-  >({
-    queryKey: ["daily-dates", user?.uid],
-    queryFn: () => getDailyAnswerDates(user!.uid),
-    enabled: !!user,
-    staleTime: 60 * 1000,
-  });
-
-  useEffect(() => {
-    if (!user) return;
-    const now = new Date();
-    // combine test result dates + daily answer dates
-    const activeDayKeys = new Set<string>();
-    results
-      .filter((r) => r.completedAt)
-      .forEach((r) => {
-        const d = r.completedAt!.toDate();
-        activeDayKeys.add(
-          `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`,
-        );
-      });
-    dailyDates.forEach((date) => activeDayKeys.add(date));
-    if (!activeDayKeys.size) return;
-    let streak = 0;
-    for (let i = 0; i < 365; i++) {
-      const d = new Date(now);
-      d.setDate(now.getDate() - i);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-      if (activeDayKeys.has(key)) streak++;
-      else break;
-    }
-    updateDoc(doc(db, "users", user.uid), { streak }).then(() =>
-      refreshProfile(),
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [results, dailyDates, user?.uid]);
-
-  const activeDays = useMemo(() => {
-    const now = new Date();
-    const days = new Set<number>();
-    results
-      .filter((r) => {
-        if (!r.completedAt) return false;
-        const d = r.completedAt.toDate();
-        return (
-          d.getMonth() === now.getMonth() &&
-          d.getFullYear() === now.getFullYear()
-        );
-      })
-      .forEach((r) => days.add(r.completedAt!.toDate().getDate()));
-    dailyDates.forEach((date) => {
-      const [y, m, d] = date.split("-").map(Number);
-      if (y === now.getFullYear() && m === now.getMonth() + 1) days.add(d);
-    });
-    return [...days];
-  }, [results, dailyDates]);
-
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6 items-start">
       {/* Left */}
       <div className="space-y-6">
         <DailyTip tips={tips} />
-        {user && (
-          <DailyQuestion
-            userId={user.uid}
-            onAnswered={() => refetchDailyDates()}
-          />
-        )}
+        {user && <DailyQuestion userId={user.uid} onAnswered={() => {}} />}
         {user && <UpcomingHomework userId={user.uid} />}
       </div>
 
       {/* Right */}
       <div className="space-y-6">
         <section className="rounded-2xl border border-border/50 bg-card p-5">
-          <MiniCalendar activeDays={activeDays} />
+          <MiniCalendar />
         </section>
       </div>
     </div>

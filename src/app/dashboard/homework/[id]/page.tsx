@@ -9,7 +9,6 @@ import {
   saveTestResult,
   getResult,
   updateResult,
-  recalcStreak,
   TestResult,
 } from "@/lib/tests";
 import { getHomework, updateHomework, Homework } from "@/lib/tutor";
@@ -22,7 +21,7 @@ import {
 
 export default function HomeworkRunnerPage() {
   const { id } = useParams<{ id: string }>();
-  const { user, loading: authLoading, refreshProfile } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const queryClient = useQueryClient();
 
@@ -109,8 +108,6 @@ export default function HomeworkRunnerPage() {
       flaggedQuestions: payload.flaggedQuestions,
     });
     await updateHomework(homework.id, { status: "completed", resultId });
-    await recalcStreak(user.uid);
-    await refreshProfile();
     queryClient.invalidateQueries({ queryKey: ["results", user.uid] });
     return resultId;
   }

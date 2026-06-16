@@ -9,7 +9,6 @@ import { useHeader } from "@/context/HeaderContext";
 import { UserProfile, UserRole } from "@/types";
 import { cn } from "@/lib/utils";
 import {
-  Flame,
   Crown,
   Search,
   ChevronRight,
@@ -139,16 +138,7 @@ export default function AdminUsersPage() {
           <p className="text-xs text-muted-foreground truncate">{u.email}</p>
         </div>
 
-        <div className="hidden sm:flex items-center gap-4 shrink-0 text-xs text-muted-foreground">
-          <div className="flex items-center gap-1">
-            <Flame
-              size={11}
-              className={u.streak > 0 ? "text-orange-500" : ""}
-            />
-            <span className={u.streak > 0 ? "text-orange-500 font-medium" : ""}>
-              {u.streak}
-            </span>
-          </div>
+        <div className="hidden sm:flex items-center shrink-0 text-xs text-muted-foreground">
           <span className="text-muted-foreground/50">
             {u.createdAt ? timeAgo(u.createdAt.toDate()) : "—"}
           </span>

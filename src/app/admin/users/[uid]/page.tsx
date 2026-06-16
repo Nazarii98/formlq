@@ -1,17 +1,26 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getUserById } from "@/lib/users";
 import { getUserResults } from "@/lib/tests";
-import { formatDuration, scoreColor, timeAgo } from "@/lib/format";
+import {
+  subscribeTutorStudents,
+  addStudentByEmail,
+  removeStudent,
+  TutorStudent,
+} from "@/lib/tutor";
+import { subscribeTutorLessons, Lesson } from "@/lib/lessons";
+import { formatDuration, timeAgo } from "@/lib/format";
 import { SpinnerPage } from "@/components/ui/spinner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ResultListItem } from "@/components/exam/ResultListItem";
+import { MonthCalendar } from "@/components/calendar/MonthCalendar";
+import { Button } from "@/components/ui/button";
 import { useHeader } from "@/context/HeaderContext";
 import { useOnlineUsers } from "@/hooks/useOnlineUsers";
 import { cn } from "@/lib/utils";
-import { ArrowLeft, Flame } from "lucide-react";
+import { ArrowLeft, UserPlus, Trash2, GraduationCap } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
 export default function AdminUserHistoryPage() {
@@ -36,7 +45,13 @@ export default function AdminUserHistoryPage() {
   const loading = profileLoading || resultsLoading;
 
   useEffect(() => {
-    if (profile) setHeader(profile.displayName, "Історія тестів");
+    if (profile)
+      setHeader(
+        profile.displayName,
+        profile.role === "tutor" || profile.role === "editor"
+          ? "Кабінет вчителя"
+          : "Профіль учня",
+      );
     return () => setHeader("", "");
   }, [profile, setHeader]);
 
@@ -95,12 +110,13 @@ export default function AdminUserHistoryPage() {
                       : "Офлайн"}
                 </p>
               </div>
-              <div className="flex items-center gap-1.5 text-sm font-semibold text-orange-500">
-                <Flame size={14} /> {profile.streak}
-              </div>
             </div>
           );
         })()}
+
+      {profile && (profile.role === "tutor" || profile.role === "editor") && (
+        <TutorSection tutorId={uid} />
+      )}
 
       {results.length > 0 && (
         <div className="grid grid-cols-3 gap-2">
@@ -149,6 +165,98 @@ export default function AdminUserHistoryPage() {
           Загальний час: {formatDuration(totalTime)}
         </p>
       )}
+    </div>
+  );
+}
+
+// Tutor overview — editor view of a tutor's students and calendar.
+function TutorSection({ tutorId }: { tutorId: string }) {
+  const [students, setStudents] = useState<TutorStudent[]>([]);
+  const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [email, setEmail] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => subscribeTutorStudents(tutorId, setStudents), [tutorId]);
+  useEffect(() => subscribeTutorLessons(tutorId, setLessons), [tutorId]);
+
+  async function handleAdd(e: React.FormEvent) {
+    e.preventDefault();
+    if (!email.trim()) return;
+    setAdding(true);
+    setError(null);
+    try {
+      await addStudentByEmail(tutorId, email);
+      setEmail("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не вдалося додати учня");
+    } finally {
+      setAdding(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4 rounded-2xl border border-amber-400/30 bg-amber-400/5 p-4">
+      <p className="text-sm font-semibold flex items-center gap-1.5">
+        <GraduationCap size={16} className="text-amber-500" /> Кабінет вчителя
+      </p>
+
+      {/* Add student */}
+      <form onSubmit={handleAdd} className="space-y-1.5">
+        <div className="flex gap-2">
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => { setEmail(e.target.value); setError(null); }}
+            placeholder="Email учня..."
+            className="flex-1 px-3 py-2 rounded-xl border border-border/50 bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+          />
+          <Button type="submit" size="sm" disabled={adding || !email.trim()} className="gap-1.5">
+            <UserPlus size={14} /> {adding ? "..." : "Додати"}
+          </Button>
+        </div>
+        {error && <p className="text-xs text-red-500 px-1">{error}</p>}
+      </form>
+
+      {/* Students */}
+      <div className="space-y-1.5">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-1">
+          Учні ({students.length})
+        </p>
+        {students.length === 0 ? (
+          <p className="text-xs text-muted-foreground px-1">Немає учнів</p>
+        ) : (
+          students.map((s) => (
+            <div
+              key={s.id}
+              className="rounded-xl border border-border/50 bg-card px-3 py-2 flex items-center gap-2.5"
+            >
+              <div className="w-8 h-8 rounded-lg bg-muted text-muted-foreground flex items-center justify-center text-xs font-bold shrink-0">
+                {s.studentName?.[0]?.toUpperCase() ?? "?"}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{s.studentName}</p>
+                <p className="text-xs text-muted-foreground truncate">{s.studentEmail}</p>
+              </div>
+              <button
+                onClick={() => removeStudent(s.id)}
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-red-500 hover:bg-red-500/10 shrink-0"
+                title="Прибрати учня"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Calendar */}
+      <div className="space-y-1.5">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-1">
+          Календар занять
+        </p>
+        <MonthCalendar lessons={lessons} />
+      </div>
     </div>
   );
 }

@@ -69,6 +69,16 @@ export async function getTutorStudents(
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as TutorStudent);
 }
 
+/** Links where this user is the student — i.e. the tutors they belong to. */
+export async function getStudentTutorLinks(
+  studentId: string,
+): Promise<TutorStudent[]> {
+  const snap = await getDocs(
+    query(collection(db, "tutorStudents"), where("studentId", "==", studentId)),
+  );
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as TutorStudent));
+}
+
 export function subscribeTutorStudents(
   tutorId: string,
   cb: (list: TutorStudent[]) => void,

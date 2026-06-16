@@ -9,13 +9,12 @@ import {
   TestDoc,
   saveTestResult,
   getUserResults,
-  recalcStreak,
 } from "@/lib/tests";
 import { ExamRunner, SubmitPayload } from "@/components/exam/ExamRunner";
 
 export default function ExamPage() {
   const { id } = useParams<{ id: string }>();
-  const { user, loading: authLoading, refreshProfile } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const queryClient = useQueryClient();
 
@@ -62,8 +61,6 @@ export default function ExamPage() {
       scoreTable: test.scoreTable ?? [],
       scaleType: test.scaleType ?? "nmt",
     });
-    await recalcStreak(user.uid);
-    await refreshProfile();
     queryClient.invalidateQueries({ queryKey: ["results", user.uid] });
     return resultId;
   }

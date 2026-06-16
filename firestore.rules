@@ -97,7 +97,7 @@ service cloud.firestore {
         || resource.data.studentId == request.auth.uid
         || isEditor()
       );
-      allow create: if isTutor() && request.resource.data.tutorId == request.auth.uid;
+      allow create: if isEditor() || (isTutor() && request.resource.data.tutorId == request.auth.uid);
       allow delete: if isAuth() && (resource.data.tutorId == request.auth.uid || isEditor());
     }
 
@@ -108,7 +108,7 @@ service cloud.firestore {
         || resource.data.studentId == request.auth.uid
         || isEditor()
       );
-      allow create: if isTutor() && request.resource.data.tutorId == request.auth.uid;
+      allow create: if isEditor() || (isTutor() && request.resource.data.tutorId == request.auth.uid);
       allow update, delete: if isAuth() && (resource.data.tutorId == request.auth.uid || isEditor());
     }
 

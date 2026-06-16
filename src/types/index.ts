@@ -8,7 +8,6 @@ export interface UserProfile {
   displayName: string;
   photoURL?: string;
   createdAt: Timestamp | null;
-  streak: number;
   lastActivity: Timestamp | null;
   totalXP: number;
   role: UserRole;
