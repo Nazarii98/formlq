@@ -21,6 +21,7 @@ export interface Lesson {
   start: Timestamp;
   durationMin: number;
   note?: string;
+  meetingUrl?: string; // Zoom / Google Meet link
 }
 
 export type NewLesson = Omit<Lesson, "id">;

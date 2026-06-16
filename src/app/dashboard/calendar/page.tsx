@@ -7,19 +7,25 @@ import { subscribeStudentLessons, Lesson } from "@/lib/lessons";
 import { MonthCalendar } from "@/components/calendar/MonthCalendar";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatDate } from "@/lib/format";
-import { CalendarClock, X } from "lucide-react";
+import { CalendarClock, X, Video } from "lucide-react";
 
 export default function StudentCalendarPage() {
   const { user } = useAuth();
   const { setHeader } = useHeader();
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [selected, setSelected] = useState<Lesson | null>(null);
-  const [now] = useState(() => Date.now());
+  const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
     setHeader("Календар занять", "Розклад уроків зі вчителем");
     return () => setHeader("", "");
   }, [setHeader]);
+
+  // Tick so the "join" button activates 5 min before the lesson.
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 30000);
+    return () => clearInterval(t);
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -27,7 +33,7 @@ export default function StudentCalendarPage() {
   }, [user]);
 
   const upcoming = lessons
-    .filter((l) => l.start.toMillis() >= now)
+    .filter((l) => l.start.toMillis() + l.durationMin * 60000 >= now)
     .slice(0, 5);
 
   return (
@@ -92,6 +98,26 @@ export default function StudentCalendarPage() {
                 {selected.note}
               </p>
             )}
+
+            {selected.meetingUrl && (() => {
+              const s = selected.start.toMillis();
+              const e = s + selected.durationMin * 60000;
+              const canJoin = now >= s - 5 * 60000 && now <= e;
+              return canJoin ? (
+                <a
+                  href={selected.meetingUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-1 flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+                >
+                  <Video size={16} /> Увійти в урок
+                </a>
+              ) : (
+                <div className="mt-1 flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-muted text-muted-foreground text-sm font-medium cursor-not-allowed">
+                  <Video size={16} /> Кнопка зʼявиться за 5 хв до початку
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}

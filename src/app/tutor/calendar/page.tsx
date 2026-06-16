@@ -25,6 +25,7 @@ interface Draft {
   start: string; // datetime-local
   durationMin: number;
   note: string;
+  meetingUrl: string;
 }
 
 function toLocalInput(d: Date): string {
@@ -63,6 +64,7 @@ export default function TutorCalendarPage() {
       start: toLocalInput(start),
       durationMin: 60,
       note: "",
+      meetingUrl: "",
     });
   }
 
@@ -74,6 +76,7 @@ export default function TutorCalendarPage() {
       start: toLocalInput(l.start.toDate()),
       durationMin: l.durationMin,
       note: l.note ?? "",
+      meetingUrl: l.meetingUrl ?? "",
     });
   }
 
@@ -106,6 +109,7 @@ export default function TutorCalendarPage() {
       start: Timestamp.fromDate(new Date(draft.start)),
       durationMin: draft.durationMin,
       note: draft.note.trim() || undefined,
+      meetingUrl: draft.meetingUrl.trim() || undefined,
     };
     if (draft.id) await updateLesson(draft.id, payload);
     else await createLesson(payload);
@@ -236,6 +240,18 @@ export default function TutorCalendarPage() {
                 <input
                   value={draft.note}
                   onChange={(e) => setDraft({ ...draft, note: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-border/50 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-muted-foreground">
+                  Посилання на онлайн-кімнату (необовʼязково)
+                </label>
+                <input
+                  type="url"
+                  value={draft.meetingUrl}
+                  onChange={(e) => setDraft({ ...draft, meetingUrl: e.target.value })}
+                  placeholder="https://meet.google.com/..."
                   className="w-full px-3 py-2 rounded-xl border border-border/50 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
               </div>
