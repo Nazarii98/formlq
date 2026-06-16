@@ -76,6 +76,10 @@ interface ExamRunnerProps {
   allowRestart?: boolean;
   /** No countdown timer — untimed attempt (homework). Elapsed time is still recorded. */
   untimed?: boolean;
+  /** Per-task конспект (PDF). When set, the reference button opens this instead of the global довідка. */
+  notesPdfUrl?: string;
+  /** Hide the reference button entirely (homework with no конспект). */
+  hideReference?: boolean;
   /** Resume an in-progress attempt: prefill answers without entering review mode. */
   initialAnswers?: Record<string, string>;
   initialAnswerImages?: Record<string, string>;
@@ -196,6 +200,8 @@ export function ExamRunner({
   onToggleFlag,
   allowRestart = false,
   untimed = false,
+  notesPdfUrl,
+  hideReference = false,
   initialAnswers,
   initialAnswerImages,
   onProgress,
@@ -207,6 +213,11 @@ export function ExamRunner({
 }: ExamRunnerProps) {
   const { setGuarded } = useExamGuard();
   const { open: drawerOpen, openDrawer } = useReferenceDrawer();
+
+  const showReference = notesPdfUrl ? true : !hideReference;
+  const referenceLabel = notesPdfUrl ? "Конспект" : "Довідка";
+  const openReference = () =>
+    openDrawer(notesPdfUrl ? { url: notesPdfUrl, title: "Конспект" } : undefined);
 
   const questions = config.questions ?? [];
   const maxRaw = maxRawScore(questions);
@@ -906,12 +917,14 @@ export function ExamRunner({
             </span>
           )}
           <div className="flex items-center gap-2">
-            <button
-              onClick={openDrawer}
-              className="md:hidden w-8 h-8 rounded-xl flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
-            >
-              <BookOpen size={17} />
-            </button>
+            {showReference && (
+              <button
+                onClick={openReference}
+                className="md:hidden w-8 h-8 rounded-xl flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
+              >
+                <BookOpen size={17} />
+              </button>
+            )}
             <Button
               size="sm"
               variant="outline"
@@ -1087,29 +1100,31 @@ export function ExamRunner({
         </div>
       </main>
 
-      <button
-        onClick={openDrawer}
-        className={cn(
-          "hidden md:flex fixed bottom-5 right-5 items-center gap-2 px-4 py-2.5 rounded-2xl bg-card border border-border/60 shadow-lg text-sm font-medium text-foreground hover:bg-muted transition-all z-50",
-          drawerOpen && "opacity-0 pointer-events-none",
-        )}
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
+      {showReference && (
+        <button
+          onClick={openReference}
+          className={cn(
+            "hidden md:flex fixed bottom-5 right-5 items-center gap-2 px-4 py-2.5 rounded-2xl bg-card border border-border/60 shadow-lg text-sm font-medium text-foreground hover:bg-muted transition-all z-50",
+            drawerOpen && "opacity-0 pointer-events-none",
+          )}
         >
-          <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
-          <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
-        </svg>
-        Довідка
-      </button>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+          </svg>
+          {referenceLabel}
+        </button>
+      )}
 
       {showSubmitConfirm &&
         (() => {

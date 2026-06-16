@@ -2,7 +2,7 @@
 
 import { useAuth } from "@/context/AuthContext";
 import { useOnlineUsers } from "@/hooks/useOnlineUsers";
-import { subscribeToUsers, updateUserRole } from "@/lib/users";
+import { subscribeToUsers, updateUserRole, isProtectedEmail } from "@/lib/users";
 import { timeAgo } from "@/lib/format";
 import { SpinnerPage } from "@/components/ui/spinner";
 import { useHeader } from "@/context/HeaderContext";
@@ -14,8 +14,10 @@ import {
   Search,
   ChevronRight,
   GraduationCap,
+  Lock,
 } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Select, SelectItem } from "@/components/ui/select";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -51,17 +53,10 @@ export default function AdminUsersPage() {
     return () => setHeader("", "");
   }, [setHeader, onlineCount]);
 
-  // Cycle role: student → tutor → editor → student
-  async function cycleRole(uid: string, current: UserRole) {
-    const next: UserRole =
-      current === "student"
-        ? "tutor"
-        : current === "tutor"
-          ? "editor"
-          : "student";
+  async function setRole(uid: string, role: UserRole) {
     setUpdatingRole(uid);
     try {
-      await updateUserRole(uid, next);
+      await updateUserRole(uid, role);
       // onSnapshot will deliver the update — no manual cache patch needed.
     } finally {
       setUpdatingRole(null);
@@ -89,6 +84,7 @@ export default function AdminUsersPage() {
 
   function UserRow({ u }: { u: UserProfile }) {
     const isSelf = u.uid === currentUser?.uid;
+    const locked = isProtectedEmail(u.email);
     const isEditor = u.role === "editor";
     const isTutor = u.role === "tutor";
     const isOnline = onlineUids.has(u.uid);
@@ -158,32 +154,33 @@ export default function AdminUsersPage() {
           </span>
         </div>
 
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            if (isSelf) return;
-            cycleRole(u.uid, u.role ?? "student");
-          }}
-          disabled={isSelf || updating}
-          title="Натисніть, щоб змінити роль (Учень → Вчитель → Редактор)"
-          className={cn(
-            "shrink-0 text-[11px] font-semibold px-3 py-1.5 rounded-full transition-all",
-            isSelf && "opacity-40 cursor-default",
-            !isSelf &&
-              isEditor &&
-              "bg-primary/10 text-primary hover:opacity-80",
-            !isSelf &&
-              isTutor &&
-              "bg-amber-400/15 text-amber-600 dark:text-amber-400 hover:opacity-80",
-            !isSelf &&
-              !isEditor &&
-              !isTutor &&
-              "bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary",
-            updating && "opacity-50 pointer-events-none",
-          )}
-        >
-          {updating ? "..." : roleLabel}
-        </button>
+        {isSelf || locked ? (
+          <span
+            className={cn(
+              "shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold px-3 py-1.5 rounded-full",
+              locked
+                ? "bg-primary/10 text-primary"
+                : "bg-muted text-muted-foreground opacity-60",
+            )}
+            title={locked ? "Захищений акаунт — роль не можна змінити" : undefined}
+          >
+            {locked && <Lock size={11} />}
+            {roleLabel}
+          </span>
+        ) : (
+          <div onClick={(e) => e.stopPropagation()} className="shrink-0 w-32">
+            <Select
+              value={u.role ?? "student"}
+              disabled={updating}
+              onValueChange={(v) => setRole(u.uid, v as UserRole)}
+              className={cn(updating && "opacity-50 pointer-events-none")}
+            >
+              <SelectItem value="student">Учень</SelectItem>
+              <SelectItem value="tutor">Вчитель</SelectItem>
+              <SelectItem value="editor">Редактор</SelectItem>
+            </Select>
+          </div>
+        )}
         <ChevronRight
           size={14}
           className="text-muted-foreground/40 group-hover:text-muted-foreground transition-colors shrink-0"

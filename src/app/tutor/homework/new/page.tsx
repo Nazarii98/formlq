@@ -16,13 +16,14 @@ import {
   BankQuestion,
 } from "@/lib/tests";
 import { getAllQuestions } from "@/lib/questions";
+import { uploadPdf } from "@/lib/storage";
 import { TOPICS } from "@/lib/topics";
 import { MathText } from "@/components/MathText";
 import { SelectNative } from "@/components/ui/select-native";
 import { Button } from "@/components/ui/button";
 import { SpinnerPage } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
-import { FileText, Library, Check } from "lucide-react";
+import { FileText, Library, Check, Loader2, FileUp, X } from "lucide-react";
 
 const TYPE_LABEL: Record<TestQuestion["type"], string> = {
   mcq: "Тест",
@@ -42,7 +43,21 @@ export default function NewHomeworkPage() {
   const [due, setDue] = useState(""); // datetime-local string
   const [source, setSource] = useState<"test" | "custom">("test");
   const [testId, setTestId] = useState("");
+  const [pdfUrl, setPdfUrl] = useState("");
+  const [pdfName, setPdfName] = useState("");
+  const [pdfUploading, setPdfUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  async function handlePdf(file: File) {
+    setPdfUploading(true);
+    try {
+      const url = await uploadPdf(file);
+      setPdfUrl(url);
+      setPdfName(file.name);
+    } finally {
+      setPdfUploading(false);
+    }
+  }
 
   // bank picker
   const [picked, setPicked] = useState<Set<string>>(new Set());
@@ -122,6 +137,7 @@ export default function NewHomeworkPage() {
         studentName: student?.studentName,
         title: title.trim(),
         note: note.trim() || undefined,
+        pdfUrl: pdfUrl || undefined,
         dueAt: due ? Timestamp.fromDate(new Date(due)) : null,
       };
 
@@ -203,6 +219,38 @@ export default function NewHomeworkPage() {
           />
         </Field>
       </div>
+
+      {/* Конспект PDF */}
+      <Field label="Конспект (PDF, необовʼязково)">
+        {pdfUrl ? (
+          <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border/50 bg-card text-sm">
+            <FileText size={16} className="text-primary shrink-0" />
+            <span className="flex-1 min-w-0 truncate">{pdfName || "Конспект.pdf"}</span>
+            <button
+              onClick={() => { setPdfUrl(""); setPdfName(""); }}
+              className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-red-500 hover:bg-red-500/10 shrink-0"
+              title="Прибрати"
+            >
+              <X size={15} />
+            </button>
+          </div>
+        ) : (
+          <label
+            className={cn(
+              "flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-dashed border-border/60 text-sm text-muted-foreground cursor-pointer hover:border-primary/50 hover:text-foreground transition-all",
+              pdfUploading && "pointer-events-none opacity-60",
+            )}
+          >
+            {pdfUploading ? <><Loader2 size={15} className="animate-spin" /> Завантаження...</> : <><FileUp size={15} /> Прикріпити PDF</>}
+            <input
+              type="file"
+              accept="application/pdf"
+              className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) handlePdf(f); e.target.value = ""; }}
+            />
+          </label>
+        )}
+      </Field>
 
       {/* Source switch */}
       <div className="flex gap-2 p-1 rounded-2xl bg-muted/50 border border-border/40">

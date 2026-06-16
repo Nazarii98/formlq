@@ -629,56 +629,6 @@ export default function DashboardPage() {
         <section className="rounded-2xl border border-border/50 bg-card p-5">
           <MiniCalendar activeDays={activeDays} />
         </section>
-
-        {results.length > 0 &&
-          (() => {
-            const scores = results.map((r) => r.nmtScore);
-            const best = Math.max(...scores);
-            const last = scores[0];
-            const avg = Math.round(
-              scores.reduce((a, b) => a + b, 0) / scores.length,
-            );
-            return (
-              <div className="grid grid-cols-3 gap-2">
-                {[
-                  { label: "Найкращий", value: best, emoji: "🏆" },
-                  { label: "Останній", value: last, emoji: "📋" },
-                  { label: "Середній", value: avg, emoji: "📊" },
-                ].map(({ label, value, emoji }) => (
-                  <div
-                    key={label}
-                    className="rounded-2xl border border-border/50 bg-card px-2 py-3 text-center"
-                  >
-                    <p className="text-base mb-0.5">{emoji}</p>
-                    <p className="text-lg font-bold tabular-nums text-primary">
-                      {value}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">
-                      {label}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            );
-          })()}
-
-        <section className="space-y-3">
-          <h2 className="font-semibold text-base">Події</h2>
-          <div className="space-y-2">
-            {[
-              { label: "НМТ 2026", date: "Незабаром" },
-              { label: "Пробний тест", date: "Заплануй" },
-            ].map((ev) => (
-              <div
-                key={ev.label}
-                className="rounded-2xl border border-border/40 bg-card px-4 py-3 flex items-center justify-between"
-              >
-                <p className="text-sm font-medium">{ev.label}</p>
-                <p className="text-xs text-muted-foreground">{ev.date}</p>
-              </div>
-            ))}
-          </div>
-        </section>
       </div>
     </div>
   );

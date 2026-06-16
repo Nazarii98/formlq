@@ -38,3 +38,16 @@ export function pdfFileProp(): string | { data: Uint8Array } {
   const copy = getPdfCopy();
   return copy ? { data: copy } : "/dovidka.pdf";
 }
+
+// Per-URL byte cache (e.g. homework конспекти). Fetched once per session.
+const urlCache = new Map<string, Uint8Array>();
+
+/** Returns a fresh copy of the PDF at `url`, fetching only on first request. */
+export async function getPdfBytesByUrl(url: string): Promise<Uint8Array> {
+  const cached = urlCache.get(url);
+  if (cached) return cached.slice();
+  const buf = await fetch(url).then((r) => r.arrayBuffer());
+  const bytes = new Uint8Array(buf);
+  urlCache.set(url, bytes);
+  return bytes.slice();
+}

@@ -771,7 +771,7 @@ export default function QuestionsReviewPage() {
                   </div>
                   <div className="flex items-center gap-1">
                     <button
-                      onClick={openDrawer}
+                      onClick={() => openDrawer()}
                       title="Довідкові матеріали"
                       className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
                     >

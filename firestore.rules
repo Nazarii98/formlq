@@ -22,6 +22,19 @@ service cloud.firestore {
       return isAuth() && request.auth.uid == uid;
     }
 
+    // Accounts that must always stay editor (keep in sync with PROTECTED_EMAILS in src/lib/users.ts)
+    function protectedEmails() {
+      return ["nazariichepil@gmail.com"];
+    }
+    // Block any write to a protected user's doc that would change their role away from editor.
+    function protectedRoleOk() {
+      return !(
+        resource != null
+        && (resource.data.email in protectedEmails())
+        && request.resource.data.role != "editor"
+      );
+    }
+
     // True when the given homework doc belongs to the current tutor.
     function ownsHomework(hwId) {
       return isAuth() &&
@@ -32,7 +45,7 @@ service cloud.firestore {
     // writes only by the owner or an editor.
     match /users/{uid} {
       allow read: if isAuth();
-      allow write: if isOwner(uid) || isEditor();
+      allow write: if (isOwner(uid) || isEditor()) && protectedRoleOk();
     }
 
     // Tests — read by any auth user, write by editors only

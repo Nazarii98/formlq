@@ -5,7 +5,7 @@ import { Document, Page, pdfjs } from "react-pdf";
 import { X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useReferenceDrawer } from "@/context/ReferenceDrawerContext";
-import { getPdfCopyAsync } from "@/lib/pdf-cache";
+import { getPdfCopyAsync, getPdfBytesByUrl } from "@/lib/pdf-cache";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
 
@@ -15,7 +15,7 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
 ).toString();
 
 export function ReferenceDrawer() {
-  const { open, closeDrawer } = useReferenceDrawer();
+  const { open, closeDrawer, url, title } = useReferenceDrawer();
 
   const [numPages, setNumPages] = useState(0);
   const [page, setPage] = useState(1);
@@ -89,11 +89,13 @@ export function ReferenceDrawer() {
     }
   }, [open]);
 
-  // Fresh copy each open — prevents detached ArrayBuffer error on re-open
+  // Fresh copy each open — prevents detached ArrayBuffer error on re-open.
+  // Custom `url` (homework конспект) is fetched directly; otherwise the cached default довідка.
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
-    getPdfCopyAsync()
+    const loader = url ? getPdfBytesByUrl(url) : getPdfCopyAsync();
+    loader
       .then((data) => {
         if (!cancelled) setPdfFile({ data });
       })
@@ -101,7 +103,7 @@ export function ReferenceDrawer() {
     return () => {
       cancelled = true;
     };
-  }, [open]);
+  }, [open, url]);
 
   // Close on Escape
   useEffect(() => {
@@ -176,8 +178,12 @@ export function ReferenceDrawer() {
           )}
         >
           <div>
-            <p className="font-semibold text-sm">Довідкові матеріали</p>
-            <p className="text-xs text-muted-foreground">НМТ з математики</p>
+            <p className="font-semibold text-sm">
+              {title ?? "Довідкові матеріали"}
+            </p>
+            {!url && (
+              <p className="text-xs text-muted-foreground">НМТ з математики</p>
+            )}
           </div>
           <button
             onClick={closeDrawer}

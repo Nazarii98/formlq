@@ -2,17 +2,17 @@
 
 import { useState, useRef, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Menu, X, Home, FileText, History, BookOpen, ShieldCheck, Lightbulb, Users, LogOut, ClipboardCheck, CalendarDays } from "lucide-react";
+import { Menu, X, Home, FileText, History, ShieldCheck, Lightbulb, Users, LogOut, ClipboardCheck, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { useExamGuard } from "@/context/ExamGuardContext";
-import { useReferenceDrawer } from "@/context/ReferenceDrawerContext";
 
 const NAV = [
   { icon: Home,     href: "/dashboard",         label: "Головна" },
   { icon: FileText, href: "/dashboard/tests",   label: "Тести" },
+  { icon: ClipboardCheck, href: "/dashboard/homework", label: "Домашні" },
+  { icon: CalendarDays, href: "/dashboard/calendar", label: "Календар" },
   { icon: History,  href: "/dashboard/history", label: "Історія" },
-  { icon: BookOpen, href: "__drawer__",          label: "Довідка" },
 ];
 
 const TUTOR_NAV = [
@@ -34,7 +34,6 @@ export function MobileNav() {
   const router = useRouter();
   const { userProfile, logOut } = useAuth();
   const { requestNav, requestAction } = useExamGuard();
-  const { open: drawerOpen, openDrawer } = useReferenceDrawer();
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -49,8 +48,7 @@ export function MobileNav() {
 
   function handleNav(href: string) {
     setOpen(false);
-    if (href === "__drawer__") openDrawer();
-    else requestNav(href);
+    requestNav(href);
   }
 
   function handleLogout() {
@@ -78,12 +76,8 @@ export function MobileNav() {
       {open && (
         <div className="absolute left-0 top-[calc(100%+8px)] z-[100] min-w-[210px] bg-card border border-border/50 rounded-2xl shadow-xl p-1.5 flex flex-col gap-0.5">
           {NAV.map(({ icon: Icon, href, label }) => {
-            const isDrawer = href === "__drawer__";
-            const active = isDrawer
-              ? drawerOpen
-              : href === "/dashboard"
-                ? path === href
-                : path.startsWith(href);
+            const active =
+              href === "/dashboard" ? path === href : path.startsWith(href);
             return (
               <button
                 key={href}

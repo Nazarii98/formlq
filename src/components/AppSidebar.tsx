@@ -5,7 +5,6 @@ import {
   Home,
   FileText,
   History,
-  BookOpen,
   ShieldCheck,
   Lightbulb,
   Users,
@@ -15,7 +14,6 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { useExamGuard } from "@/context/ExamGuardContext";
-import { useReferenceDrawer } from "@/context/ReferenceDrawerContext";
 
 const NAV = [
   { icon: Home, href: "/dashboard", label: "Головна" },
@@ -23,7 +21,6 @@ const NAV = [
   { icon: ClipboardCheck, href: "/dashboard/homework", label: "Домашні" },
   { icon: CalendarDays, href: "/dashboard/calendar", label: "Календар" },
   { icon: History, href: "/dashboard/history", label: "Історія" },
-  { icon: BookOpen, href: "__drawer__", label: "Довідка" },
 ];
 
 const TUTOR_NAV = [
@@ -43,7 +40,6 @@ export function AppSidebar() {
   const path = usePathname();
   const { userProfile } = useAuth();
   const { requestNav } = useExamGuard();
-  const { open: drawerOpen, openDrawer } = useReferenceDrawer();
 
   function NavItem({
     href,
@@ -54,17 +50,13 @@ export function AppSidebar() {
     label: string;
     Icon: React.ElementType;
   }) {
-    const isDrawer = href === "__drawer__";
-    const active = isDrawer
-      ? drawerOpen
-      : href === "/dashboard"
-        ? path === href
-        : path.startsWith(href);
+    const active =
+      href === "/dashboard" ? path === href : path.startsWith(href);
 
     return (
       <div className="relative group">
         <button
-          onClick={isDrawer ? openDrawer : () => requestNav(href)}
+          onClick={() => requestNav(href)}
           className={cn(
             "w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",

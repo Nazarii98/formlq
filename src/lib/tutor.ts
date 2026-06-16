@@ -93,6 +93,7 @@ export interface Homework {
   studentName?: string;
   title: string;
   note?: string;
+  pdfUrl?: string; // optional конспект (PDF) shown to the student like reference materials
   source: HomeworkSource;
   testId?: string; // source === "test"
   questions?: TestQuestion[]; // source === "custom" — snapshot from bank/tests

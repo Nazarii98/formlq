@@ -1,6 +1,6 @@
 import { initializeApp, getApps } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { initializeFirestore } from "firebase/firestore";
 import { getDatabase } from "firebase/database";
 
 const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
@@ -25,6 +25,10 @@ const app =
   getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 
 export const auth = getAuth(app);
-export const db = getFirestore(app);
+// ignoreUndefinedProperties: optional fields set to `undefined` are skipped
+// instead of throwing (e.g. lesson/homework `note`, `dueAt`).
+export const db = initializeFirestore(app, {
+  ignoreUndefinedProperties: true,
+});
 export const rtdb = getDatabase(app);
 export default app;

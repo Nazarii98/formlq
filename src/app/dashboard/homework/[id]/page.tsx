@@ -147,6 +147,8 @@ export default function HomeworkRunnerPage() {
       backHref="/dashboard/homework"
       introNote={homework?.note}
       untimed
+      notesPdfUrl={homework?.pdfUrl}
+      hideReference
       allowAnswerImages
       allowFlags
       uploadImage={uploadImage}

@@ -11,6 +11,16 @@ import {
 import { db } from "@/lib/firebase";
 import { UserProfile, UserRole } from "@/types";
 
+/**
+ * Accounts that must always stay editor — their role can't be changed in the UI.
+ * Keep in sync with the same list in firestore.rules (protectedEmails()).
+ */
+export const PROTECTED_EMAILS = ["nazariichepil@gmail.com"];
+
+export function isProtectedEmail(email?: string | null): boolean {
+  return !!email && PROTECTED_EMAILS.includes(email.trim().toLowerCase());
+}
+
 export async function getAllUsers(): Promise<UserProfile[]> {
   const snap = await getDocs(collection(db, "users"));
   return snap.docs.map((d) => ({ ...d.data() }) as UserProfile);

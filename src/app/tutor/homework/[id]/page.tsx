@@ -13,13 +13,15 @@ import { QuestionCard } from "@/components/exam/QuestionCard";
 import { SpinnerPage } from "@/components/ui/spinner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Trash2, CalendarClock } from "lucide-react";
+import { useReferenceDrawer } from "@/context/ReferenceDrawerContext";
+import { Trash2, CalendarClock, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function TutorHomeworkReviewPage() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const { setHeader } = useHeader();
+  const { openDrawer } = useReferenceDrawer();
   const router = useRouter();
 
   const [homework, setHomework] = useState<Homework | null>(null);
@@ -111,6 +113,14 @@ export default function TutorHomeworkReviewPage() {
           <p className="text-xs text-muted-foreground border-l-2 border-border pl-2">
             {homework.note}
           </p>
+        )}
+        {homework.pdfUrl && (
+          <button
+            onClick={() => openDrawer({ url: homework.pdfUrl, title: "Конспект" })}
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+          >
+            <FileText size={13} /> Переглянути конспект
+          </button>
         )}
       </div>
 
