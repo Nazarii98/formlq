@@ -8,7 +8,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useHeader } from "@/context/HeaderContext";
 import { getTutorStudents, assignHomework, NewHomework } from "@/lib/tutor";
 import {
-  getPublishedTests,
+  getAllTests,
   bankToTestQuestion,
   makeLinearTable,
   maxRawScore,
@@ -79,9 +79,14 @@ export default function NewHomeworkPage() {
   });
 
   const { data: tests = [] } = useQuery({
-    queryKey: ["published-tests"],
-    queryFn: getPublishedTests,
+    queryKey: ["all-tests"],
+    queryFn: getAllTests,
     staleTime: 5 * 60 * 1000,
+    // Show all tests (published + drafts), tests with questions first, by order.
+    select: (all) =>
+      [...all]
+        .filter((t) => (t.questions?.length ?? 0) > 0)
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
   });
 
   const { data: bank = [] } = useQuery({
@@ -281,8 +286,10 @@ export default function NewHomeworkPage() {
             <option value="">Оберіть тест...</option>
             {tests.map((t) => (
               <option key={t.id} value={t.id}>
+                {t.published ? "" : "✎ "}
                 {t.title}
                 {t.subtitle ? ` — ${t.subtitle}` : ""}
+                {t.published ? "" : " (чернетка)"}
               </option>
             ))}
           </SelectNative>

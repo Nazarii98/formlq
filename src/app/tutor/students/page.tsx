@@ -107,8 +107,9 @@ export default function TutorStudentsPage() {
           {students.map((s) => (
             <div
               key={s.id}
+              onClick={() => router.push(`/tutor/students/${s.studentId}`)}
               className={cn(
-                "rounded-2xl border border-border/50 bg-card px-4 py-3 flex items-center gap-3 group transition-all",
+                "rounded-2xl border border-border/50 bg-card px-4 py-3 flex items-center gap-3 group transition-all cursor-pointer",
                 "hover:bg-muted/30 hover:border-border/80",
               )}
             >
@@ -127,15 +128,16 @@ export default function TutorStudentsPage() {
                 size="sm"
                 variant="secondary"
                 className="gap-1.5"
-                onClick={() =>
-                  router.push(`/tutor/homework/new?student=${s.studentId}`)
-                }
+                onClick={(e) => {
+                  e.stopPropagation();
+                  router.push(`/tutor/homework/new?student=${s.studentId}`);
+                }}
               >
                 <ClipboardPlus size={14} />
                 <span className="hidden sm:inline">Призначити</span>
               </Button>
               <button
-                onClick={() => setToRemove(s)}
+                onClick={(e) => { e.stopPropagation(); setToRemove(s); }}
                 className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-all shrink-0"
                 title="Прибрати учня"
               >
@@ -143,7 +145,7 @@ export default function TutorStudentsPage() {
               </button>
               <ChevronRight
                 size={14}
-                className="text-muted-foreground/30 shrink-0 hidden sm:block"
+                className="text-muted-foreground/30 group-hover:text-muted-foreground shrink-0"
               />
             </div>
           ))}
