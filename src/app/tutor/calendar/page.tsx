@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Timestamp } from "firebase/firestore";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/context/AuthContext";
@@ -77,8 +77,25 @@ export default function TutorCalendarPage() {
     });
   }
 
+  // Anti-overlap: find an existing lesson of this tutor whose time range
+  // intersects the draft (ignoring the lesson being edited).
+  const conflict = useMemo(() => {
+    if (!draft || !draft.start) return null;
+    const start = new Date(draft.start).getTime();
+    if (Number.isNaN(start)) return null;
+    const end = start + draft.durationMin * 60000;
+    return (
+      lessons.find((l) => {
+        if (l.id === draft.id) return false;
+        const s = l.start.toMillis();
+        const e = s + l.durationMin * 60000;
+        return start < e && s < end;
+      }) ?? null
+    );
+  }, [draft, lessons]);
+
   async function save() {
-    if (!draft || !user || !draft.studentId) return;
+    if (!draft || !user || !draft.studentId || conflict) return;
     const student = students.find((s) => s.studentId === draft.studentId);
     const payload = {
       tutorId: user.uid,
@@ -224,6 +241,13 @@ export default function TutorCalendarPage() {
               </div>
             </div>
 
+            {conflict && (
+              <p className="text-xs text-red-500 px-1">
+                Цей час уже зайнятий уроком з {conflict.studentName ?? "іншим учнем"}
+                {" "}({conflict.start.toDate().toLocaleTimeString("uk", { hour: "2-digit", minute: "2-digit" })}).
+              </p>
+            )}
+
             <div className="flex gap-2 justify-between pt-1">
               {draft.id ? (
                 <Button
@@ -245,7 +269,7 @@ export default function TutorCalendarPage() {
                 >
                   Скасувати
                 </Button>
-                <Button size="sm" onClick={save} disabled={!draft.studentId}>
+                <Button size="sm" onClick={save} disabled={!draft.studentId || !!conflict}>
                   Зберегти
                 </Button>
               </div>
