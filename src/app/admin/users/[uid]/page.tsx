@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { getUserById } from "@/lib/users";
+import { getUserById, getAllUsers } from "@/lib/users";
 import { getUserResults } from "@/lib/tests";
 import {
   subscribeTutorStudents,
   addStudentByEmail,
+  assignTutorById,
   removeStudent,
   getStudentTutorLinks,
   getStudentHomework,
@@ -14,6 +15,7 @@ import {
   Homework,
   HomeworkStatus,
 } from "@/lib/tutor";
+import { Select, SelectItem } from "@/components/ui/select";
 import { subscribeTutorLessons, subscribeStudentLessons, Lesson } from "@/lib/lessons";
 import { formatDuration, formatDate, timeAgo } from "@/lib/format";
 import { SpinnerPage } from "@/components/ui/spinner";
@@ -35,7 +37,7 @@ import {
   Hourglass,
   Users,
 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 const HW_STATUS: Record<HomeworkStatus, { label: string; cls: string; Icon: React.ElementType }> = {
   assigned: { label: "Призначено", cls: "text-blue-600 dark:text-blue-400 bg-blue-500/10", Icon: Hourglass },
@@ -262,7 +264,9 @@ function TutorSection({ tutorId }: { tutorId: string }) {
 function StudentSection({ studentId }: { studentId: string }) {
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
+  const [assigning, setAssigning] = useState(false);
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   useEffect(() => subscribeStudentLessons(studentId, setLessons), [studentId]);
 
@@ -275,14 +279,37 @@ function StudentSection({ studentId }: { studentId: string }) {
     },
   });
 
+  // All users who can teach (tutor/editor), excluding the student and already-assigned ones.
+  const { data: allTutors = [] } = useQuery({
+    queryKey: ["all-tutors"],
+    queryFn: getAllUsers,
+    staleTime: 5 * 60 * 1000,
+    select: (us) => us.filter((u) => u.role === "tutor" || u.role === "editor"),
+  });
+  const assignedIds = new Set(tutors.map((t) => t.uid));
+  const availableTutors = allTutors.filter(
+    (t) => t.uid !== studentId && !assignedIds.has(t.uid),
+  );
+
   const { data: homework = [] } = useQuery({
     queryKey: ["student-homework-admin", studentId],
     queryFn: () => getStudentHomework(studentId),
   });
 
-  // Nothing on the student side → don't render the block at all.
-  if (tutors.length === 0 && homework.length === 0 && lessons.length === 0) {
-    return null;
+  async function handleAssignTutor(tutorId: string) {
+    if (!tutorId) return;
+    setAssigning(true);
+    try {
+      await assignTutorById(studentId, tutorId);
+      queryClient.invalidateQueries({ queryKey: ["student-tutors", studentId] });
+    } finally {
+      setAssigning(false);
+    }
+  }
+
+  async function handleRemoveTutor(tutorUid: string) {
+    await removeStudent(`${tutorUid}_${studentId}`);
+    queryClient.invalidateQueries({ queryKey: ["student-tutors", studentId] });
   }
 
   return (
@@ -291,27 +318,56 @@ function StudentSection({ studentId }: { studentId: string }) {
         <Users size={16} className="text-primary" /> Як учень
       </p>
 
-      {/* Tutors */}
+      {/* Tutors — editor assigns/removes */}
       <div className="space-y-1.5">
         <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-1 flex items-center gap-1.5">
           <Users size={12} /> Вчителі ({tutors.length})
         </p>
+
+        <Select
+          value=""
+          onValueChange={handleAssignTutor}
+          disabled={assigning || availableTutors.length === 0}
+        >
+          <SelectItem value="">
+            {availableTutors.length === 0
+              ? "Немає доступних вчителів"
+              : "Призначити вчителя…"}
+          </SelectItem>
+          {availableTutors.map((t) => (
+            <SelectItem key={t.uid} value={t.uid}>
+              {t.displayName} ({t.email})
+            </SelectItem>
+          ))}
+        </Select>
+
         {tutors.length === 0 ? (
           <p className="text-xs text-muted-foreground px-1">Немає призначених вчителів</p>
         ) : (
           tutors.map((t) => (
             <div
               key={t.uid}
-              onClick={() => router.push(`/admin/users/${t.uid}`)}
-              className="rounded-xl border border-border/50 bg-background px-3 py-2 flex items-center gap-2.5 cursor-pointer hover:bg-muted/40 hover:border-border/80 transition-all"
+              className="rounded-xl border border-border/50 bg-background px-3 py-2 flex items-center gap-2.5"
             >
-              <div className="w-8 h-8 rounded-lg bg-amber-400/15 text-amber-600 dark:text-amber-400 flex items-center justify-center text-xs font-bold shrink-0">
-                {t.displayName?.[0]?.toUpperCase() ?? "?"}
+              <div
+                onClick={() => router.push(`/admin/users/${t.uid}`)}
+                className="flex items-center gap-2.5 flex-1 min-w-0 cursor-pointer"
+              >
+                <div className="w-8 h-8 rounded-lg bg-amber-400/15 text-amber-600 dark:text-amber-400 flex items-center justify-center text-xs font-bold shrink-0">
+                  {t.displayName?.[0]?.toUpperCase() ?? "?"}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate hover:underline">{t.displayName}</p>
+                  <p className="text-xs text-muted-foreground truncate">{t.email}</p>
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{t.displayName}</p>
-                <p className="text-xs text-muted-foreground truncate">{t.email}</p>
-              </div>
+              <button
+                onClick={() => handleRemoveTutor(t.uid)}
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-red-500 hover:bg-red-500/10 shrink-0"
+                title="Прибрати вчителя"
+              >
+                <Trash2 size={14} />
+              </button>
             </div>
           ))
         )}

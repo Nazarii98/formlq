@@ -14,7 +14,7 @@ import {
   Timestamp,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { getUserByEmail } from "@/lib/users";
+import { getUserByEmail, getUserById } from "@/lib/users";
 import type { TestQuestion, ScoreRow, ScaleType } from "@/lib/tests";
 
 // --- Tutor ↔ Student link ---------------------------------------------------
@@ -54,6 +54,47 @@ export async function addStudentByEmail(
   };
   await setDoc(ref, data);
   return { id, ...data, createdAt: null } as TutorStudent;
+}
+
+/** Create a tutor↔student link (editor-only). */
+async function linkTutorStudent(
+  tutorId: string,
+  studentId: string,
+): Promise<TutorStudent> {
+  if (tutorId === studentId) throw new Error("Не можна призначити себе вчителем");
+  const student = await getUserById(studentId);
+  const id = `${tutorId}_${studentId}`;
+  const ref = doc(db, "tutorStudents", id);
+  const existing = await getDoc(ref);
+  if (existing.exists()) throw new Error("Цей вчитель вже призначений");
+
+  const data = {
+    tutorId,
+    studentId,
+    studentEmail: student?.email ?? "",
+    studentName: student?.displayName || student?.email || "Учень",
+    createdAt: serverTimestamp(),
+  };
+  await setDoc(ref, data);
+  return { id, ...data, createdAt: null } as TutorStudent;
+}
+
+/** Assign a tutor (by email) to a student. Editor-only. */
+export async function addTutorByEmail(
+  studentId: string,
+  tutorEmail: string,
+): Promise<TutorStudent> {
+  const tutor = await getUserByEmail(tutorEmail);
+  if (!tutor) throw new Error("Користувача з таким email не знайдено");
+  return linkTutorStudent(tutor.uid, studentId);
+}
+
+/** Assign a tutor (by id) to a student. Editor-only. */
+export async function assignTutorById(
+  studentId: string,
+  tutorId: string,
+): Promise<TutorStudent> {
+  return linkTutorStudent(tutorId, studentId);
 }
 
 export async function removeStudent(linkId: string): Promise<void> {

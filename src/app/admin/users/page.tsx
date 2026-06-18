@@ -13,7 +13,6 @@ import {
   Search,
   ChevronRight,
   GraduationCap,
-  Lock,
 } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Select, SelectItem } from "@/components/ui/select";
@@ -88,7 +87,6 @@ export default function AdminUsersPage() {
     const isTutor = u.role === "tutor";
     const isOnline = onlineUids.has(u.uid);
     const updating = updatingRole === u.uid;
-    const roleLabel = isEditor ? "Редактор" : isTutor ? "Вчитель" : "Учень";
 
     return (
       <div
@@ -138,42 +136,29 @@ export default function AdminUsersPage() {
           <p className="text-xs text-muted-foreground truncate">{u.email}</p>
         </div>
 
-        <div className="hidden sm:flex items-center shrink-0 text-xs text-muted-foreground">
-          <span className="text-muted-foreground/50">
-            {u.createdAt ? timeAgo(u.createdAt.toDate()) : "—"}
-          </span>
-        </div>
+        <span className="hidden md:block shrink-0 whitespace-nowrap text-right text-xs text-muted-foreground/50 tabular-nums">
+          {u.createdAt ? timeAgo(u.createdAt.toDate()) : "—"}
+        </span>
 
-        {isSelf || locked ? (
-          <span
-            className={cn(
-              "shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold px-3 py-1.5 rounded-full",
-              locked
-                ? "bg-primary/10 text-primary"
-                : "bg-muted text-muted-foreground opacity-60",
-            )}
-            title={locked ? "Захищений акаунт — роль не можна змінити" : undefined}
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="shrink-0 w-36"
+          title={locked ? "Захищений акаунт — роль не можна змінити" : undefined}
+        >
+          <Select
+            value={u.role ?? "student"}
+            disabled={updating || isSelf || locked}
+            onValueChange={(v) => setRole(u.uid, v as UserRole)}
+            className="w-full"
           >
-            {locked && <Lock size={11} />}
-            {roleLabel}
-          </span>
-        ) : (
-          <div onClick={(e) => e.stopPropagation()} className="shrink-0 w-32">
-            <Select
-              value={u.role ?? "student"}
-              disabled={updating}
-              onValueChange={(v) => setRole(u.uid, v as UserRole)}
-              className={cn(updating && "opacity-50 pointer-events-none")}
-            >
-              <SelectItem value="student">Учень</SelectItem>
-              <SelectItem value="tutor">Вчитель</SelectItem>
-              <SelectItem value="editor">Редактор</SelectItem>
-            </Select>
-          </div>
-        )}
+            <SelectItem value="student">Учень</SelectItem>
+            <SelectItem value="tutor">Вчитель</SelectItem>
+            <SelectItem value="editor">Редактор</SelectItem>
+          </Select>
+        </div>
         <ChevronRight
           size={14}
-          className="text-muted-foreground/40 group-hover:text-muted-foreground transition-colors shrink-0"
+          className="hidden sm:block text-muted-foreground/40 group-hover:text-muted-foreground transition-colors shrink-0"
         />
       </div>
     );
