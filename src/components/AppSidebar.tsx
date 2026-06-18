@@ -21,8 +21,18 @@ import { getStudentTutorLinks } from "@/lib/tutor";
 const NAV = [
   { icon: Home, href: "/dashboard", label: "Головна" },
   { icon: FileText, href: "/dashboard/tests", label: "Тести" },
-  { icon: ClipboardCheck, href: "/dashboard/homework", label: "Домашні", tutorOnly: true },
-  { icon: CalendarDays, href: "/dashboard/calendar", label: "Календар", tutorOnly: true },
+  {
+    icon: ClipboardCheck,
+    href: "/dashboard/homework",
+    label: "Домашні",
+    tutorOnly: true,
+  },
+  {
+    icon: CalendarDays,
+    href: "/dashboard/calendar",
+    label: "Календар",
+    tutorOnly: true,
+  },
   { icon: History, href: "/dashboard/history", label: "Історія" },
 ];
 
@@ -96,9 +106,11 @@ export function AppSidebar() {
           "shadow-[0_2px_16px_rgba(0,0,0,0.07),0_0_0_1px_rgba(0,0,0,0.03)]",
         )}
       >
-        {NAV.filter((n) => !n.tutorOnly || hasTutor).map(({ icon: Icon, href, label }) => (
-          <NavItem key={href} href={href} label={label} Icon={Icon} />
-        ))}
+        {NAV.filter((n) => !n.tutorOnly || hasTutor).map(
+          ({ icon: Icon, href, label }) => (
+            <NavItem key={href} href={href} label={label} Icon={Icon} />
+          ),
+        )}
 
         {(userProfile?.role === "tutor" || userProfile?.role === "editor") && (
           <>

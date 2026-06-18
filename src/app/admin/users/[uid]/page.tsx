@@ -8,10 +8,14 @@ import {
   subscribeTutorStudents,
   addStudentByEmail,
   removeStudent,
+  getStudentTutorLinks,
+  getStudentHomework,
   TutorStudent,
+  Homework,
+  HomeworkStatus,
 } from "@/lib/tutor";
-import { subscribeTutorLessons, Lesson } from "@/lib/lessons";
-import { formatDuration, timeAgo } from "@/lib/format";
+import { subscribeTutorLessons, subscribeStudentLessons, Lesson } from "@/lib/lessons";
+import { formatDuration, formatDate, timeAgo } from "@/lib/format";
 import { SpinnerPage } from "@/components/ui/spinner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ResultListItem } from "@/components/exam/ResultListItem";
@@ -20,8 +24,23 @@ import { Button } from "@/components/ui/button";
 import { useHeader } from "@/context/HeaderContext";
 import { useOnlineUsers } from "@/hooks/useOnlineUsers";
 import { cn } from "@/lib/utils";
-import { ArrowLeft, UserPlus, Trash2, GraduationCap } from "lucide-react";
+import {
+  ArrowLeft,
+  UserPlus,
+  Trash2,
+  GraduationCap,
+  CalendarClock,
+  CheckCircle2,
+  Hourglass,
+  Users,
+} from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+
+const HW_STATUS: Record<HomeworkStatus, { label: string; cls: string; Icon: React.ElementType }> = {
+  assigned: { label: "Призначено", cls: "text-blue-600 dark:text-blue-400 bg-blue-500/10", Icon: Hourglass },
+  in_progress: { label: "Виконується", cls: "text-amber-600 dark:text-amber-400 bg-amber-500/10", Icon: Hourglass },
+  completed: { label: "Завершено", cls: "text-green-600 dark:text-green-400 bg-green-500/10", Icon: CheckCircle2 },
+};
 
 export default function AdminUserHistoryPage() {
   const { uid } = useParams<{ uid: string }>();
@@ -48,9 +67,11 @@ export default function AdminUserHistoryPage() {
     if (profile)
       setHeader(
         profile.displayName,
-        profile.role === "tutor" || profile.role === "editor"
-          ? "Кабінет вчителя"
-          : "Профіль учня",
+        profile.role === "editor"
+          ? "Редактор"
+          : profile.role === "tutor"
+            ? "Вчитель"
+            : "Учень",
       );
     return () => setHeader("", "");
   }, [profile, setHeader]);
@@ -118,6 +139,10 @@ export default function AdminUserHistoryPage() {
         <TutorSection tutorId={uid} />
       )}
 
+      {/* Student side — shown whenever the user has tutors/homework/lessons,
+          regardless of role (a tutor/editor can also be someone's student). */}
+      {profile && <StudentSection studentId={uid} />}
+
       {results.length > 0 && (
         <div className="grid grid-cols-3 gap-2">
           {[
@@ -176,6 +201,7 @@ function TutorSection({ tutorId }: { tutorId: string }) {
   const [email, setEmail] = useState("");
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   useEffect(() => subscribeTutorStudents(tutorId, setStudents), [tutorId]);
   useEffect(() => subscribeTutorLessons(tutorId, setLessons), [tutorId]);
@@ -229,7 +255,8 @@ function TutorSection({ tutorId }: { tutorId: string }) {
           students.map((s) => (
             <div
               key={s.id}
-              className="rounded-xl border border-border/50 bg-card px-3 py-2 flex items-center gap-2.5"
+              onClick={() => router.push(`/admin/users/${s.studentId}`)}
+              className="rounded-xl border border-border/50 bg-card px-3 py-2 flex items-center gap-2.5 cursor-pointer hover:bg-muted/40 hover:border-border/80 transition-all"
             >
               <div className="w-8 h-8 rounded-lg bg-muted text-muted-foreground flex items-center justify-center text-xs font-bold shrink-0">
                 {s.studentName?.[0]?.toUpperCase() ?? "?"}
@@ -239,7 +266,7 @@ function TutorSection({ tutorId }: { tutorId: string }) {
                 <p className="text-xs text-muted-foreground truncate">{s.studentEmail}</p>
               </div>
               <button
-                onClick={() => removeStudent(s.id)}
+                onClick={(e) => { e.stopPropagation(); removeStudent(s.id); }}
                 className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-red-500 hover:bg-red-500/10 shrink-0"
                 title="Прибрати учня"
               >
@@ -247,6 +274,105 @@ function TutorSection({ tutorId }: { tutorId: string }) {
               </button>
             </div>
           ))
+        )}
+      </div>
+
+      {/* Calendar */}
+      <div className="space-y-1.5">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-1">
+          Календар занять
+        </p>
+        <MonthCalendar lessons={lessons} />
+      </div>
+    </div>
+  );
+}
+
+// Student overview — editor view of a student's tutors, homework and calendar.
+function StudentSection({ studentId }: { studentId: string }) {
+  const [lessons, setLessons] = useState<Lesson[]>([]);
+  const router = useRouter();
+
+  useEffect(() => subscribeStudentLessons(studentId, setLessons), [studentId]);
+
+  const { data: tutors = [] } = useQuery({
+    queryKey: ["student-tutors", studentId],
+    queryFn: async () => {
+      const links = await getStudentTutorLinks(studentId);
+      const profiles = await Promise.all(links.map((l) => getUserById(l.tutorId)));
+      return profiles.filter((p): p is NonNullable<typeof p> => !!p);
+    },
+  });
+
+  const { data: homework = [] } = useQuery({
+    queryKey: ["student-homework-admin", studentId],
+    queryFn: () => getStudentHomework(studentId),
+  });
+
+  // Nothing on the student side → don't render the block at all.
+  if (tutors.length === 0 && homework.length === 0 && lessons.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="space-y-4 rounded-2xl border border-border/50 bg-card p-4">
+      <p className="text-sm font-semibold flex items-center gap-1.5">
+        <Users size={16} className="text-primary" /> Як учень
+      </p>
+
+      {/* Tutors */}
+      <div className="space-y-1.5">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-1 flex items-center gap-1.5">
+          <Users size={12} /> Вчителі ({tutors.length})
+        </p>
+        {tutors.length === 0 ? (
+          <p className="text-xs text-muted-foreground px-1">Немає призначених вчителів</p>
+        ) : (
+          tutors.map((t) => (
+            <div
+              key={t.uid}
+              onClick={() => router.push(`/admin/users/${t.uid}`)}
+              className="rounded-xl border border-border/50 bg-background px-3 py-2 flex items-center gap-2.5 cursor-pointer hover:bg-muted/40 hover:border-border/80 transition-all"
+            >
+              <div className="w-8 h-8 rounded-lg bg-amber-400/15 text-amber-600 dark:text-amber-400 flex items-center justify-center text-xs font-bold shrink-0">
+                {t.displayName?.[0]?.toUpperCase() ?? "?"}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{t.displayName}</p>
+                <p className="text-xs text-muted-foreground truncate">{t.email}</p>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Homework */}
+      <div className="space-y-1.5">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-1">
+          Домашні завдання ({homework.length})
+        </p>
+        {homework.length === 0 ? (
+          <p className="text-xs text-muted-foreground px-1">Немає завдань</p>
+        ) : (
+          homework.map((hw: Homework) => {
+            const meta = HW_STATUS[hw.status];
+            return (
+              <div key={hw.id} className="rounded-xl border border-border/50 bg-background px-3 py-2 flex items-center gap-2.5">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{hw.title}</p>
+                  {hw.dueAt && (
+                    <p className="text-xs text-muted-foreground inline-flex items-center gap-1">
+                      <CalendarClock size={11} /> до {formatDate(hw.dueAt, { day: "numeric", month: "short" })}
+                    </p>
+                  )}
+                </div>
+                <span className={cn("shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full", meta.cls)}>
+                  <meta.Icon size={12} />
+                  <span className="hidden sm:inline">{meta.label}</span>
+                </span>
+              </div>
+            );
+          })
         )}
       </div>
 
