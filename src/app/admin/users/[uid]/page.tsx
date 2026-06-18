@@ -79,12 +79,6 @@ export default function AdminUserHistoryPage() {
 
   if (loading) return <SpinnerPage />;
 
-  const best = results.length
-    ? Math.max(...results.map((r) => r.nmtScore))
-    : null;
-  const avg = results.length
-    ? Math.round(results.reduce((s, r) => s + r.nmtScore, 0) / results.length)
-    : null;
   const totalTime = results.reduce((s, r) => s + (r.timeSpent ?? 0), 0);
 
   return (
@@ -143,34 +137,6 @@ export default function AdminUserHistoryPage() {
       {/* Student side — shown whenever the user has tutors/homework/lessons,
           regardless of role (a tutor/editor can also be someone's student). */}
       {profile && <StudentSection studentId={uid} />}
-
-      {results.length > 0 && (
-        <div className="grid grid-cols-3 gap-2">
-          {[
-            {
-              label: "Найкращий",
-              value: best,
-              color: "text-green-600 dark:text-green-400",
-            },
-            {
-              label: "Середній",
-              value: avg,
-              color: "text-blue-600 dark:text-blue-400",
-            },
-            { label: "Спроб", value: results.length, color: "text-foreground" },
-          ].map(({ label, value, color }) => (
-            <div
-              key={label}
-              className="rounded-2xl border border-border/50 bg-card px-4 py-3 text-center"
-            >
-              <p className={cn("text-2xl font-bold tabular-nums", color)}>
-                {value}
-              </p>
-              <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
-            </div>
-          ))}
-        </div>
-      )}
 
       {results.length === 0 ? (
         <EmptyState emoji="📋" title="Ще немає пройдених тестів" />
@@ -362,7 +328,11 @@ function StudentSection({ studentId }: { studentId: string }) {
           homework.map((hw: Homework) => {
             const meta = HW_STATUS[hw.status];
             return (
-              <div key={hw.id} className="rounded-xl border border-border/50 bg-background px-3 py-2 flex items-center gap-2.5">
+              <button
+                key={hw.id}
+                onClick={() => router.push(`/tutor/homework/${hw.id}`)}
+                className="w-full text-left rounded-xl border border-border/50 bg-background px-3 py-2 flex items-center gap-2.5 hover:bg-muted/40 hover:border-border/80 transition-all"
+              >
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{hw.title}</p>
                   {hw.dueAt && (
@@ -375,7 +345,7 @@ function StudentSection({ studentId }: { studentId: string }) {
                   <meta.Icon size={12} />
                   <span className="hidden sm:inline">{meta.label}</span>
                 </span>
-              </div>
+              </button>
             );
           })
         )}

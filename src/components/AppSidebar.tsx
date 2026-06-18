@@ -14,25 +14,12 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { useExamGuard } from "@/context/ExamGuardContext";
-import { useQuery } from "@tanstack/react-query";
-import { getStudentTutorLinks } from "@/lib/tutor";
 
-// `tutorOnly` items appear only for students linked to at least one tutor.
 const NAV = [
   { icon: Home, href: "/dashboard", label: "Головна" },
   { icon: FileText, href: "/dashboard/tests", label: "Тести" },
-  {
-    icon: ClipboardCheck,
-    href: "/dashboard/homework",
-    label: "Домашні",
-    tutorOnly: true,
-  },
-  {
-    icon: CalendarDays,
-    href: "/dashboard/calendar",
-    label: "Календар",
-    tutorOnly: true,
-  },
+  { icon: ClipboardCheck, href: "/dashboard/homework", label: "Домашні" },
+  { icon: CalendarDays, href: "/dashboard/calendar", label: "Календар" },
   { icon: History, href: "/dashboard/history", label: "Історія" },
 ];
 
@@ -51,16 +38,8 @@ const ADMIN_NAV = [
 
 export function AppSidebar() {
   const path = usePathname();
-  const { user, userProfile } = useAuth();
+  const { userProfile } = useAuth();
   const { requestNav } = useExamGuard();
-
-  const { data: tutorLinks = [] } = useQuery({
-    queryKey: ["my-tutors", user?.uid],
-    queryFn: () => getStudentTutorLinks(user!.uid),
-    enabled: !!user,
-    staleTime: 5 * 60 * 1000,
-  });
-  const hasTutor = tutorLinks.length > 0;
 
   function NavItem({
     href,
@@ -106,11 +85,9 @@ export function AppSidebar() {
           "shadow-[0_2px_16px_rgba(0,0,0,0.07),0_0_0_1px_rgba(0,0,0,0.03)]",
         )}
       >
-        {NAV.filter((n) => !n.tutorOnly || hasTutor).map(
-          ({ icon: Icon, href, label }) => (
-            <NavItem key={href} href={href} label={label} Icon={Icon} />
-          ),
-        )}
+        {NAV.map(({ icon: Icon, href, label }) => (
+          <NavItem key={href} href={href} label={label} Icon={Icon} />
+        ))}
 
         {(userProfile?.role === "tutor" || userProfile?.role === "editor") && (
           <>

@@ -126,8 +126,11 @@ service cloud.firestore {
 
     // Daily answers — read/create by owner, read by editor
     match /dailyAnswers/{docId} {
+      // resource == null allows checking a not-yet-answered day (getTodayDailyAnswer)
       allow read: if isAuth() && (
-        resource.data.userId == request.auth.uid || isEditor()
+        resource == null
+        || resource.data.userId == request.auth.uid
+        || isEditor()
       );
       allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
       allow update, delete: if isEditor();

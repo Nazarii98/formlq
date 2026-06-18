@@ -1,13 +1,15 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, type ReactNode } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { BookOpen, Loader2 } from "lucide-react";
 import { formatTimer } from "@/lib/format";
 import { MathText } from "@/components/MathText";
 import { ResultListItem } from "@/components/exam/ResultListItem";
+import { ResultsView } from "@/components/exam/ResultsView";
 import { Button } from "@/components/ui/button";
 import { useReferenceDrawer } from "@/context/ReferenceDrawerContext";
 import { useExamGuard } from "@/context/ExamGuardContext";
@@ -15,7 +17,6 @@ import confetti from "canvas-confetti";
 import {
   TestQuestion,
   MCQQuestion,
-  OpenQuestion,
   MatchingQuestion,
   ScoreRow,
   ScaleType,
@@ -25,7 +26,6 @@ import {
   rawToNMT,
   maxRawScore,
   maxScaledScore,
-  isExamFailed,
 } from "@/lib/tests";
 
 export interface RunnerConfig {
@@ -92,6 +92,8 @@ interface ExamRunnerProps {
   ) => void;
   /** Pre-completed attempt → open straight into review mode. */
   initialResult?: InitialResult;
+  /** Optional content rendered at the top of the results screen (e.g. homework details). */
+  headerSlot?: ReactNode;
   /** CTA shown on the results screen. */
   resultsHref?: string;
   resultsLabel?: string;
@@ -114,22 +116,6 @@ function isAnswered(q: TestQuestion, answer: string | undefined): boolean {
 
 function normalizeOpenAnswer(s: string) {
   return s.trim().replace(/\./g, ",");
-}
-
-function isCorrect(q: TestQuestion, answer: string | undefined): boolean {
-  if (!answer) return false;
-  if (q.type === "mcq") return answer === q.correctOptionId;
-  if (q.type === "open")
-    return normalizeOpenAnswer(answer) === normalizeOpenAnswer(q.correctAnswer);
-  if (q.type === "matching") {
-    try {
-      const p = JSON.parse(answer) as Record<string, string>;
-      return Object.entries(q.correctPairs).every(([k, v]) => p[k] === v);
-    } catch {
-      return false;
-    }
-  }
-  return false;
 }
 
 function buildQuestionResults(
@@ -208,6 +194,7 @@ export function ExamRunner({
   initialAnswerImages,
   onProgress,
   initialResult,
+  headerSlot,
   resultsHref = "/dashboard",
   resultsLabel = "На головну",
   introEmoji = "📝",
@@ -215,11 +202,20 @@ export function ExamRunner({
 }: ExamRunnerProps) {
   const { setGuarded } = useExamGuard();
   const { open: drawerOpen, openDrawer } = useReferenceDrawer();
+  const router = useRouter();
+
+  function saveAndExit() {
+    onProgress?.(answers, answerImages);
+    setGuarded(false);
+    router.push(backHref);
+  }
 
   const showReference = notesPdfUrl ? true : !hideReference;
   const referenceLabel = notesPdfUrl ? "Конспект" : "Довідка";
   const openReference = () =>
-    openDrawer(notesPdfUrl ? { url: notesPdfUrl, title: "Конспект" } : undefined);
+    openDrawer(
+      notesPdfUrl ? { url: notesPdfUrl, title: "Конспект" } : undefined,
+    );
 
   const questions = config.questions ?? [];
   const maxRaw = maxRawScore(questions);
@@ -229,6 +225,7 @@ export function ExamRunner({
   const reviewing = !!initialResult;
   const tutorComments = initialResult?.tutorComments ?? {};
   const tutorNote = initialResult?.tutorNote ?? "";
+
   const [phase, setPhase] = useState<"intro" | "exam" | "results">(
     reviewing ? "results" : "intro",
   );
@@ -344,7 +341,10 @@ export function ExamRunner({
   useEffect(() => {
     if (phase !== "exam" || !onProgress) return;
     if (progressTimer.current) clearTimeout(progressTimer.current);
-    progressTimer.current = setTimeout(() => onProgress(answers, answerImages), 800);
+    progressTimer.current = setTimeout(
+      () => onProgress(answers, answerImages),
+      800,
+    );
     return () => {
       if (progressTimer.current) clearTimeout(progressTimer.current);
     };
@@ -533,362 +533,35 @@ export function ExamRunner({
   if (phase === "results") {
     const rawScore = calcRawScore(questions, answers);
     const nmtScore = rawToNMT(rawScore, config.scoreTable ?? []);
-    const maxScaled = isNmt ? 200 : maxScaledScore(config.scoreTable ?? []);
-    const failed = isExamFailed(rawScore, config.scaleType ?? "nmt");
-    const pct = isNmt
-      ? Math.max(0, nmtScore - 100)
-      : maxScaled
-        ? (nmtScore / maxScaled) * 100
-        : 0;
-    const emoji = pct >= 80 ? "🏆" : pct >= 60 ? "🎉" : pct >= 40 ? "👍" : "💪";
+    const resultData: TestResult = {
+      id: initialResult?.resultId ?? "",
+      userId: "",
+      testId: config.id,
+      testTitle: config.title,
+      testSubtitle: config.subtitle ?? "",
+      completedAt: null,
+      timeSpent: finalTimeSpent,
+      rawScore,
+      nmtScore,
+      maxRaw,
+      answers,
+      questions: buildQuestionResults(questions, answers),
+      scoreTable: config.scoreTable ?? [],
+      scaleType: config.scaleType ?? "nmt",
+    };
 
     return (
       <div className="min-h-screen bg-background">
         <main className="max-w-2xl mx-auto px-4 py-8 space-y-6">
-          <div className="rounded-2xl border border-border/50 bg-card p-6 text-center space-y-1">
-            <div className="text-4xl mb-2">{failed ? "❌" : emoji}</div>
-            {failed ? (
-              <>
-                <div className="text-3xl font-bold text-red-500">Не склав</div>
-                <p className="text-muted-foreground text-sm">
-                  менше 5 балів — тест не зараховано
-                </p>
-              </>
-            ) : (
-              <>
-                <div className="text-5xl font-bold tabular-nums">
-                  {nmtScore}
-                </div>
-                <p className="text-muted-foreground text-sm">
-                  {isNmt ? "балів НМТ (з 200)" : `балів (з ${maxScaled})`}
-                </p>
-              </>
-            )}
-            <div className="flex justify-center gap-4 pt-3 text-sm text-muted-foreground">
-              <span>
-                Сирий бал:{" "}
-                <b className="text-foreground">
-                  {rawScore}/{maxRaw}
-                </b>
-              </span>
-              <span>
-                Час:{" "}
-                <b className="text-foreground">{formatTimer(finalTimeSpent)}</b>
-              </span>
-            </div>
-          </div>
-
-          {tutorNote && (
-            <div className="rounded-2xl border border-amber-400/30 bg-amber-400/5 p-4">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400 mb-1">
-                Коментар учителя
-              </p>
-              <p className="text-sm text-foreground/90 leading-relaxed">{tutorNote}</p>
-            </div>
-          )}
-
-          {/* Quick map */}
-          <div className="flex flex-wrap gap-1.5">
-            {questions.map((q, i) => {
-              const correct = isCorrect(q, answers[q.id]);
-              const answered = isAnswered(q, answers[q.id]);
-              const partial =
-                !correct &&
-                answered &&
-                q.type === "matching" &&
-                (() => {
-                  try {
-                    const p = JSON.parse(answers[q.id]) as Record<
-                      string,
-                      string
-                    >;
-                    const cnt = Object.entries(
-                      (q as MatchingQuestion).correctPairs,
-                    ).filter(([k, v]) => p[k] === v).length;
-                    return cnt > 0;
-                  } catch {
-                    return false;
-                  }
-                })();
-              return (
-                <a key={q.id} href={`#q-${i}`}>
-                  <div
-                    className={cn(
-                      "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border transition-all relative",
-                      correct
-                        ? "bg-green-500/15 border-green-500/40 text-green-600 dark:text-green-400"
-                        : partial
-                          ? "bg-amber-500/15 border-amber-500/40 text-amber-600 dark:text-amber-400"
-                          : answered
-                            ? "bg-red-500/15 border-red-500/40 text-red-500"
-                            : "bg-muted border-border/50 text-muted-foreground",
-                    )}
-                  >
-                    {i + 1}
-                    {flagged.includes(q.id) && (
-                      <span className="absolute -top-1.5 -right-1.5 text-[10px]">
-                        🦆
-                      </span>
-                    )}
-                  </div>
-                </a>
-              );
-            })}
-          </div>
-
-          {/* Breakdown */}
-          <div className="space-y-3">
-            {questions.map((q, i) => {
-              const correct = isCorrect(q, answers[q.id]);
-              const userAnswer = answers[q.id] ?? "";
-              let isPartial = false,
-                partialCount = 0,
-                totalPairsCount = 0;
-              let userLabel = "—",
-                correctLabel = "";
-              if (q.type === "mcq") {
-                const uOpt = (q as MCQQuestion).options.find(
-                  (o) => o.id === userAnswer,
-                );
-                const cOpt = (q as MCQQuestion).options.find(
-                  (o) => o.id === (q as MCQQuestion).correctOptionId,
-                );
-                userLabel = uOpt
-                  ? `${uOpt.id}. ${uOpt.text}`
-                  : userAnswer || "—";
-                correctLabel = cOpt ? `${cOpt.id}. ${cOpt.text}` : "";
-              } else if (q.type === "open") {
-                userLabel = userAnswer || "—";
-                correctLabel = (q as OpenQuestion).correctAnswer;
-              } else if (q.type === "matching") {
-                try {
-                  const parsed = JSON.parse(userAnswer) as Record<
-                    string,
-                    string
-                  >;
-                  totalPairsCount = Object.keys(
-                    (q as MatchingQuestion).correctPairs,
-                  ).length;
-                  partialCount = Object.entries(
-                    (q as MatchingQuestion).correctPairs,
-                  ).filter(([k, v]) => parsed[k] === v).length;
-                  isPartial = !correct && partialCount > 0;
-                } catch {
-                  /* noop */
-                }
-              }
-              const photo = answerImages[q.id];
-
-              return (
-                <div
-                  id={`q-${i}`}
-                  key={q.id}
-                  className={cn(
-                    "rounded-2xl border p-5 space-y-3",
-                    correct
-                      ? "border-green-500/30 bg-green-500/5"
-                      : isPartial
-                        ? "border-amber-500/30 bg-amber-500/5"
-                        : "border-red-500/30 bg-red-500/5",
-                  )}
-                >
-                  <div className="flex items-start gap-3">
-                    <span
-                      className={cn(
-                        "shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold mt-0.5",
-                        correct
-                          ? "bg-green-500/20 text-green-600 dark:text-green-400"
-                          : isPartial
-                            ? "bg-amber-500/20 text-amber-600 dark:text-amber-400"
-                            : "bg-red-500/20 text-red-500",
-                      )}
-                    >
-                      {correct ? "✓" : isPartial ? "~" : "✗"}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs text-muted-foreground mb-1">
-                        Завдання {i + 1} · {q.points} б
-                        {isPartial && (
-                          <span className="ml-1 text-amber-600 dark:text-amber-400">
-                            ({partialCount}/{totalPairsCount} пар)
-                          </span>
-                        )}
-                      </p>
-                      <MathText
-                        text={q.text || "—"}
-                        className="text-sm text-foreground leading-relaxed"
-                      />
-                      {q.imageUrl && (
-                        <div className="mt-2 rounded-xl overflow-hidden border border-border/50">
-                          <Image
-                            src={q.imageUrl}
-                            alt=""
-                            width={800}
-                            height={400}
-                            className="w-full object-contain max-h-56"
-                          />
-                        </div>
-                      )}
-                    </div>
-                    {allowFlags && (
-                      <button
-                        onClick={() => toggleFlag(q.id)}
-                        title={
-                          flagged.includes(q.id)
-                            ? "Прибрати позначку"
-                            : "Позначити для обговорення зі вчителем"
-                        }
-                        className={cn(
-                          "shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-base transition-all",
-                          flagged.includes(q.id)
-                            ? "bg-amber-400/20 grayscale-0"
-                            : "bg-muted grayscale opacity-50 hover:opacity-100 hover:grayscale-0",
-                        )}
-                      >
-                        🦆
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="pl-9 space-y-1.5 text-sm">
-                    {q.type === "matching" ? (
-                      (() => {
-                        let pairs: Record<string, string> = {};
-                        try {
-                          pairs = JSON.parse(userAnswer);
-                        } catch {
-                          /* noop */
-                        }
-                        return (
-                          <div className="space-y-0.5">
-                            <span className="text-muted-foreground text-xs">
-                              Ваша:
-                            </span>
-                            {(q as MatchingQuestion).leftItems.map((item) => {
-                              const uVal = pairs[item.id];
-                              const cVal = (q as MatchingQuestion).correctPairs[
-                                item.id
-                              ];
-                              const ok = !!uVal && uVal === cVal;
-                              return (
-                                <div
-                                  key={item.id}
-                                  className={cn(
-                                    "flex items-center gap-1 text-xs font-medium",
-                                    ok
-                                      ? "text-green-600 dark:text-green-400"
-                                      : "text-red-500",
-                                  )}
-                                >
-                                  <span className="text-muted-foreground">
-                                    {item.id} →
-                                  </span>
-                                  <span>{uVal || "—"}</span>
-                                  {!ok && cVal && uVal !== cVal && (
-                                    <span className="text-green-600 dark:text-green-400 ml-0.5">
-                                      (→ {cVal})
-                                    </span>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        );
-                      })()
-                    ) : (
-                      <>
-                        <div className="flex gap-2">
-                          <span className="text-muted-foreground shrink-0 whitespace-nowrap">
-                            Ваша:
-                          </span>
-                          <span
-                            className={
-                              correct
-                                ? "text-green-600 dark:text-green-400"
-                                : "text-red-500"
-                            }
-                          >
-                            {userLabel}
-                          </span>
-                        </div>
-                        {!correct && correctLabel && (
-                          <div className="flex gap-2">
-                            <span className="text-muted-foreground shrink-0 whitespace-nowrap">
-                              Правильна:
-                            </span>
-                            <span className="text-green-600 dark:text-green-400">
-                              {correctLabel}
-                            </span>
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-
-                  {photo && (
-                    <div className="pl-9">
-                      <p className="text-xs text-muted-foreground mb-1">
-                        Прикріплене фото:
-                      </p>
-                      <a
-                        href={photo}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block rounded-xl overflow-hidden border border-border/50 max-w-xs"
-                      >
-                        <Image
-                          src={photo}
-                          alt="Фото відповіді"
-                          width={400}
-                          height={300}
-                          className="w-full object-contain max-h-56"
-                        />
-                      </a>
-                    </div>
-                  )}
-
-                  {q.explanation && (
-                    <div className="pl-9">
-                      <details className="group">
-                        <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors list-none flex items-center gap-1 select-none">
-                          <span className="group-open:rotate-90 transition-transform inline-block">
-                            ›
-                          </span>
-                          Пояснення
-                        </summary>
-                        <MathText
-                          text={q.explanation}
-                          className="block mt-2 text-sm text-foreground/80 leading-relaxed border-l-2 border-border pl-3"
-                        />
-                        {q.explanationImageUrl && (
-                          <div className="mt-3 rounded-xl overflow-hidden border border-border/50">
-                            <Image
-                              src={q.explanationImageUrl}
-                              alt=""
-                              width={800}
-                              height={400}
-                              className="w-full object-contain max-h-64"
-                            />
-                          </div>
-                        )}
-                      </details>
-                    </div>
-                  )}
-
-                  {tutorComments[q.id] && (
-                    <div className="pl-9">
-                      <div className="rounded-xl border border-amber-400/30 bg-amber-400/5 px-3 py-2">
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400 mb-0.5">
-                          Коментар учителя
-                        </p>
-                        <p className="text-sm text-foreground/90 leading-relaxed">{tutorComments[q.id]}</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+          {headerSlot}
+          <ResultsView
+            result={resultData}
+            answerImages={answerImages}
+            flagged={flagged}
+            onToggleFlag={allowFlags ? (id) => toggleFlag(id) : undefined}
+            tutorNote={tutorNote}
+            tutorComments={tutorComments}
+          />
 
           <div className="flex gap-3 pb-4">
             {allowRestart && (
@@ -948,6 +621,16 @@ export function ExamRunner({
               >
                 <BookOpen size={17} />
               </button>
+            )}
+            {untimed && onProgress && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={saveAndExit}
+                disabled={submitting}
+              >
+                Зберегти й вийти
+              </Button>
             )}
             <Button
               size="sm"

@@ -13,6 +13,9 @@ import {
 } from "@/lib/tests";
 import { getHomework, updateHomework, Homework } from "@/lib/tutor";
 import { uploadQuestionImage } from "@/lib/storage";
+import { useReferenceDrawer } from "@/context/ReferenceDrawerContext";
+import { formatDate } from "@/lib/format";
+import { CalendarClock, FileText } from "lucide-react";
 import {
   ExamRunner,
   RunnerConfig,
@@ -24,6 +27,7 @@ export default function HomeworkRunnerPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { openDrawer } = useReferenceDrawer();
 
   const [homework, setHomework] = useState<Homework | null>(null);
   const [config, setConfig] = useState<RunnerConfig | null>(null);
@@ -138,11 +142,39 @@ export default function HomeworkRunnerPage() {
     );
   }
 
+  const detailsCard = homework && (
+    <div className="rounded-2xl border border-border/50 bg-card p-5 space-y-2">
+      <h1 className="text-lg font-bold">{homework.title}</h1>
+      {homework.tutorName && (
+        <p className="text-sm text-muted-foreground">Вчитель: {homework.tutorName}</p>
+      )}
+      {homework.dueAt && (
+        <p className="text-xs text-muted-foreground inline-flex items-center gap-1">
+          <CalendarClock size={12} /> Дедлайн: {formatDate(homework.dueAt)}
+        </p>
+      )}
+      {homework.note && (
+        <p className="text-xs text-muted-foreground border-l-2 border-border pl-2">
+          {homework.note}
+        </p>
+      )}
+      {homework.pdfUrl && (
+        <button
+          onClick={() => openDrawer({ url: homework.pdfUrl, title: "Конспект" })}
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+        >
+          <FileText size={13} /> Переглянути конспект
+        </button>
+      )}
+    </div>
+  );
+
   return (
     <ExamRunner
       config={config}
       backHref="/dashboard/homework"
       introNote={homework?.note}
+      headerSlot={detailsCard}
       untimed
       notesPdfUrl={homework?.pdfUrl}
       hideReference

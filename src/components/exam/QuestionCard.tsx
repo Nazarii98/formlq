@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { QuestionResult } from "@/lib/tests";
@@ -9,13 +10,30 @@ interface QuestionCardProps {
   q: QuestionResult;
   index: number;
   answerLabel?: string;
+  /** Uploaded photo of the answer (homework open questions). */
+  photo?: string;
+  /** Whether the student flagged this question with a duck. */
+  flagged?: boolean;
+  /** If provided, the duck is a toggle (student). Otherwise a static badge when flagged. */
+  onToggleFlag?: () => void;
+  /** Read-only tutor comment (shown to the student). */
+  comment?: string;
+  /** Editable tutor comment (tutor review). Takes precedence over `comment`. */
+  editableComment?: { value: string; onSave: (v: string) => void };
 }
 
 export function QuestionCard({
   q,
   index,
   answerLabel = "Ваша відповідь",
+  photo,
+  flagged = false,
+  onToggleFlag,
+  comment,
+  editableComment,
 }: QuestionCardProps) {
+  const [commentDraft, setCommentDraft] = useState(editableComment?.value ?? "");
+
   let userLabel = "—";
   let correctLabel = "";
 
@@ -51,7 +69,6 @@ export function QuestionCard({
 
   return (
     <div
-      id={`q-${index}`}
       className={cn(
         "rounded-2xl border bg-card p-5 space-y-4 border-l-[3px]",
         q.isCorrect
@@ -84,20 +101,40 @@ export function QuestionCard({
             </div>
           )}
         </div>
-        <span
-          className={cn(
-            "shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full mt-0.5",
-            q.isCorrect
-              ? "bg-green-500/12 text-green-600 dark:text-green-400"
-              : isPartial
-                ? "bg-amber-500/12 text-amber-600 dark:text-amber-400"
-                : skipped
-                  ? "bg-muted text-muted-foreground"
-                  : "bg-red-500/12 text-red-500",
+        <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
+          {onToggleFlag ? (
+            <button
+              onClick={onToggleFlag}
+              title={flagged ? "Прибрати позначку" : "Позначити для обговорення з учителем"}
+              className={cn(
+                "w-7 h-7 rounded-lg flex items-center justify-center text-base transition-all",
+                flagged
+                  ? "bg-amber-400/20 grayscale-0"
+                  : "bg-muted grayscale opacity-50 hover:opacity-100 hover:grayscale-0",
+              )}
+            >
+              🦆
+            </button>
+          ) : (
+            flagged && (
+              <span className="text-base" title="Позначено учнем">🦆</span>
+            )
           )}
-        >
-          {q.isCorrect ? "Вірно" : isPartial ? `Частково (${q.partialScore}/${q.points})` : skipped ? "Пропущено" : "Невірно"}
-        </span>
+          <span
+            className={cn(
+              "text-xs font-semibold px-2 py-0.5 rounded-full",
+              q.isCorrect
+                ? "bg-green-500/12 text-green-600 dark:text-green-400"
+                : isPartial
+                  ? "bg-amber-500/12 text-amber-600 dark:text-amber-400"
+                  : skipped
+                    ? "bg-muted text-muted-foreground"
+                    : "bg-red-500/12 text-red-500",
+            )}
+          >
+            {q.isCorrect ? "Вірно" : isPartial ? `Частково (${q.partialScore}/${q.points})` : skipped ? "Пропущено" : "Невірно"}
+          </span>
+        </div>
       </div>
 
       {/* Answers */}
@@ -160,6 +197,21 @@ export function QuestionCard({
         )}
       </div>
 
+      {/* Answer photo */}
+      {photo && (
+        <div>
+          <p className="text-xs text-muted-foreground mb-1">Прикріплене фото:</p>
+          <a
+            href={photo}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block rounded-xl overflow-hidden border border-border/50 max-w-xs"
+          >
+            <Image src={photo} alt="Фото відповіді" width={400} height={300} className="w-full object-contain max-h-60" />
+          </a>
+        </div>
+      )}
+
       {/* Explanation */}
       {q.explanation && (
         <details className="group">
@@ -185,6 +237,27 @@ export function QuestionCard({
             </div>
           )}
         </details>
+      )}
+
+      {/* Tutor comment */}
+      {editableComment ? (
+        <textarea
+          value={commentDraft}
+          onChange={(e) => setCommentDraft(e.target.value)}
+          onBlur={(e) => editableComment.onSave(e.target.value)}
+          rows={1}
+          placeholder="Коментар до питання..."
+          className="w-full px-3 py-2 rounded-xl border border-border/50 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none"
+        />
+      ) : (
+        comment && (
+          <div className="rounded-xl border border-amber-400/30 bg-amber-400/5 px-3 py-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400 mb-0.5">
+              Коментар вчителя
+            </p>
+            <p className="text-sm text-foreground/90 leading-relaxed">{comment}</p>
+          </div>
+        )
       )}
     </div>
   );

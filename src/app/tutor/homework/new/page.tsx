@@ -19,7 +19,7 @@ import { getAllQuestions } from "@/lib/questions";
 import { uploadPdf } from "@/lib/storage";
 import { TOPICS } from "@/lib/topics";
 import { MathText } from "@/components/MathText";
-import { SelectNative } from "@/components/ui/select-native";
+import { Select, SelectItem } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { SpinnerPage } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
@@ -179,17 +179,14 @@ export default function NewHomeworkPage() {
     <div className="max-w-2xl mx-auto space-y-5 pb-8">
       {/* Student */}
       <Field label="Учень">
-        <SelectNative
-          value={studentId}
-          onChange={(e) => setStudentId(e.target.value)}
-        >
-          <option value="">Оберіть учня...</option>
+        <Select value={studentId} onValueChange={setStudentId}>
+          <SelectItem value="">Оберіть учня...</SelectItem>
           {students.map((s) => (
-            <option key={s.studentId} value={s.studentId}>
+            <SelectItem key={s.studentId} value={s.studentId}>
               {s.studentName} ({s.studentEmail})
-            </option>
+            </SelectItem>
           ))}
-        </SelectNative>
+        </Select>
         {students.length === 0 && (
           <p className="text-xs text-muted-foreground mt-1">
             Немає учнів. Додайте учня на сторінці «Мої учні».
@@ -275,24 +272,24 @@ export default function NewHomeworkPage() {
 
       {source === "test" ? (
         <Field label="Тест (включно з імітаціями НМТ)">
-          <SelectNative
+          <Select
             value={testId}
-            onChange={(e) => {
-              setTestId(e.target.value);
-              const t = tests.find((x) => x.id === e.target.value);
+            onValueChange={(v) => {
+              setTestId(v);
+              const t = tests.find((x) => x.id === v);
               if (t && !title.trim()) setTitle(t.title);
             }}
           >
-            <option value="">Оберіть тест...</option>
+            <SelectItem value="">Оберіть тест...</SelectItem>
             {tests.map((t) => (
-              <option key={t.id} value={t.id}>
+              <SelectItem key={t.id} value={t.id}>
                 {t.published ? "" : "✎ "}
                 {t.title}
                 {t.subtitle ? ` — ${t.subtitle}` : ""}
                 {t.published ? "" : " (чернетка)"}
-              </option>
+              </SelectItem>
             ))}
-          </SelectNative>
+          </Select>
           {selectedTest && (
             <p className="text-xs text-muted-foreground mt-1.5">
               {selectedTest.questions.length} питань ·{" "}
@@ -313,26 +310,23 @@ export default function NewHomeworkPage() {
               placeholder="Пошук..."
               className="px-3 py-2 rounded-xl border border-border/50 bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
             />
-            <SelectNative
-              value={bankTopic}
-              onChange={(e) => setBankTopic(e.target.value)}
-            >
-              <option value="all">Усі теми</option>
+            <Select value={bankTopic} onValueChange={setBankTopic}>
+              <SelectItem value="all">Усі теми</SelectItem>
               {TOPICS.map((t) => (
-                <option key={t.id} value={t.id}>
+                <SelectItem key={t.id} value={t.id}>
                   {t.name}
-                </option>
+                </SelectItem>
               ))}
-            </SelectNative>
-            <SelectNative
+            </Select>
+            <Select
               value={bankType}
-              onChange={(e) => setBankType(e.target.value as typeof bankType)}
+              onValueChange={(v) => setBankType(v as typeof bankType)}
             >
-              <option value="all">Усі типи</option>
-              <option value="mcq">Тест</option>
-              <option value="open">Відкрите</option>
-              <option value="matching">Відповідність</option>
-            </SelectNative>
+              <SelectItem value="all">Усі типи</SelectItem>
+              <SelectItem value="mcq">Тест</SelectItem>
+              <SelectItem value="open">Відкрите</SelectItem>
+              <SelectItem value="matching">Відповідність</SelectItem>
+            </Select>
           </div>
 
           <p className="text-xs text-muted-foreground px-1">

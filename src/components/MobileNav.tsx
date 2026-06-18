@@ -6,14 +6,12 @@ import { Menu, X, Home, FileText, History, ShieldCheck, Lightbulb, Users, LogOut
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { useExamGuard } from "@/context/ExamGuardContext";
-import { useQuery } from "@tanstack/react-query";
-import { getStudentTutorLinks } from "@/lib/tutor";
 
 const NAV = [
   { icon: Home,     href: "/dashboard",         label: "Головна" },
   { icon: FileText, href: "/dashboard/tests",   label: "Тести" },
-  { icon: ClipboardCheck, href: "/dashboard/homework", label: "Домашні", tutorOnly: true },
-  { icon: CalendarDays, href: "/dashboard/calendar", label: "Календар", tutorOnly: true },
+  { icon: ClipboardCheck, href: "/dashboard/homework", label: "Домашні" },
+  { icon: CalendarDays, href: "/dashboard/calendar", label: "Календар" },
   { icon: History,  href: "/dashboard/history", label: "Історія" },
 ];
 
@@ -34,17 +32,9 @@ export function MobileNav() {
   const [open, setOpen] = useState(false);
   const path = usePathname();
   const router = useRouter();
-  const { user, userProfile, logOut } = useAuth();
+  const { userProfile, logOut } = useAuth();
   const { requestNav, requestAction } = useExamGuard();
   const ref = useRef<HTMLDivElement>(null);
-
-  const { data: tutorLinks = [] } = useQuery({
-    queryKey: ["my-tutors", user?.uid],
-    queryFn: () => getStudentTutorLinks(user!.uid),
-    enabled: !!user,
-    staleTime: 5 * 60 * 1000,
-  });
-  const hasTutor = tutorLinks.length > 0;
 
   useEffect(() => {
     function onPointerDown(e: MouseEvent) {
@@ -85,7 +75,7 @@ export function MobileNav() {
 
       {open && (
         <div className="absolute left-0 top-[calc(100%+8px)] z-[100] min-w-[210px] bg-card border border-border/50 rounded-2xl shadow-xl p-1.5 flex flex-col gap-0.5">
-          {NAV.filter((n) => !n.tutorOnly || hasTutor).map(({ icon: Icon, href, label }) => {
+          {NAV.map(({ icon: Icon, href, label }) => {
             const active =
               href === "/dashboard" ? path === href : path.startsWith(href);
             return (
