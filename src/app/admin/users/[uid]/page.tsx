@@ -20,6 +20,7 @@ import { SpinnerPage } from "@/components/ui/spinner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ResultListItem } from "@/components/exam/ResultListItem";
 import { MonthCalendar } from "@/components/calendar/MonthCalendar";
+import { LessonViewModal } from "@/components/calendar/LessonViewModal";
 import { Button } from "@/components/ui/button";
 import { useHeader } from "@/context/HeaderContext";
 import { useOnlineUsers } from "@/hooks/useOnlineUsers";
@@ -198,6 +199,7 @@ export default function AdminUserHistoryPage() {
 function TutorSection({ tutorId }: { tutorId: string }) {
   const [students, setStudents] = useState<TutorStudent[]>([]);
   const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
   const [email, setEmail] = useState("");
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -282,8 +284,10 @@ function TutorSection({ tutorId }: { tutorId: string }) {
         <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-1">
           Календар занять
         </p>
-        <MonthCalendar lessons={lessons} />
+        <MonthCalendar lessons={lessons} onSelectLesson={setSelectedLesson} />
       </div>
+
+      <LessonViewModal lesson={selectedLesson} onClose={() => setSelectedLesson(null)} />
     </div>
   );
 }
@@ -291,6 +295,7 @@ function TutorSection({ tutorId }: { tutorId: string }) {
 // Student overview — editor view of a student's tutors, homework and calendar.
 function StudentSection({ studentId }: { studentId: string }) {
   const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
   const router = useRouter();
 
   useEffect(() => subscribeStudentLessons(studentId, setLessons), [studentId]);
@@ -381,8 +386,10 @@ function StudentSection({ studentId }: { studentId: string }) {
         <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-1">
           Календар занять
         </p>
-        <MonthCalendar lessons={lessons} />
+        <MonthCalendar lessons={lessons} onSelectLesson={setSelectedLesson} />
       </div>
+
+      <LessonViewModal lesson={selectedLesson} onClose={() => setSelectedLesson(null)} />
     </div>
   );
 }

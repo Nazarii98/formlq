@@ -170,6 +170,8 @@ export default function HomeworkRunnerPage() {
               answerImages: completedResult.answerImages,
               flaggedQuestions: completedResult.flaggedQuestions,
               timeSpent: completedResult.timeSpent,
+              tutorComments: completedResult.tutorComments,
+              tutorNote: completedResult.tutorNote,
             }
           : undefined
       }

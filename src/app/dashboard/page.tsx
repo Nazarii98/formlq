@@ -6,6 +6,9 @@ import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
 import { getTips, Tip } from "@/lib/tips";
 import { getStudentHomework, Homework } from "@/lib/tutor";
+import { subscribeStudentLessons, Lesson } from "@/lib/lessons";
+import { MonthCalendar } from "@/components/calendar/MonthCalendar";
+import { LessonViewModal } from "@/components/calendar/LessonViewModal";
 import { useQuery } from "@tanstack/react-query";
 import { CheckCircle2, XCircle, ClipboardCheck, CalendarClock, ArrowRight } from "lucide-react";
 import Image from "next/image";
@@ -56,55 +59,18 @@ function DailyTip({ tips }: { tips: Tip[] }) {
   );
 }
 
-// ── Mini Calendar ──────────────────────────────────────────────
-function MiniCalendar() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth();
-  const today = now.getDate();
-  const DAYS = ["П", "В", "С", "Ч", "П", "С", "Н"];
-  const firstDay = new Date(year, month, 1).getDay();
-  const offset = firstDay === 0 ? 6 : firstDay - 1;
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const monthName = now.toLocaleString("uk", {
-    month: "long",
-    year: "numeric",
-  });
-  const cells: (number | null)[] = [
-    ...Array(offset).fill(null),
-    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
-  ];
+// ── Calendar widget ────────────────────────────────────────────
+function CalendarWidget({ userId }: { userId: string }) {
+  const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [selected, setSelected] = useState<Lesson | null>(null);
+
+  useEffect(() => subscribeStudentLessons(userId, setLessons), [userId]);
 
   return (
-    <div className="space-y-3">
-      <p className="text-sm font-semibold capitalize">{monthName}</p>
-      <div className="grid grid-cols-7 gap-0.5">
-        {DAYS.map((d, i) => (
-          <div
-            key={i}
-            className="text-center text-[10px] font-medium text-muted-foreground py-1"
-          >
-            {d}
-          </div>
-        ))}
-        {cells.map((day, i) => {
-          const isToday = day === today;
-          return (
-            <div
-              key={i}
-              className={cn(
-                "aspect-square flex items-center justify-center rounded-lg text-xs transition-all",
-                !day && "invisible",
-                isToday && "bg-primary text-primary-foreground font-bold",
-                !isToday && "text-foreground/70 hover:bg-muted",
-              )}
-            >
-              <span>{day}</span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
+    <>
+      <MonthCalendar lessons={lessons} onSelectLesson={setSelected} />
+      <LessonViewModal lesson={selected} onClose={() => setSelected(null)} />
+    </>
   );
 }
 
@@ -545,11 +511,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Right */}
-      <div className="space-y-6">
-        <section className="rounded-2xl border border-border/50 bg-card p-5">
-          <MiniCalendar />
-        </section>
-      </div>
+      <div className="space-y-6">{user && <CalendarWidget userId={user.uid} />}</div>
     </div>
   );
 }

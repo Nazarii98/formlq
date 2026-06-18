@@ -136,7 +136,11 @@ export function MonthCalendar({
                         onSelectLesson(l);
                       }
                     }}
-                    className="text-[9px] leading-tight bg-primary/15 text-primary rounded px-1 py-0.5 truncate"
+                    className={cn(
+                      "text-[9px] leading-tight bg-primary/15 text-primary rounded px-1 py-0.5 truncate",
+                      onSelectLesson &&
+                        "cursor-pointer hover:bg-primary/30 transition-colors",
+                    )}
                     title={`${timeLabel(l.start)} ${l.title}`}
                   >
                     {timeLabel(l.start)} {l.title}

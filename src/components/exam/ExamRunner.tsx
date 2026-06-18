@@ -55,6 +55,8 @@ interface InitialResult {
   answerImages?: Record<string, string>;
   flaggedQuestions?: string[];
   timeSpent: number;
+  tutorComments?: Record<string, string>;
+  tutorNote?: string;
 }
 
 interface ExamRunnerProps {
@@ -225,6 +227,8 @@ export function ExamRunner({
   const isNmt = (config.scaleType ?? "nmt") === "nmt";
 
   const reviewing = !!initialResult;
+  const tutorComments = initialResult?.tutorComments ?? {};
+  const tutorNote = initialResult?.tutorNote ?? "";
   const [phase, setPhase] = useState<"intro" | "exam" | "results">(
     reviewing ? "results" : "intro",
   );
@@ -574,6 +578,15 @@ export function ExamRunner({
             </div>
           </div>
 
+          {tutorNote && (
+            <div className="rounded-2xl border border-amber-400/30 bg-amber-400/5 p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400 mb-1">
+                Коментар учителя
+              </p>
+              <p className="text-sm text-foreground/90 leading-relaxed">{tutorNote}</p>
+            </div>
+          )}
+
           {/* Quick map */}
           <div className="flex flex-wrap gap-1.5">
             {questions.map((q, i) => {
@@ -859,6 +872,17 @@ export function ExamRunner({
                           </div>
                         )}
                       </details>
+                    </div>
+                  )}
+
+                  {tutorComments[q.id] && (
+                    <div className="pl-9">
+                      <div className="rounded-xl border border-amber-400/30 bg-amber-400/5 px-3 py-2">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400 mb-0.5">
+                          Коментар учителя
+                        </p>
+                        <p className="text-sm text-foreground/90 leading-relaxed">{tutorComments[q.id]}</p>
+                      </div>
                     </div>
                   )}
                 </div>
