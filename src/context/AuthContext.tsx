@@ -48,7 +48,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (firebaseUser) {
         try {
           const snap = await getDoc(doc(db, "users", firebaseUser.uid));
-          if (snap.exists()) setUserProfile(snap.data() as UserProfile);
+          if (snap.exists()) {
+            setUserProfile(snap.data() as UserProfile);
+          } else {
+            // Self-heal: Auth account exists but the Firestore profile is
+            // missing (e.g. signup interrupted after account creation). Create
+            // it now so the user becomes visible to admins/tutors.
+            await createUserDoc(firebaseUser);
+          }
         } catch {
           // profile fetch failed, proceed without it
         }

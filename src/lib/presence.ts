@@ -37,26 +37,48 @@ export function connectPresence(uid: string, displayName?: string): () => void {
   const statusRef: DatabaseReference = ref(rtdb, `status/${uid}`);
   const connectedRef = ref(rtdb, ".info/connected");
 
-  const offline = { state: "offline" as const, lastChanged: serverTimestamp(), displayName };
-  const online = { state: "online" as const, lastChanged: serverTimestamp(), displayName };
+  // RTDB rejects `undefined` values (throws synchronously), so only include
+  // displayName when we actually have one — it's still unset right after signup.
+  const base = displayName ? { displayName } : {};
+  const offline = {
+    state: "offline" as const,
+    lastChanged: serverTimestamp(),
+    ...base,
+  };
+  const online = {
+    state: "online" as const,
+    lastChanged: serverTimestamp(),
+    ...base,
+  };
 
   const unsub = onValue(connectedRef, (snap) => {
     if (snap.val() === false) return;
     // Register the disconnect handler first, then flip to online.
-    onDisconnect(statusRef)
-      .set(offline)
-      .then(() => set(statusRef, online))
-      .catch(() => {});
+    // Wrapped in try/catch — set()/onDisconnect().set() can throw synchronously.
+    try {
+      onDisconnect(statusRef)
+        .set(offline)
+        .then(() => set(statusRef, online))
+        .catch(() => {});
+    } catch {
+      // presence is best-effort; never let it break auth/render
+    }
   });
 
   return () => {
     unsub();
-    set(statusRef, offline).catch(() => {});
+    try {
+      set(statusRef, offline).catch(() => {});
+    } catch {
+      // ignore
+    }
   };
 }
 
 /** Subscribes to every user's presence. Returns an unsubscribe fn. */
-export function subscribeToPresence(cb: (map: PresenceMap) => void): () => void {
+export function subscribeToPresence(
+  cb: (map: PresenceMap) => void,
+): () => void {
   const statusRef = ref(rtdb, "status");
   return onValue(statusRef, (snap) => {
     cb((snap.val() as PresenceMap) ?? {});
