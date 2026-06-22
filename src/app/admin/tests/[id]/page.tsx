@@ -29,7 +29,7 @@ import {
   OpenEditor,
   MatchingEditor,
 } from "@/components/admin/QuestionEditorPanel";
-import { getAllQuestions, createQuestion } from "@/lib/questions";
+import { getAllQuestions, createQuestion, findDuplicateQuestion } from "@/lib/questions";
 import { BankQuestion } from "@/lib/tests";
 import { TOPICS } from "@/lib/topics";
 import { Search, X } from "lucide-react";
@@ -155,7 +155,7 @@ export default function TestEditorPage() {
 
   function addQuestion(type: "mcq" | "open" | "matching") {
     const next =
-      type === "mcq"
+      type === "mcq"    //maybe change to switch statement
         ? makeEmptyMCQ(questions.length)
         : type === "matching"
           ? makeEmptyMatching(questions.length)
@@ -210,11 +210,20 @@ export default function TestEditorPage() {
     const toExport = questions.filter((q) => exportSelected.has(q.id));
     if (!toExport.length) return;
     setExporting(true);
+
+    for(const oneToExport of toExport) {
+        const duplicateQuestion = await findDuplicateQuestion(oneToExport);
+        if (duplicateQuestion) {
+        throw new Error('DUPLICATE IN EXPORT BATCH');
+      }
+    }
+
     try {
       await Promise.all(
         toExport.map((q) => {
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
           const { points, order, id, ...rest } = q;
+
           return createQuestion({
             ...rest,
             topicId: exportTopic,

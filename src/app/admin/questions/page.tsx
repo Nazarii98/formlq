@@ -11,6 +11,7 @@ import {
   updateQuestion,
   createQuestion,
   deleteQuestion,
+  findDuplicateQuestion,
 } from "@/lib/questions";
 import { TOPICS } from "@/lib/topics";
 import {
@@ -281,6 +282,10 @@ export default function QuestionsReviewPage() {
         );
       } else {
         const { id, ...data } = draft;
+        const duplicateQuestion = await findDuplicateQuestion(data);
+        if (duplicateQuestion) {
+          throw new Error('DUPLICATE');
+        }
         const newId = await createQuestion(data);
         setQuestions((prev) => [{ ...draft, id: newId }, ...prev]);
       }

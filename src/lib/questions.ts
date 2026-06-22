@@ -85,6 +85,12 @@ export async function updateQuestion(id: string, data: Partial<BankQuestion>): P
   const clean = Object.fromEntries(
     Object.entries(data).filter(([, v]) => v !== undefined)
   );
+
+  const duplicateQuestion = await findSingleQuestion(clean);
+  if (duplicateQuestion) {
+    throw new Error('DUPLICATE IN UPDATE');
+  }
+
   await updateDoc(doc(db, "questions", id), clean);
 }
 
@@ -105,6 +111,38 @@ export async function getQuestionsByTopic(
   const snap = await getDocs(q);
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Question);
 }
+
+export async function findDuplicateQuestion(data: Partial<Question>) {
+  const q = query(
+    collection(db, "questions"),
+    
+  );
+  const snap = await getDocs(q);
+
+  return snap.docs.filter(doc => {
+    const question = doc.data() as Question;
+    const delimiters = [".", ",", ":", ";", "?", "!", "/", "%"];
+    let questionTextNormalised = question.text.toLowerCase();
+    let searchTextNormalised = (data.text || "").toLowerCase();
+
+    for (const delimiter of delimiters) {
+      questionTextNormalised = questionTextNormalised.replaceAll(delimiter, " ");
+      searchTextNormalised = searchTextNormalised.replaceAll(delimiter, " ");
+    }
+
+    const questionTextForQuery = questionTextNormalised.split(" ").map(word => word.trim()).filter(Boolean).join(" ");
+    const searchTextForQuery = searchTextNormalised.split(" ").map(word => word.trim()).filter(Boolean).join(" ");
+
+    if (questionTextForQuery === searchTextForQuery) {
+      return true;
+    }
+    return false;
+  }).map((d) => ({ id: d.id, ...d.data() }) as Question)[0] || null;
+}
+
+
+
+//Why do we need these sample questions??
 
 export const SAMPLE_QUESTIONS: Omit<Question, "id">[] = [
   // Algebra
