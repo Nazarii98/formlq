@@ -86,7 +86,7 @@ export async function updateQuestion(id: string, data: Partial<BankQuestion>): P
     Object.entries(data).filter(([, v]) => v !== undefined)
   );
 
-  const duplicateQuestion = await findSingleQuestion(clean);
+  const duplicateQuestion = await findDuplicateQuestion(clean);
   if (duplicateQuestion) {
     throw new Error('DUPLICATE IN UPDATE');
   }
