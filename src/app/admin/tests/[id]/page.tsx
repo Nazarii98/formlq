@@ -29,11 +29,12 @@ import {
   OpenEditor,
   MatchingEditor,
 } from "@/components/admin/QuestionEditorPanel";
-import { getAllQuestions, createQuestion } from "@/lib/questions";
+import { getAllQuestions, createQuestion, findDuplicateQuestion } from "@/lib/questions";
 import { BankQuestion } from "@/lib/tests";
 import { TOPICS } from "@/lib/topics";
 import { Search, X } from "lucide-react";
 import { Select, SelectItem } from "@/components/ui/select";
+import toast, {Toaster} from 'react-hot-toast'
 
 export default function TestEditorPage() {
   const { id } = useParams<{ id: string }>();
@@ -155,7 +156,7 @@ export default function TestEditorPage() {
 
   function addQuestion(type: "mcq" | "open" | "matching") {
     const next =
-      type === "mcq"
+      type === "mcq"    //maybe change to switch statement
         ? makeEmptyMCQ(questions.length)
         : type === "matching"
           ? makeEmptyMatching(questions.length)
@@ -210,11 +211,21 @@ export default function TestEditorPage() {
     const toExport = questions.filter((q) => exportSelected.has(q.id));
     if (!toExport.length) return;
     setExporting(true);
+
+    for(const oneToExport of toExport) {
+        const duplicateQuestion = await findDuplicateQuestion(oneToExport);
+        if (duplicateQuestion) {
+        toast.error('Помилка експорту: дуплікати вже наявних завдань не допускаються.');
+        return;
+      }
+    }
+
     try {
       await Promise.all(
         toExport.map((q) => {
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
           const { points, order, id, ...rest } = q;
+
           return createQuestion({
             ...rest,
             topicId: exportTopic,
@@ -293,6 +304,7 @@ export default function TestEditorPage() {
 
   return (
     <div>
+      <Toaster/>
       <main className="max-w-5xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between gap-4 flex-wrap">

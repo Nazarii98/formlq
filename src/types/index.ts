@@ -43,6 +43,7 @@ export interface Question {
   id: string;
   topicId: string;
   text: string;
+  normalizedText: string;
   options: QuestionOption[];
   correctOptionId: string;
   explanation: string;

@@ -11,6 +11,8 @@ import {
   updateQuestion,
   createQuestion,
   deleteQuestion,
+  findDuplicateQuestion,
+  backfillQuestionNormalizedText
 } from "@/lib/questions";
 import { TOPICS } from "@/lib/topics";
 import {
@@ -44,6 +46,7 @@ import {
 import Image from "next/image";
 import { useReferenceDrawer } from "@/context/ReferenceDrawerContext";
 import { Select, SelectItem } from "@/components/ui/select";
+import toast, {Toaster} from 'react-hot-toast'
 
 type Status = "draft" | "approved" | "rejected";
 
@@ -73,6 +76,9 @@ const TYPE_LABELS = {
   open: "Відповідь",
   matching: "Відповідність",
 };
+
+//backfillQuestionNormalizedText();
+
 
 function qStatus(q: BankQuestion): Status {
   return (q.status as Status) ?? "draft";
@@ -281,6 +287,11 @@ export default function QuestionsReviewPage() {
         );
       } else {
         const { id, ...data } = draft;
+        const duplicateQuestion = await findDuplicateQuestion(data);
+        if (duplicateQuestion) {
+          toast.error('Помилка створення завдання: дуплікати вже наявних завдань не допускаються.');
+          return;
+        }
         const newId = await createQuestion(data);
         setQuestions((prev) => [{ ...draft, id: newId }, ...prev]);
       }
@@ -304,6 +315,7 @@ export default function QuestionsReviewPage() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-5">
+      <Toaster/>
       {/* Tabs + primary action */}
       <div className="flex items-center justify-between">
         <div className="flex gap-1 bg-muted/40 p-1 rounded-xl w-fit">
