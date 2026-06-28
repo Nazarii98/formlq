@@ -34,6 +34,7 @@ import { BankQuestion } from "@/lib/tests";
 import { TOPICS } from "@/lib/topics";
 import { Search, X } from "lucide-react";
 import { Select, SelectItem } from "@/components/ui/select";
+import toast, {Toaster} from 'react-hot-toast'
 
 export default function TestEditorPage() {
   const { id } = useParams<{ id: string }>();
@@ -214,7 +215,8 @@ export default function TestEditorPage() {
     for(const oneToExport of toExport) {
         const duplicateQuestion = await findDuplicateQuestion(oneToExport);
         if (duplicateQuestion) {
-        throw new Error('DUPLICATE IN EXPORT BATCH');
+        toast.error('Помилка експорту: дуплікати вже наявних завдань не допускаються.');
+        return;
       }
     }
 
@@ -302,6 +304,7 @@ export default function TestEditorPage() {
 
   return (
     <div>
+      <Toaster/>
       <main className="max-w-5xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between gap-4 flex-wrap">
