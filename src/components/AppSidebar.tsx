@@ -17,11 +17,14 @@ import { useExamGuard } from "@/context/ExamGuardContext";
 
 const NAV = [
   { icon: Home, href: "/dashboard", label: "Головна" },
+];
+
+const STUDENT_NAV = [
   { icon: FileText, href: "/dashboard/tests", label: "Тести" },
   { icon: ClipboardCheck, href: "/dashboard/homework", label: "Домашні" },
   { icon: CalendarDays, href: "/dashboard/calendar", label: "Календар" },
   { icon: History, href: "/dashboard/history", label: "Історія" },
-];
+]
 
 const TUTOR_NAV = [
   { icon: Users, href: "/tutor/students", label: "Учні" },
@@ -84,10 +87,19 @@ export function AppSidebar() {
           "bg-card border border-border/50",
           "shadow-[0_2px_16px_rgba(0,0,0,0.07),0_0_0_1px_rgba(0,0,0,0.03)]",
         )}
-      >
+      > 
         {NAV.map(({ icon: Icon, href, label }) => (
-          <NavItem key={href} href={href} label={label} Icon={Icon} />
-        ))}
+            <NavItem key={href} href={href} label={label} Icon={Icon} />
+            ))}
+  
+        {(userProfile?.role === "student" || userProfile?.role === "editor") && (
+          <>
+            <div className="h-px w-7 bg-border/60 my-1" />
+             {STUDENT_NAV.map(({ icon: Icon, href, label }) => (
+            <NavItem key={href} href={href} label={label} Icon={Icon} />
+            ))}
+          </>
+        )}
 
         {(userProfile?.role === "tutor" || userProfile?.role === "editor") && (
           <>

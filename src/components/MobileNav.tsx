@@ -9,11 +9,14 @@ import { useExamGuard } from "@/context/ExamGuardContext";
 
 const NAV = [
   { icon: Home,     href: "/dashboard",         label: "Головна" },
-  { icon: FileText, href: "/dashboard/tests",   label: "Тести" },
+];
+
+const STUDENT_NAV = [
+  { icon: FileText, href: "/dashboard/tests", label: "Тести" },
   { icon: ClipboardCheck, href: "/dashboard/homework", label: "Домашні" },
   { icon: CalendarDays, href: "/dashboard/calendar", label: "Календар" },
-  { icon: History,  href: "/dashboard/history", label: "Історія" },
-];
+  { icon: History, href: "/dashboard/history", label: "Історія" },
+]
 
 const TUTOR_NAV = [
   { icon: Users,          href: "/tutor/students", label: "Учні" },
@@ -94,6 +97,33 @@ export function MobileNav() {
               </button>
             );
           })}
+
+          {(userProfile?.role === "student" || userProfile?.role === "editor") && (
+            <>
+              <div className="my-1 h-px bg-border/50 mx-2" />
+              <p className="text-[9px] uppercase tracking-widest text-muted-foreground/40 font-semibold px-3 pb-0.5">
+                Кабінет учня
+              </p>
+              {STUDENT_NAV.map(({ icon: Icon, href, label }) => {
+                const active = path === href || path.startsWith(href);
+                return (
+                  <button
+                    key={href}
+                    onClick={() => handleNav(href)}
+                    className={cn(
+                      "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm w-full text-left transition-all",
+                      active
+                        ? "bg-primary text-primary-foreground font-medium"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted",
+                    )}
+                  >
+                    <Icon size={16} />
+                    {label}
+                  </button>
+                );
+              })}
+            </>
+          )}
 
           {(userProfile?.role === "tutor" || userProfile?.role === "editor") && (
             <>
