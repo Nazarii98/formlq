@@ -267,12 +267,11 @@ export async function updateResult(
 export async function getUserResults(userId: string): Promise<TestResult[]> {
   const q = query(collection(db, "testResults"), where("userId", "==", userId));
   const snap = await getDocs(q);
-  return docsOf<TestResult>(snap)
-    .sort((a, b) => {
-      const ta = a.completedAt?.toMillis() ?? 0;
-      const tb = b.completedAt?.toMillis() ?? 0;
-      return tb - ta;
-    });
+  return docsOf<TestResult>(snap).sort((a, b) => {
+    const ta = a.completedAt?.toMillis() ?? 0;
+    const tb = b.completedAt?.toMillis() ?? 0;
+    return tb - ta;
+  });
 }
 
 /** Open-answer comparison key: trimmed, "." and "," treated as the same decimal separator. */
@@ -346,8 +345,7 @@ export async function getPublishedTests(): Promise<TestDoc[]> {
   const snap = await getDocs(
     query(collection(db, "tests"), where("published", "==", true)),
   );
-  return docsOf<TestDoc>(snap)
-    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  return docsOf<TestDoc>(snap).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 }
 
 export async function getAllTests(): Promise<TestDoc[]> {
@@ -400,8 +398,9 @@ export async function deleteTest(id: string): Promise<void> {
 
 export async function getTestFolders(): Promise<TestFolder[]> {
   const snap = await getDocs(collection(db, "testFolders"));
-  return docsOf<TestFolder>(snap)
-    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  return docsOf<TestFolder>(snap).sort(
+    (a, b) => (a.order ?? 0) - (b.order ?? 0),
+  );
 }
 
 export async function createTestFolder(
