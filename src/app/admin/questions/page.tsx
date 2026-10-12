@@ -610,7 +610,7 @@ export default function QuestionsReviewPage() {
 
                     <div className="flex-1 min-w-0 space-y-2">
                       <p className="text-sm leading-snug line-clamp-2 text-foreground">
-                        <MathText text={q.text} />
+                        <MathText text={q.text} highlight={search} />
                       </p>
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge variant="outline" className="text-[10px]">

@@ -54,6 +54,12 @@ service cloud.firestore {
       allow write: if isEditor();
     }
 
+    // Test folders — grouping for the admin tests list; write by editors only
+    match /testFolders/{folderId} {
+      allow read: if isAuth();
+      allow write: if isEditor();
+    }
+
     // Test results
     match /testResults/{resultId} {
       allow read: if isAuth() && (

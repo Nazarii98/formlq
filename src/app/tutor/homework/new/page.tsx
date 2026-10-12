@@ -9,6 +9,7 @@ import { useHeader } from "@/context/HeaderContext";
 import { getTutorStudents, assignHomework, NewHomework } from "@/lib/tutor";
 import {
   getAllTests,
+  getTestFolders,
   bankToTestQuestion,
   makeLinearTable,
   maxRawScore,
@@ -22,6 +23,7 @@ import { MathText } from "@/components/MathText";
 import { Select, SelectItem } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { SpinnerPage } from "@/components/ui/spinner";
+import { TestPicker } from "@/components/TestPicker";
 import { cn } from "@/lib/utils";
 import { FileText, Library, Check, Loader2, FileUp, X } from "lucide-react";
 
@@ -87,6 +89,12 @@ export default function NewHomeworkPage() {
       [...all]
         .filter((t) => (t.questions?.length ?? 0) > 0)
         .sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
+  });
+
+  const { data: testFolders = [] } = useQuery({
+    queryKey: ["test-folders"],
+    queryFn: getTestFolders,
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: bank = [] } = useQuery({
@@ -272,24 +280,16 @@ export default function NewHomeworkPage() {
 
       {source === "test" ? (
         <Field label="Тест (включно з імітаціями НМТ)">
-          <Select
+          <TestPicker
+            tests={tests}
+            folders={testFolders}
             value={testId}
-            onValueChange={(v) => {
+            onChange={(v) => {
               setTestId(v);
               const t = tests.find((x) => x.id === v);
               if (t && !title.trim()) setTitle(t.title);
             }}
-          >
-            <SelectItem value="">Оберіть тест...</SelectItem>
-            {tests.map((t) => (
-              <SelectItem key={t.id} value={t.id}>
-                {t.published ? "" : "✎ "}
-                {t.title}
-                {t.subtitle ? ` — ${t.subtitle}` : ""}
-                {t.published ? "" : " (чернетка)"}
-              </SelectItem>
-            ))}
-          </Select>
+          />
           {selectedTest && (
             <p className="text-xs text-muted-foreground mt-1.5">
               {selectedTest.questions.length} питань ·{" "}

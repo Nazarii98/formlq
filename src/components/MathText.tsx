@@ -1,6 +1,8 @@
 "use client";
 
 import katex from "katex";
+import { cn } from "@/lib/utils";
+import { Highlight } from "@/components/ui/highlight";
 
 interface Part {
   type: "text" | "inline" | "block";
@@ -22,8 +24,18 @@ function parse(text: string): Part[] {
   return parts;
 }
 
-export function MathText({ text, className }: { text: string; className?: string }) {
+export function MathText({
+  text,
+  className,
+  highlight = "",
+}: {
+  text: string;
+  className?: string;
+  /** Search query to mark: plain text gets <mark>, a matching formula gets a tinted backdrop. */
+  highlight?: string;
+}) {
   if (!text) return null;
+  const needle = highlight.trim().toLowerCase();
   const parts = parse(text);
   return (
     <span className={className}>
@@ -31,7 +43,7 @@ export function MathText({ text, className }: { text: string; className?: string
         if (p.type === "text") return (
           <span key={i}>
             {p.content.split("\n").map((line, j, arr) => (
-              <span key={j}>{line}{j < arr.length - 1 && <br />}</span>
+              <span key={j}><Highlight text={line} query={highlight} />{j < arr.length - 1 && <br />}</span>
             ))}
           </span>
         );
@@ -46,7 +58,10 @@ export function MathText({ text, className }: { text: string; className?: string
           return (
             <span
               key={i}
-              className={p.type === "block" ? "block text-center my-2" : ""}
+              className={cn(
+                p.type === "block" && "block text-center my-2",
+                needle && p.content.toLowerCase().includes(needle) && "rounded-[3px] bg-primary/20",
+              )}
               dangerouslySetInnerHTML={{ __html: html }}
             />
           );

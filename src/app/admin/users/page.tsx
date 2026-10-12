@@ -15,6 +15,7 @@ import {
   GraduationCap,
 } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Highlight } from "@/components/ui/highlight";
 import { Select, SelectItem } from "@/components/ui/select";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -121,7 +122,7 @@ export default function AdminUsersPage() {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
             <p className="text-sm font-semibold truncate">
-              {u.displayName || "—"}
+              {u.displayName ? <Highlight text={u.displayName} query={search} /> : "—"}
             </p>
             {isEditor && <Crown size={11} className="text-primary shrink-0" />}
             {isTutor && (
@@ -133,7 +134,9 @@ export default function AdminUsersPage() {
               </span>
             )}
           </div>
-          <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+          <p className="text-xs text-muted-foreground truncate">
+            <Highlight text={u.email ?? ""} query={search} />
+          </p>
         </div>
 
         <span className="hidden md:block shrink-0 whitespace-nowrap text-right text-xs text-muted-foreground/50 tabular-nums">

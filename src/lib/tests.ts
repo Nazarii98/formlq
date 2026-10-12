@@ -9,6 +9,7 @@ import {
   serverTimestamp,
   query,
   where,
+  writeBatch,
   Timestamp,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -183,6 +184,14 @@ export interface TestDoc {
   scaleType?: ScaleType; // defaults to "nmt" when absent
   durationMinutes?: number;
   order?: number;
+  folderId?: string | null; // testFolders doc id; absent/null = not in a folder
+}
+
+export interface TestFolder {
+  id: string;
+  name: string;
+  order: number;
+  createdAt: Timestamp | null;
 }
 
 export interface QuestionResult {
@@ -343,11 +352,17 @@ export async function getTest(id: string): Promise<TestDoc | null> {
   return { id: snap.id, ...snap.data() } as TestDoc;
 }
 
-export async function createTest(createdBy: string): Promise<string> {
+export async function createTest(
+  createdBy: string,
+  folderId: string | null = null,
+  order?: number,
+): Promise<string> {
   const ref = await addDoc(collection(db, "tests"), {
     title: "Новий тест",
     subtitle: "",
     published: false,
+    folderId,
+    ...(order !== undefined && { order }),
     createdBy,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -370,6 +385,65 @@ export async function updateTest(
 
 export async function deleteTest(id: string): Promise<void> {
   await deleteDoc(doc(db, "tests", id));
+}
+
+// ── Test folders ──────────────────────────────────────────────
+
+export async function getTestFolders(): Promise<TestFolder[]> {
+  const snap = await getDocs(collection(db, "testFolders"));
+  return snap.docs
+    .map((d) => ({ id: d.id, ...d.data() }) as TestFolder)
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+}
+
+export async function createTestFolder(
+  name: string,
+  order: number,
+): Promise<string> {
+  const ref = await addDoc(collection(db, "testFolders"), {
+    name,
+    order,
+    createdAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+export async function renameTestFolder(
+  id: string,
+  name: string,
+): Promise<void> {
+  await updateDoc(doc(db, "testFolders", id), { name });
+}
+
+/** Deletes the folder; its tests are kept and moved out of it. */
+export async function deleteTestFolder(
+  id: string,
+  testIds: string[],
+): Promise<void> {
+  const batch = writeBatch(db);
+  testIds.forEach((tid) =>
+    batch.update(doc(db, "tests", tid), { folderId: null }),
+  );
+  batch.delete(doc(db, "testFolders", id));
+  await batch.commit();
+}
+
+/** Persists folder order and test placement (folderId + order) in one batch. */
+export async function saveTestLayout(
+  folders: { id: string; order: number }[],
+  tests: { id: string; order: number; folderId: string | null }[],
+): Promise<void> {
+  const batch = writeBatch(db);
+  folders.forEach((f) =>
+    batch.update(doc(db, "testFolders", f.id), { order: f.order }),
+  );
+  tests.forEach((t) =>
+    batch.update(doc(db, "tests", t.id), {
+      order: t.order,
+      folderId: t.folderId,
+    }),
+  );
+  await batch.commit();
 }
 
 export function makeEmptyMCQ(order: number): MCQQuestion {
