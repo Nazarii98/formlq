@@ -9,10 +9,3 @@ export const TOPICS: Topic[] = [
   { id: "statistics", name: "Статистика", slug: "statistics", description: "Середнє значення, медіана, діаграми", icon: "📊", order: 6, questionCount: 30 },
 ];
 
-export function getTopicBySlug(slug: string): Topic | undefined {
-  return TOPICS.find((t) => t.slug === slug);
-}
-
-export function getTopicById(id: string): Topic | undefined {
-  return TOPICS.find((t) => t.id === id);
-}

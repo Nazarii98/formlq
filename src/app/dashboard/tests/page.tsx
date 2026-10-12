@@ -1,5 +1,7 @@
 "use client";
 
+import { queryKeys, STALE } from "@/lib/queryKeys";
+import { pluralize, PLURAL } from "@/lib/format";
 import { useAuth } from "@/context/AuthContext";
 import { getPublishedTests } from "@/lib/tests";
 import { SpinnerPage } from "@/components/ui/spinner";
@@ -27,7 +29,7 @@ function TestCard({ test, index }: { test: TestDoc; index: number }) {
         <div className="flex items-center gap-3 shrink-0">
           <div className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground">
             <FileText size={11} />
-            <span>{test.questions?.length ?? 0} питань</span>
+            <span>{pluralize(test.questions?.length ?? 0, PLURAL.question)}</span>
           </div>
           <ChevronRight size={16} className="text-muted-foreground group-hover:text-foreground group-hover:translate-x-0.5 transition-all" />
         </div>
@@ -40,10 +42,10 @@ export default function TestsPage() {
   const { user } = useAuth();
 
   const { data: tests = [], isLoading } = useQuery({
-    queryKey: ["published-tests"],
+    queryKey: queryKeys.tests.published,
     queryFn: getPublishedTests,
     enabled: !!user,
-    staleTime: 5 * 60 * 1000,
+    staleTime: STALE.long,
   });
 
   return (

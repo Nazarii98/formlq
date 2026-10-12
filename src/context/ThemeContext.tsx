@@ -23,7 +23,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [colorTheme, setColorThemeState] = useState<ColorTheme>("violet");
   const [fontTheme, setFontThemeState] = useState<FontTheme>("geist");
 
+  // Sync from localStorage after mount (reading it during render would break SSR hydration).
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
     const savedColor = localStorage.getItem("color-theme") as ColorTheme | null;
     if (savedColor) {
       setColorThemeState(savedColor);
@@ -34,6 +36,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       setFontThemeState(savedFont);
       document.documentElement.setAttribute("data-font", savedFont);
     }
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
   function setColorTheme(theme: ColorTheme) {

@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { useHeader } from "@/context/HeaderContext";
+import { usePageHeader } from "@/context/HeaderContext";
+import { SectionLabel } from "@/components/ui/section-label";
 import { subscribeStudentLessons, Lesson } from "@/lib/lessons";
 import { MonthCalendar } from "@/components/calendar/MonthCalendar";
 import { LessonViewModal } from "@/components/calendar/LessonViewModal";
@@ -12,15 +13,11 @@ import { CalendarClock } from "lucide-react";
 
 export default function StudentCalendarPage() {
   const { user } = useAuth();
-  const { setHeader } = useHeader();
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [selected, setSelected] = useState<Lesson | null>(null);
   const [now, setNow] = useState(() => Date.now());
 
-  useEffect(() => {
-    setHeader("Календар занять", "Розклад уроків зі вчителем");
-    return () => setHeader("", "");
-  }, [setHeader]);
+  usePageHeader("Календар занять", "Розклад уроків зі вчителем");
 
   useEffect(() => {
     if (!user) return;
@@ -41,9 +38,7 @@ export default function StudentCalendarPage() {
       <MonthCalendar lessons={lessons} onSelectLesson={setSelected} />
 
       <div className="space-y-2">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-1">
-          Найближчі заняття
-        </p>
+        <SectionLabel size="2xs">Найближчі заняття</SectionLabel>
         {upcoming.length === 0 ? (
           <EmptyState emoji="📅" title="Немає запланованих занять" />
         ) : (

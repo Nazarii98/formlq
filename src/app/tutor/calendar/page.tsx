@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Timestamp } from "firebase/firestore";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/context/AuthContext";
-import { useHeader } from "@/context/HeaderContext";
+import { usePageHeader } from "@/context/HeaderContext";
+import { queryKeys } from "@/lib/queryKeys";
 import {
   subscribeTutorLessons,
   createLesson,
@@ -13,9 +14,12 @@ import {
   Lesson,
 } from "@/lib/lessons";
 import { getTutorStudents } from "@/lib/tutor";
-import { MonthCalendar } from "@/components/calendar/MonthCalendar";
+import { MonthCalendar, formatLessonTime } from "@/components/calendar/MonthCalendar";
 import { SelectNative } from "@/components/ui/select-native";
 import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
+import { IconButton } from "@/components/ui/icon-button";
+import { TextInput } from "@/components/ui/text-field";
 import { Plus, Trash2, X } from "lucide-react";
 
 interface Draft {
@@ -28,6 +32,17 @@ interface Draft {
   meetingUrl: string;
 }
 
+const inputCls = "h-9 px-3 bg-background";
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="block space-y-1">
+      <span className="block text-xs font-semibold text-muted-foreground">{label}</span>
+      {children}
+    </label>
+  );
+}
+
 function toLocalInput(d: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
@@ -35,14 +50,10 @@ function toLocalInput(d: Date): string {
 
 export default function TutorCalendarPage() {
   const { user } = useAuth();
-  const { setHeader } = useHeader();
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [draft, setDraft] = useState<Draft | null>(null);
 
-  useEffect(() => {
-    setHeader("Календар занять", "Розклад уроків з учнями");
-    return () => setHeader("", "");
-  }, [setHeader]);
+  usePageHeader("Календар занять", "Розклад уроків з учнями");
 
   useEffect(() => {
     if (!user) return;
@@ -50,7 +61,7 @@ export default function TutorCalendarPage() {
   }, [user]);
 
   const { data: students = [] } = useQuery({
-    queryKey: ["tutor-students", user?.uid],
+    queryKey: queryKeys.tutorStudents(user?.uid),
     queryFn: () => getTutorStudents(user!.uid),
     enabled: !!user,
   });
@@ -147,38 +158,21 @@ export default function TutorCalendarPage() {
       />
 
       {/* Lesson editor */}
-      {draft && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          onClick={() => setDraft(null)}
-        >
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-          <div
-            className="relative z-10 w-full max-w-sm rounded-2xl border border-border/60 bg-card shadow-xl p-5 space-y-3"
-            onClick={(e) => e.stopPropagation()}
-          >
+      <Dialog open={!!draft} onClose={() => setDraft(null)} size="sm" closeOnEscape={false} className="p-5 space-y-3">
+        {draft && (
+          <>
             <div className="flex items-center justify-between">
-              <p className="font-semibold">
-                {draft.id ? "Редагувати урок" : "Новий урок"}
-              </p>
-              <button
-                onClick={() => setDraft(null)}
-                className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted"
-              >
+              <p className="font-semibold">{draft.id ? "Редагувати урок" : "Новий урок"}</p>
+              <IconButton label="Закрити" onClick={() => setDraft(null)}>
                 <X size={15} />
-              </button>
+              </IconButton>
             </div>
 
             <div className="space-y-2.5">
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-muted-foreground">
-                  Учень
-                </label>
+              <Field label="Учень">
                 <SelectNative
                   value={draft.studentId}
-                  onChange={(e) =>
-                    setDraft({ ...draft, studentId: e.target.value })
-                  }
+                  onChange={(e) => setDraft({ ...draft, studentId: e.target.value })}
                 >
                   <option value="">Оберіть...</option>
                   {students.map((s) => (
@@ -187,80 +181,58 @@ export default function TutorCalendarPage() {
                     </option>
                   ))}
                 </SelectNative>
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-muted-foreground">
-                  Назва
-                </label>
-                <input
+              </Field>
+              <Field label="Назва">
+                <TextInput
                   value={draft.title}
-                  onChange={(e) =>
-                    setDraft({ ...draft, title: e.target.value })
-                  }
-                  className="w-full px-3 py-2 rounded-xl border border-border/50 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  onChange={(e) => setDraft({ ...draft, title: e.target.value })}
+                  className={inputCls}
                 />
-              </div>
+              </Field>
               <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-muted-foreground">
-                    Початок
-                  </label>
-                  <input
+                <Field label="Початок">
+                  <TextInput
                     type="datetime-local"
                     value={draft.start}
-                    onChange={(e) =>
-                      setDraft({ ...draft, start: e.target.value })
-                    }
-                    className="w-full px-3 py-2 rounded-xl border border-border/50 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    onChange={(e) => setDraft({ ...draft, start: e.target.value })}
+                    className={inputCls}
                   />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-muted-foreground">
-                    Тривалість (хв)
-                  </label>
-                  <input
+                </Field>
+                <Field label="Тривалість (хв)">
+                  <TextInput
                     type="number"
                     min={15}
                     step={15}
                     value={draft.durationMin}
                     onChange={(e) =>
-                      setDraft({
-                        ...draft,
-                        durationMin: Math.max(15, Number(e.target.value) || 60),
-                      })
+                      setDraft({ ...draft, durationMin: Math.max(15, Number(e.target.value) || 60) })
                     }
-                    className="w-full px-3 py-2 rounded-xl border border-border/50 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    className={inputCls}
                   />
-                </div>
+                </Field>
               </div>
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-muted-foreground">
-                  Нотатка (необовʼязково)
-                </label>
-                <input
+              <Field label="Нотатка (необовʼязково)">
+                <TextInput
                   value={draft.note}
                   onChange={(e) => setDraft({ ...draft, note: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl border border-border/50 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  className={inputCls}
                 />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-muted-foreground">
-                  Посилання на онлайн-кімнату (необовʼязково)
-                </label>
-                <input
+              </Field>
+              <Field label="Посилання на онлайн-кімнату (необовʼязково)">
+                <TextInput
                   type="url"
                   value={draft.meetingUrl}
                   onChange={(e) => setDraft({ ...draft, meetingUrl: e.target.value })}
                   placeholder="https://meet.google.com/..."
-                  className="w-full px-3 py-2 rounded-xl border border-border/50 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  className={inputCls}
                 />
-              </div>
+              </Field>
             </div>
 
             {conflict && (
               <p className="text-xs text-red-500 px-1">
                 Цей час уже зайнятий уроком з {conflict.studentName ?? "іншим учнем"}
-                {" "}({conflict.start.toDate().toLocaleTimeString("uk", { hour: "2-digit", minute: "2-digit" })}).
+                {" "}({formatLessonTime(conflict.start)}).
               </p>
             )}
 
@@ -290,9 +262,9 @@ export default function TutorCalendarPage() {
                 </Button>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </Dialog>
     </div>
   );
 }

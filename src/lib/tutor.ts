@@ -13,6 +13,7 @@ import {
   where,
   Timestamp,
 } from "firebase/firestore";
+import { docsOf } from "@/lib/firestore-helpers";
 import { db } from "@/lib/firebase";
 import { getUserByEmail, getUserById } from "@/lib/users";
 import type { TestQuestion, ScoreRow, ScaleType } from "@/lib/tests";
@@ -79,16 +80,6 @@ async function linkTutorStudent(
   return { id, ...data, createdAt: null } as TutorStudent;
 }
 
-/** Assign a tutor (by email) to a student. Editor-only. */
-export async function addTutorByEmail(
-  studentId: string,
-  tutorEmail: string,
-): Promise<TutorStudent> {
-  const tutor = await getUserByEmail(tutorEmail);
-  if (!tutor) throw new Error("Користувача з таким email не знайдено");
-  return linkTutorStudent(tutor.uid, studentId);
-}
-
 /** Assign a tutor (by id) to a student. Editor-only. */
 export async function assignTutorById(
   studentId: string,
@@ -107,7 +98,7 @@ export async function getTutorStudents(
   const snap = await getDocs(
     query(collection(db, "tutorStudents"), where("tutorId", "==", tutorId)),
   );
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as TutorStudent);
+  return docsOf<TutorStudent>(snap);
 }
 
 /** Links where this user is the student — i.e. the tutors they belong to. */
@@ -117,7 +108,7 @@ export async function getStudentTutorLinks(
   const snap = await getDocs(
     query(collection(db, "tutorStudents"), where("studentId", "==", studentId)),
   );
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as TutorStudent));
+  return docsOf<TutorStudent>(snap);
 }
 
 export function subscribeTutorStudents(
@@ -127,7 +118,7 @@ export function subscribeTutorStudents(
   return onSnapshot(
     query(collection(db, "tutorStudents"), where("tutorId", "==", tutorId)),
     (snap) =>
-      cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as TutorStudent)),
+      cb(docsOf<TutorStudent>(snap)),
   );
 }
 
@@ -199,15 +190,6 @@ function sortByAssigned(list: Homework[]): Homework[] {
   );
 }
 
-export async function getTutorHomework(tutorId: string): Promise<Homework[]> {
-  const snap = await getDocs(
-    query(collection(db, "homework"), where("tutorId", "==", tutorId)),
-  );
-  return sortByAssigned(
-    snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Homework),
-  );
-}
-
 export function subscribeTutorHomework(
   tutorId: string,
   cb: (list: Homework[]) => void,
@@ -217,7 +199,7 @@ export function subscribeTutorHomework(
     (snap) =>
       cb(
         sortByAssigned(
-          snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Homework),
+          docsOf<Homework>(snap),
         ),
       ),
   );
@@ -230,7 +212,7 @@ export async function getStudentHomework(
     query(collection(db, "homework"), where("studentId", "==", studentId)),
   );
   return sortByAssigned(
-    snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Homework),
+    docsOf<Homework>(snap),
   );
 }
 
@@ -243,7 +225,7 @@ export function subscribeStudentHomework(
     (snap) =>
       cb(
         sortByAssigned(
-          snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Homework),
+          docsOf<Homework>(snap),
         ),
       ),
   );

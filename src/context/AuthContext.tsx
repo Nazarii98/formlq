@@ -72,10 +72,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Online presence (Realtime Database). Marks the user online while signed in,
   // and offline on logout / disconnect.
+  const presenceUid = user?.uid;
+  const presenceName = user?.displayName ?? undefined;
   useEffect(() => {
-    if (!user) return;
-    return connectPresence(user.uid, user.displayName ?? undefined);
-  }, [user?.uid, user?.displayName]);
+    if (!presenceUid) return;
+    return connectPresence(presenceUid, presenceName);
+  }, [presenceUid, presenceName]);
 
   async function createUserDoc(user: User, name?: string) {
     const ref = doc(db, "users", user.uid);

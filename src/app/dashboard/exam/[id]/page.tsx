@@ -1,5 +1,6 @@
 "use client";
 
+import { queryKeys, STALE } from "@/lib/queryKeys";
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
@@ -10,19 +11,22 @@ import {
   saveTestResult,
   getUserResults,
 } from "@/lib/tests";
+import { isEditor } from "@/lib/roles";
 import { ExamRunner, SubmitPayload } from "@/components/exam/ExamRunner";
+import { SpinnerScreen } from "@/components/ui/spinner";
 
 export default function ExamPage() {
   const { id } = useParams<{ id: string }>();
-  const { user, loading: authLoading } = useAuth();
+  const { user, userProfile, loading: authLoading } = useAuth();
+  const canSeeDrafts = isEditor(userProfile?.role);
   const router = useRouter();
   const queryClient = useQueryClient();
 
   const { data: allResults = [] } = useQuery({
-    queryKey: ["results", user?.uid],
+    queryKey: queryKeys.results(user?.uid),
     queryFn: () => getUserResults(user!.uid),
     enabled: !!user,
-    staleTime: 60 * 1000,
+    staleTime: STALE.short,
   });
   const testHistory = allResults.filter((r) => r.testId === id);
 
@@ -34,16 +38,18 @@ export default function ExamPage() {
   }, [user, authLoading, router]);
 
   useEffect(() => {
-    if (!user) return;
+    // Wait for the profile (role) too, so drafts are gated correctly.
+    if (authLoading || !user) return;
     getTest(id).then((t) => {
-      if (!t) {
+      // Drafts are only reachable by editors (homework uses its own route).
+      if (!t || (!t.published && !canSeeDrafts)) {
         router.replace("/dashboard");
         return;
       }
       setTest(t);
       setLoadingTest(false);
     });
-  }, [id, user, router]);
+  }, [id, user, authLoading, canSeeDrafts, router]);
 
   async function handleSubmit(payload: SubmitPayload): Promise<string> {
     if (!test || !user) return "";
@@ -61,17 +67,11 @@ export default function ExamPage() {
       scoreTable: test.scoreTable ?? [],
       scaleType: test.scaleType ?? "nmt",
     });
-    queryClient.invalidateQueries({ queryKey: ["results", user.uid] });
+    queryClient.invalidateQueries({ queryKey: queryKeys.results(user.uid) });
     return resultId;
   }
 
-  if (authLoading || loadingTest) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-      </div>
-    );
-  }
+  if (authLoading || loadingTest) return <SpinnerScreen />;
 
   if (!test || !user) return null;
 

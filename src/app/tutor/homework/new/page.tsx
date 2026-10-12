@@ -1,19 +1,21 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Timestamp } from "firebase/firestore";
 import { useAuth } from "@/context/AuthContext";
-import { useHeader } from "@/context/HeaderContext";
+import { usePageHeader } from "@/context/HeaderContext";
+import { queryKeys, STALE } from "@/lib/queryKeys";
+import { pluralize, PLURAL } from "@/lib/format";
 import { getTutorStudents, assignHomework, NewHomework } from "@/lib/tutor";
 import {
   getAllTests,
+  getTestFolders,
   bankToTestQuestion,
   makeLinearTable,
   maxRawScore,
   TestQuestion,
-  BankQuestion,
 } from "@/lib/tests";
 import { getAllQuestions } from "@/lib/questions";
 import { uploadPdf } from "@/lib/storage";
@@ -22,6 +24,10 @@ import { MathText } from "@/components/MathText";
 import { Select, SelectItem } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { SpinnerPage } from "@/components/ui/spinner";
+import { TestPicker } from "@/components/TestPicker";
+import { IconButton } from "@/components/ui/icon-button";
+import { SearchInput } from "@/components/ui/search-input";
+import { TextInput } from "@/components/ui/text-field";
 import { cn } from "@/lib/utils";
 import { FileText, Library, Check, Loader2, FileUp, X } from "lucide-react";
 
@@ -33,8 +39,8 @@ const TYPE_LABEL: Record<TestQuestion["type"], string> = {
 
 export default function NewHomeworkPage() {
   const { user } = useAuth();
-  const { setHeader } = useHeader();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const params = useSearchParams();
 
   const [studentId, setStudentId] = useState(params.get("student") ?? "");
@@ -63,25 +69,20 @@ export default function NewHomeworkPage() {
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [bankSearch, setBankSearch] = useState("");
   const [bankTopic, setBankTopic] = useState("all");
-  const [bankType, setBankType] = useState<"all" | "mcq" | "open" | "matching">(
-    "all",
-  );
+  const [bankType, setBankType] = useState<"all" | TestQuestion["type"]>("all");
 
-  useEffect(() => {
-    setHeader("Нове домашнє завдання", "");
-    return () => setHeader("", "");
-  }, [setHeader]);
+  usePageHeader("Нове домашнє завдання");
 
   const { data: students = [], isLoading: studentsLoading } = useQuery({
-    queryKey: ["tutor-students", user?.uid],
+    queryKey: queryKeys.tutorStudents(user?.uid),
     queryFn: () => getTutorStudents(user!.uid),
     enabled: !!user,
   });
 
   const { data: tests = [] } = useQuery({
-    queryKey: ["all-tests"],
+    queryKey: queryKeys.tests.all,
     queryFn: getAllTests,
-    staleTime: 5 * 60 * 1000,
+    staleTime: STALE.long,
     // Show all tests (published + drafts), tests with questions first, by order.
     select: (all) =>
       [...all]
@@ -89,10 +90,16 @@ export default function NewHomeworkPage() {
         .sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
   });
 
+  const { data: testFolders = [] } = useQuery({
+    queryKey: queryKeys.tests.folders,
+    queryFn: getTestFolders,
+    staleTime: STALE.long,
+  });
+
   const { data: bank = [] } = useQuery({
-    queryKey: ["bank-questions"],
+    queryKey: queryKeys.bankQuestions,
     queryFn: getAllQuestions,
-    staleTime: 5 * 60 * 1000,
+    staleTime: STALE.long,
     select: (qs) => qs.filter((q) => q.status === "approved"),
   });
 
@@ -110,7 +117,7 @@ export default function NewHomeworkPage() {
 
   const customQuestions: TestQuestion[] = useMemo(() => {
     const chosen = bank.filter((q) => picked.has(q.id));
-    return chosen.map((q, i) => bankToTestQuestion(q as BankQuestion, i));
+    return chosen.map((q, i) => bankToTestQuestion(q, i));
   }, [bank, picked]);
 
   const customMaxRaw = maxRawScore(customQuestions);
@@ -167,6 +174,7 @@ export default function NewHomeworkPage() {
         };
       }
       await assignHomework(payload);
+      queryClient.invalidateQueries({ queryKey: queryKeys.studentHomework(studentId) });
       router.push("/tutor/homework");
     } finally {
       setSaving(false);
@@ -196,28 +204,21 @@ export default function NewHomeworkPage() {
 
       {/* Title + note + due */}
       <Field label="Назва завдання">
-        <input
+        <TextInput
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Напр. Домашня №3 — Похідна"
-          className="w-full px-4 py-2.5 rounded-xl border border-border/50 bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
         />
       </Field>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="Дедлайн (необовʼязково)">
-          <input
-            type="datetime-local"
-            value={due}
-            onChange={(e) => setDue(e.target.value)}
-            className="w-full px-4 py-2.5 rounded-xl border border-border/50 bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-          />
+          <TextInput type="datetime-local" value={due} onChange={(e) => setDue(e.target.value)} />
         </Field>
         <Field label="Коментар для учня (необовʼязково)">
-          <input
+          <TextInput
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder="Напр. Зверни увагу на №5"
-            className="w-full px-4 py-2.5 rounded-xl border border-border/50 bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
           />
         </Field>
       </div>
@@ -228,13 +229,16 @@ export default function NewHomeworkPage() {
           <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border/50 bg-card text-sm">
             <FileText size={16} className="text-primary shrink-0" />
             <span className="flex-1 min-w-0 truncate">{pdfName || "Конспект.pdf"}</span>
-            <button
-              onClick={() => { setPdfUrl(""); setPdfName(""); }}
-              className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-red-500 hover:bg-red-500/10 shrink-0"
-              title="Прибрати"
+            <IconButton
+              label="Прибрати"
+              tone="danger"
+              onClick={() => {
+                setPdfUrl("");
+                setPdfName("");
+              }}
             >
               <X size={15} />
-            </button>
+            </IconButton>
           </div>
         ) : (
           <label
@@ -272,28 +276,20 @@ export default function NewHomeworkPage() {
 
       {source === "test" ? (
         <Field label="Тест (включно з імітаціями НМТ)">
-          <Select
+          <TestPicker
+            tests={tests}
+            folders={testFolders}
             value={testId}
-            onValueChange={(v) => {
+            onChange={(v) => {
               setTestId(v);
               const t = tests.find((x) => x.id === v);
               if (t && !title.trim()) setTitle(t.title);
             }}
-          >
-            <SelectItem value="">Оберіть тест...</SelectItem>
-            {tests.map((t) => (
-              <SelectItem key={t.id} value={t.id}>
-                {t.published ? "" : "✎ "}
-                {t.title}
-                {t.subtitle ? ` — ${t.subtitle}` : ""}
-                {t.published ? "" : " (чернетка)"}
-              </SelectItem>
-            ))}
-          </Select>
+          />
           {selectedTest && (
             <p className="text-xs text-muted-foreground mt-1.5">
-              {selectedTest.questions.length} питань ·{" "}
-              {maxRawScore(selectedTest.questions)} балів ·{" "}
+              {pluralize(selectedTest.questions.length, PLURAL.question)} ·{" "}
+              {pluralize(maxRawScore(selectedTest.questions), PLURAL.point)} ·{" "}
               {(selectedTest.scaleType ?? "nmt") === "nmt"
                 ? "шкала НМТ 100–200"
                 : "власна шкала"}
@@ -304,12 +300,7 @@ export default function NewHomeworkPage() {
         <div className="space-y-3">
           {/* Bank filters */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-            <input
-              value={bankSearch}
-              onChange={(e) => setBankSearch(e.target.value)}
-              placeholder="Пошук..."
-              className="px-3 py-2 rounded-xl border border-border/50 bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-            />
+            <SearchInput value={bankSearch} onChange={setBankSearch} className="h-9.5" />
             <Select value={bankTopic} onValueChange={setBankTopic}>
               <SelectItem value="all">Усі теми</SelectItem>
               {TOPICS.map((t) => (
@@ -318,19 +309,18 @@ export default function NewHomeworkPage() {
                 </SelectItem>
               ))}
             </Select>
-            <Select
-              value={bankType}
-              onValueChange={(v) => setBankType(v as typeof bankType)}
-            >
+            <Select value={bankType} onValueChange={(v) => setBankType(v as typeof bankType)}>
               <SelectItem value="all">Усі типи</SelectItem>
-              <SelectItem value="mcq">Тест</SelectItem>
-              <SelectItem value="open">Відкрите</SelectItem>
-              <SelectItem value="matching">Відповідність</SelectItem>
+              {(Object.keys(TYPE_LABEL) as TestQuestion["type"][]).map((t) => (
+                <SelectItem key={t} value={t}>
+                  {TYPE_LABEL[t]}
+                </SelectItem>
+              ))}
             </Select>
           </div>
 
           <p className="text-xs text-muted-foreground px-1">
-            Обрано: {picked.size} · {customMaxRaw} балів
+            Обрано: {picked.size} · {pluralize(customMaxRaw, PLURAL.point)}
           </p>
 
           <div className="space-y-1.5 max-h-[420px] overflow-y-auto pr-1">
@@ -430,6 +420,7 @@ function SourceTab({
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       className={cn(
         "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-sm font-medium transition-all",

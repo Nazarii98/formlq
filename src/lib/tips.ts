@@ -6,9 +6,9 @@ import {
   updateDoc,
   deleteDoc,
   serverTimestamp,
-  query,
-  orderBy,
+  Timestamp,
 } from "firebase/firestore";
+import { docsOf, saveOrder } from "@/lib/firestore-helpers";
 import { db } from "@/lib/firebase";
 
 export interface Tip {
@@ -17,25 +17,20 @@ export interface Tip {
   text: string;
   active: boolean;
   order?: number;
-  createdAt?: ReturnType<typeof serverTimestamp>;
+  createdAt?: Timestamp | null;
 }
 
 export async function getTips(): Promise<Tip[]> {
   const snap = await getDocs(collection(db, "tips"));
-  const tips = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Tip));
+  const tips = docsOf<Tip>(snap);
   return tips.sort((a, b) => {
     if (a.order != null && b.order != null) return a.order - b.order;
     if (a.order != null) return -1;
     if (b.order != null) return 1;
-    const ta = (a.createdAt as unknown as { seconds: number })?.seconds ?? 0;
-    const tb = (b.createdAt as unknown as { seconds: number })?.seconds ?? 0;
+    const ta = a.createdAt?.seconds ?? 0;
+    const tb = b.createdAt?.seconds ?? 0;
     return ta - tb;
   });
-}
-
-export async function getActiveTips(): Promise<Tip[]> {
-  const all = await getTips();
-  return all.filter((t) => t.active);
 }
 
 export async function createTip(data: Omit<Tip, "id" | "createdAt">): Promise<string> {
@@ -49,4 +44,9 @@ export async function updateTip(id: string, data: Partial<Omit<Tip, "id">>): Pro
 
 export async function deleteTip(id: string): Promise<void> {
   await deleteDoc(doc(db, "tips", id));
+}
+
+/** Saves the new tip order (only changed positions, one batch). */
+export async function saveTipsOrder(tips: Tip[]): Promise<void> {
+  await saveOrder("tips", "order", tips);
 }

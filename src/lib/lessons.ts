@@ -9,6 +9,7 @@ import {
   where,
   Timestamp,
 } from "firebase/firestore";
+import { docsOf } from "@/lib/firestore-helpers";
 import { db } from "@/lib/firebase";
 
 export interface Lesson {
@@ -55,7 +56,7 @@ export function subscribeTutorLessons(
     (snap) =>
       cb(
         sortByStart(
-          snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Lesson),
+          docsOf<Lesson>(snap),
         ),
       ),
   );
@@ -70,7 +71,7 @@ export function subscribeStudentLessons(
     (snap) =>
       cb(
         sortByStart(
-          snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Lesson),
+          docsOf<Lesson>(snap),
         ),
       ),
   );

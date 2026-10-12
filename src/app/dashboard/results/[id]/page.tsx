@@ -4,10 +4,10 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { getResult, getTest, TestResult } from "@/lib/tests";
+import { matchingPartialScore } from "@/lib/exam-scoring";
 import { ScoreHeader } from "@/components/exam/ScoreHeader";
 import { QuestionMap } from "@/components/exam/QuestionMap";
 import { QuestionCard } from "@/components/exam/QuestionCard";
-import { EmptyState } from "@/components/ui/empty-state";
 import { SpinnerPage } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -43,10 +43,8 @@ export default function ResultPage() {
     if (q.type === "matching" && !q.isCorrect && q.partialScore === undefined && q.userAnswer) {
       try {
         const pairs = JSON.parse(q.userAnswer) as Record<string, string>;
-        const totalPairs = Object.keys(q.correctPairs ?? {}).length;
-        const correctCount = Object.entries(q.correctPairs ?? {}).filter(([k, v]) => pairs[k] === v).length;
-        const partialScore = totalPairs > 0 ? Math.round(correctCount * (q.points / totalPairs)) : 0;
-        return { ...q, partialScore };
+        const { score } = matchingPartialScore(q.correctPairs ?? {}, pairs, q.points);
+        return { ...q, partialScore: score };
       } catch { /* noop */ }
     }
     return q;

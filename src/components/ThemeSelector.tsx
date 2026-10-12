@@ -4,6 +4,7 @@ import { useRef, useEffect, useState } from "react";
 import { useColorTheme, ColorTheme, FontTheme } from "@/context/ThemeContext";
 import { cn } from "@/lib/utils";
 import { Settings, Check } from "lucide-react";
+import { IconButton } from "@/components/ui/icon-button";
 
 const COLORS: { id: ColorTheme; label: string; color: string }[] = [
   { id: "violet", label: "Фіолетовий",   color: "oklch(0.52 0.28 290)" },
@@ -42,16 +43,15 @@ export function ThemeSelector() {
 
   return (
     <div ref={ref} className="relative">
-      <button
+      <IconButton
+        label="Налаштування"
+        size="md"
+        aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className={cn(
-          "w-8 h-8 rounded-lg flex items-center justify-center transition-all text-muted-foreground hover:text-foreground hover:bg-muted",
-          open && "bg-muted text-foreground"
-        )}
-        title="Налаштування"
+        className={cn(open && "bg-muted text-foreground")}
       >
         <Settings size={16} />
-      </button>
+      </IconButton>
 
       {open && (
         <div className={cn(

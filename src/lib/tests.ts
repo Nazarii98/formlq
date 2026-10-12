@@ -9,8 +9,10 @@ import {
   serverTimestamp,
   query,
   where,
+  writeBatch,
   Timestamp,
 } from "firebase/firestore";
+import { docsOf } from "@/lib/firestore-helpers";
 import { db } from "@/lib/firebase";
 
 export interface QuestionOption {
@@ -183,6 +185,14 @@ export interface TestDoc {
   scaleType?: ScaleType; // defaults to "nmt" when absent
   durationMinutes?: number;
   order?: number;
+  folderId?: string | null; // testFolders doc id; absent/null = not in a folder
+}
+
+export interface TestFolder {
+  id: string;
+  name: string;
+  order: number;
+  createdAt: Timestamp | null;
 }
 
 export interface QuestionResult {
@@ -257,13 +267,16 @@ export async function updateResult(
 export async function getUserResults(userId: string): Promise<TestResult[]> {
   const q = query(collection(db, "testResults"), where("userId", "==", userId));
   const snap = await getDocs(q);
-  return snap.docs
-    .map((d) => ({ id: d.id, ...d.data() }) as TestResult)
-    .sort((a, b) => {
-      const ta = a.completedAt?.toMillis() ?? 0;
-      const tb = b.completedAt?.toMillis() ?? 0;
-      return tb - ta;
-    });
+  return docsOf<TestResult>(snap).sort((a, b) => {
+    const ta = a.completedAt?.toMillis() ?? 0;
+    const tb = b.completedAt?.toMillis() ?? 0;
+    return tb - ta;
+  });
+}
+
+/** Open-answer comparison key: trimmed, "." and "," treated as the same decimal separator. */
+export function normalizeOpenAnswer(s: string): string {
+  return s.trim().replace(/\./g, ",");
 }
 
 export function calcRawScore(
@@ -274,7 +287,10 @@ export function calcRawScore(
     const answer = answers[q.id];
     if (!answer) return sum;
     if (q.type === "mcq" && answer === q.correctOptionId) return sum + q.points;
-    if (q.type === "open" && answer.trim() === q.correctAnswer.trim())
+    if (
+      q.type === "open" &&
+      normalizeOpenAnswer(answer) === normalizeOpenAnswer(q.correctAnswer)
+    )
       return sum + q.points;
     if (q.type === "matching") {
       try {
@@ -325,16 +341,16 @@ export function isExamFailed(
 }
 
 export async function getPublishedTests(): Promise<TestDoc[]> {
-  const snap = await getDocs(collection(db, "tests"));
-  return snap.docs
-    .map((d) => ({ id: d.id, ...d.data() }) as TestDoc)
-    .filter((t) => t.published)
-    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  // Server-side filter: drafts (with their full question arrays) are never downloaded.
+  const snap = await getDocs(
+    query(collection(db, "tests"), where("published", "==", true)),
+  );
+  return docsOf<TestDoc>(snap).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 }
 
 export async function getAllTests(): Promise<TestDoc[]> {
   const snap = await getDocs(collection(db, "tests"));
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as TestDoc);
+  return docsOf<TestDoc>(snap);
 }
 
 export async function getTest(id: string): Promise<TestDoc | null> {
@@ -343,11 +359,17 @@ export async function getTest(id: string): Promise<TestDoc | null> {
   return { id: snap.id, ...snap.data() } as TestDoc;
 }
 
-export async function createTest(createdBy: string): Promise<string> {
+export async function createTest(
+  createdBy: string,
+  folderId: string | null = null,
+  order?: number,
+): Promise<string> {
   const ref = await addDoc(collection(db, "tests"), {
     title: "Новий тест",
     subtitle: "",
     published: false,
+    folderId,
+    ...(order !== undefined && { order }),
     createdBy,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -370,6 +392,65 @@ export async function updateTest(
 
 export async function deleteTest(id: string): Promise<void> {
   await deleteDoc(doc(db, "tests", id));
+}
+
+// ── Test folders ──────────────────────────────────────────────
+
+export async function getTestFolders(): Promise<TestFolder[]> {
+  const snap = await getDocs(collection(db, "testFolders"));
+  return docsOf<TestFolder>(snap).sort(
+    (a, b) => (a.order ?? 0) - (b.order ?? 0),
+  );
+}
+
+export async function createTestFolder(
+  name: string,
+  order: number,
+): Promise<string> {
+  const ref = await addDoc(collection(db, "testFolders"), {
+    name,
+    order,
+    createdAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+export async function renameTestFolder(
+  id: string,
+  name: string,
+): Promise<void> {
+  await updateDoc(doc(db, "testFolders", id), { name });
+}
+
+/** Deletes the folder; its tests are kept and moved out of it. */
+export async function deleteTestFolder(
+  id: string,
+  testIds: string[],
+): Promise<void> {
+  const batch = writeBatch(db);
+  testIds.forEach((tid) =>
+    batch.update(doc(db, "tests", tid), { folderId: null }),
+  );
+  batch.delete(doc(db, "testFolders", id));
+  await batch.commit();
+}
+
+/** Persists folder order and test placement (folderId + order) in one batch. */
+export async function saveTestLayout(
+  folders: { id: string; order: number }[],
+  tests: { id: string; order: number; folderId: string | null }[],
+): Promise<void> {
+  const batch = writeBatch(db);
+  folders.forEach((f) =>
+    batch.update(doc(db, "testFolders", f.id), { order: f.order }),
+  );
+  tests.forEach((t) =>
+    batch.update(doc(db, "tests", t.id), {
+      order: t.order,
+      folderId: t.folderId,
+    }),
+  );
+  await batch.commit();
 }
 
 export function makeEmptyMCQ(order: number): MCQQuestion {

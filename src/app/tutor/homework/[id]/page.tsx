@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { useHeader } from "@/context/HeaderContext";
+import { usePageHeader } from "@/context/HeaderContext";
+import { isEditor } from "@/lib/roles";
+import { IconButton } from "@/components/ui/icon-button";
 import { getResult, updateResult, TestResult } from "@/lib/tests";
 import { getHomework, deleteHomework, Homework } from "@/lib/tutor";
 import { formatDate } from "@/lib/format";
@@ -17,7 +19,6 @@ import { Trash2, CalendarClock, FileText } from "lucide-react";
 export default function TutorHomeworkReviewPage() {
   const { id } = useParams<{ id: string }>();
   const { user, userProfile } = useAuth();
-  const { setHeader } = useHeader();
   const { openDrawer } = useReferenceDrawer();
   const router = useRouter();
 
@@ -28,17 +29,14 @@ export default function TutorHomeworkReviewPage() {
   const [note, setNote] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  useEffect(() => {
-    setHeader("Перевірка завдання", "");
-    return () => setHeader("", "");
-  }, [setHeader]);
+  usePageHeader("Перевірка завдання");
 
   useEffect(() => {
     if (!user) return;
     (async () => {
       const hw = await getHomework(id);
       // Owner tutor or any editor may review.
-      if (!hw || (hw.tutorId !== user.uid && userProfile?.role !== "editor")) {
+      if (!hw || (hw.tutorId !== user.uid && !isEditor(userProfile?.role))) {
         router.replace("/tutor/homework");
         return;
       }
@@ -86,13 +84,14 @@ export default function TutorHomeworkReviewPage() {
               {homework.studentName ?? "Учень"}
             </p>
           </div>
-          <button
+          <IconButton
+            size="md"
+            tone="danger"
+            label="Видалити завдання"
             onClick={() => setConfirmDelete(true)}
-            className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-all"
-            title="Видалити завдання"
           >
             <Trash2 size={15} />
-          </button>
+          </IconButton>
         </div>
         {homework.dueAt && (
           <p className="text-xs text-muted-foreground inline-flex items-center gap-1">
