@@ -17,6 +17,7 @@ import { ThemeProvider } from "@/context/ThemeContext";
 import { ExamGuardProvider } from "@/context/ExamGuardContext";
 import { HeaderProvider } from "@/context/HeaderContext";
 import { QueryProvider } from "@/components/QueryProvider";
+import { Toaster } from "@/components/ui/toaster";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -184,6 +185,7 @@ export default function RootLayout({
             <AuthProvider>
               <ExamGuardProvider>
                 <HeaderProvider>{children}</HeaderProvider>
+                <Toaster />
               </ExamGuardProvider>
             </AuthProvider>
           </ThemeProvider>

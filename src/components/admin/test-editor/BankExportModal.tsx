@@ -9,7 +9,8 @@ import { IconButton } from "@/components/ui/icon-button";
 import { SectionLabel } from "@/components/ui/section-label";
 import { Select, SelectItem } from "@/components/ui/select";
 import { MathText } from "@/components/MathText";
-import { createQuestion } from "@/lib/questions";
+import toast from "react-hot-toast";
+import { createQuestion, DuplicateQuestionError } from "@/lib/questions";
 import { queryKeys } from "@/lib/queryKeys";
 import { pluralize, PLURAL } from "@/lib/format";
 import { TOPICS } from "@/lib/topics";
@@ -44,15 +45,31 @@ export function BankExportModal({
     const toExport = questions.filter((q) => selected.has(q.id));
     if (!toExport.length) return;
     setExporting(true);
+    let created = 0;
+    let skipped = 0;
     try {
-      await Promise.all(
-        toExport.map(({ points, order, id, ...rest }) =>
-          createQuestion({ ...rest, topicId: topic, difficulty: diff, status: "draft" }),
-        ),
-      );
-      queryClient.invalidateQueries({ queryKey: queryKeys.bankQuestions });
+      // Sequential on purpose: each create sees the ones before it, so two identical
+      // questions in the same selection can't both slip into the bank.
+      for (const { points, order, id, ...rest } of toExport) {
+        try {
+          await createQuestion({ ...rest, topicId: topic, difficulty: diff, status: "draft" });
+          created++;
+        } catch (e) {
+          if (!(e instanceof DuplicateQuestionError)) throw e;
+          skipped++;
+        }
+      }
+      if (skipped === 0) toast.success(`Експортовано: ${pluralize(created, PLURAL.task)}`);
+      else
+        toast(
+          `Експортовано: ${created}. Пропущено ${pluralize(skipped, PLURAL.task)} — вже є в банку.`,
+          { icon: "⚠️" },
+        );
       close();
+    } catch {
+      toast.error("Експорт перервано через помилку. Частину завдань могло бути збережено.");
     } finally {
+      if (created) queryClient.invalidateQueries({ queryKey: queryKeys.bankQuestions });
       setExporting(false);
     }
   }

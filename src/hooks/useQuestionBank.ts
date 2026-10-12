@@ -8,9 +8,12 @@ import {
   createQuestion,
   deleteQuestion,
   saveDailyOrder,
+  backfillDedupeKeys,
 } from "@/lib/questions";
 import { queryKeys } from "@/lib/queryKeys";
 import type { BankQuestion } from "@/lib/tests";
+
+let dedupeBackfillStarted = false;
 
 function withoutId(q: BankQuestion): Omit<BankQuestion, "id"> {
   const { id, ...data } = q;
@@ -38,6 +41,13 @@ export function useQuestionBank() {
       setQuestions(qs);
       setLoading(false);
     });
+    // Older questions have no dedupe key yet — fill them in once per session.
+    if (!dedupeBackfillStarted) {
+      dedupeBackfillStarted = true;
+      backfillDedupeKeys().catch(() => {
+        dedupeBackfillStarted = false;
+      });
+    }
   }, []);
 
   const markSaving = useCallback((id: string, on: boolean) => {
