@@ -1,5 +1,7 @@
 "use client";
 
+import toast from "react-hot-toast";
+import { DuplicateQuestionError } from "@/lib/questions";
 import { useState } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -69,6 +71,13 @@ export function QuestionFormModal({ initial, onClose, onSave }: QuestionFormModa
     try {
       await onSave(draft, editId);
       onClose();
+    } catch (e) {
+      // Keep the modal open with the draft intact so the admin can adjust it.
+      toast.error(
+        e instanceof DuplicateQuestionError
+          ? "Таке завдання вже є в банку — дублікати не допускаються."
+          : "Не вдалося зберегти завдання. Спробуйте ще раз.",
+      );
     } finally {
       setCreating(false);
     }
