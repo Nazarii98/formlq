@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import { pluralize, PLURAL } from "@/lib/format";
 import { TestResult, QuestionResult } from "@/lib/tests";
 import { ScoreHeader } from "@/components/exam/ScoreHeader";
 import { QuestionCard } from "@/components/exam/QuestionCard";
@@ -72,8 +73,8 @@ export function ResultsView({
       {flaggedBanner && flagged.length > 0 && (
         <div className="rounded-2xl border border-amber-400/30 bg-amber-400/5 p-4">
           <p className="text-sm font-semibold flex items-center gap-1.5">
-            🦆 Учень позначив {flagged.length}{" "}
-            {flagged.length === 1 ? "питання" : "питань"} для обговорення
+            🦆 Учень позначив {pluralize(flagged.length, PLURAL.question)} для
+            обговорення
           </p>
         </div>
       )}

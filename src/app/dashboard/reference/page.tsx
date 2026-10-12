@@ -2,8 +2,8 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
-import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from "lucide-react";
 import { pdfFileProp, getPdfCopyAsync } from "@/lib/pdf-cache";
+import { PdfToolbar } from "@/components/dashboard/PdfToolbar";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
 
@@ -77,11 +77,6 @@ export default function ReferencePage() {
       });
   }
 
-  function zoom(delta: number) {
-    setScale((s) =>
-      Math.min(2, Math.max(0.5, Math.round((s + delta) * 10) / 10)),
-    );
-  }
 
   const pageWidth = containerWidth
     ? Math.min(containerWidth, 900) * scale
@@ -116,41 +111,13 @@ export default function ReferencePage() {
       </Document>
 
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1 px-3 py-2 rounded-2xl border border-border/50 bg-background/90 backdrop-blur-md shadow-lg">
-        <button
-          onClick={() => scrollToPage(Math.max(1, page - 1))}
-          disabled={page <= 1}
-          className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-all disabled:opacity-30"
-        >
-          <ChevronLeft size={16} />
-        </button>
-        <span className="text-sm tabular-nums px-2 min-w-[64px] text-center">
-          {page} / {numPages || "—"}
-        </span>
-        <button
-          onClick={() => scrollToPage(Math.min(numPages, page + 1))}
-          disabled={page >= numPages}
-          className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-all disabled:opacity-30"
-        >
-          <ChevronRight size={16} />
-        </button>
-        <div className="w-px h-5 bg-border/50 mx-1" />
-        <button
-          onClick={() => zoom(-0.1)}
-          disabled={scale <= 0.5}
-          className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-all disabled:opacity-30"
-        >
-          <ZoomOut size={16} />
-        </button>
-        <span className="text-sm tabular-nums w-12 text-center">
-          {Math.round(scale * 100)}%
-        </span>
-        <button
-          onClick={() => zoom(0.1)}
-          disabled={scale >= 2}
-          className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-all disabled:opacity-30"
-        >
-          <ZoomIn size={16} />
-        </button>
+        <PdfToolbar
+          page={page}
+          numPages={numPages}
+          scale={scale}
+          onPageChange={scrollToPage}
+          onScaleChange={setScale}
+        />
       </div>
     </div>
   );

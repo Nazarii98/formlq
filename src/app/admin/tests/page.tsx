@@ -1,5 +1,6 @@
 "use client";
 
+import { queryKeys, STALE } from "@/lib/queryKeys";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
@@ -19,10 +20,12 @@ import {
 import { SpinnerPage } from "@/components/ui/spinner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
-import { Plus, FolderPlus, Search, X, Folder, Inbox } from "lucide-react";
+import { Plus, FolderPlus, Folder, Inbox } from "lucide-react";
+import { SearchInput } from "@/components/ui/search-input";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { TestRow } from "@/components/admin/tests/TestRow";
-import { FolderSection, pluralTests } from "@/components/admin/tests/FolderSection";
+import { FolderSection } from "@/components/admin/tests/FolderSection";
+import { pluralize, PLURAL } from "@/lib/format";
 import { FolderNameInput } from "@/components/admin/tests/FolderNameInput";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -72,15 +75,15 @@ export default function AdminTestsPage() {
   const [drop, setDrop] = useState<DropTarget | null>(null);
 
   const { data: tests = [], isLoading: testsLoading } = useQuery({
-    queryKey: ["all-tests"],
+    queryKey: queryKeys.tests.all,
     queryFn: getAllTests,
-    staleTime: 2 * 60 * 1000,
+    staleTime: STALE.medium,
   });
 
   const { data: folders = [], isLoading: foldersLoading } = useQuery({
-    queryKey: ["test-folders"],
+    queryKey: queryKeys.tests.folders,
     queryFn: getTestFolders,
-    staleTime: 2 * 60 * 1000,
+    staleTime: STALE.medium,
   });
 
   // folderId → tests in display order; tests pointing at a missing folder fall back to UNFILED
@@ -134,8 +137,8 @@ export default function AdminTestsPage() {
       return !p || p.order !== t.order || (p.folderId ?? null) !== t.folderId;
     });
 
-    queryClient.setQueryData(["test-folders"], orderedFolders);
-    queryClient.setQueryData(["all-tests"], flat);
+    queryClient.setQueryData(queryKeys.tests.folders, orderedFolders);
+    queryClient.setQueryData(queryKeys.tests.all, flat);
     if (!changedFolders.length && !changedTests.length) return;
 
     saveTestLayout(
@@ -146,10 +149,10 @@ export default function AdminTestsPage() {
         folderId: t.folderId ?? null,
       })),
     )
-      .then(() => queryClient.invalidateQueries({ queryKey: ["published-tests"] }))
+      .then(() => queryClient.invalidateQueries({ queryKey: queryKeys.tests.published }))
       .catch(() => {
-        queryClient.invalidateQueries({ queryKey: ["all-tests"] });
-        queryClient.invalidateQueries({ queryKey: ["test-folders"] });
+        queryClient.invalidateQueries({ queryKey: queryKeys.tests.all });
+        queryClient.invalidateQueries({ queryKey: queryKeys.tests.folders });
       });
   }
 
@@ -213,20 +216,23 @@ export default function AdminTestsPage() {
       return createTest(user!.uid, folderId, order);
     },
     onSuccess: (id) => {
-      queryClient.invalidateQueries({ queryKey: ["all-tests"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.tests.all });
       router.push(`/admin/tests/${id}`);
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteTest(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["all-tests"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.tests.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.tests.published });
+    },
   });
 
   async function handleTogglePublished(id: string, current: boolean) {
     await updateTest(id, { published: !current });
-    queryClient.invalidateQueries({ queryKey: ["all-tests"] });
-    queryClient.invalidateQueries({ queryKey: ["published-tests"] });
+    queryClient.invalidateQueries({ queryKey: queryKeys.tests.all });
+    queryClient.invalidateQueries({ queryKey: queryKeys.tests.published });
   }
 
   async function handleCreateFolder(name: string) {
@@ -235,7 +241,7 @@ export default function AdminTestsPage() {
     const order = folders.length;
     const id = await createTestFolder(name, order);
     const nextFolders = [...folders, { id, name, order, createdAt: null }];
-    queryClient.setQueryData(["test-folders"], nextFolders);
+    queryClient.setQueryData(queryKeys.tests.folders, nextFolders);
     setFolderExpanded(id, true);
     if (forTestId) {
       moveTest(forTestId, id, null, { ...buckets, [id]: [] }, nextFolders);
@@ -244,11 +250,11 @@ export default function AdminTestsPage() {
 
   async function handleRenameFolder(id: string, name: string) {
     setRenamingId(null);
-    queryClient.setQueryData<TestFolder[]>(["test-folders"], (prev = []) =>
+    queryClient.setQueryData<TestFolder[]>(queryKeys.tests.folders, (prev = []) =>
       prev.map((f) => (f.id === id ? { ...f, name } : f)),
     );
     await renameTestFolder(id, name).catch(() =>
-      queryClient.invalidateQueries({ queryKey: ["test-folders"] }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.tests.folders }),
     );
   }
 
@@ -257,12 +263,12 @@ export default function AdminTestsPage() {
     setConfirmDeleteFolder(null);
     if (!folder) return;
     const ids = (buckets[folder.id] ?? []).map((t) => t.id);
-    queryClient.setQueryData<TestFolder[]>(["test-folders"], (prev = []) =>
+    queryClient.setQueryData<TestFolder[]>(queryKeys.tests.folders, (prev = []) =>
       prev.filter((f) => f.id !== folder.id),
     );
     await deleteTestFolder(folder.id, ids).finally(() => {
-      queryClient.invalidateQueries({ queryKey: ["all-tests"] });
-      queryClient.invalidateQueries({ queryKey: ["test-folders"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.tests.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.tests.folders });
     });
   }
 
@@ -412,28 +418,13 @@ export default function AdminTestsPage() {
     <div className="max-w-2xl mx-auto space-y-4">
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative flex-1 min-w-48">
-          <Search
-            size={14}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
-          />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={(e) => e.key === "Escape" && setSearch("")}
-            placeholder="Пошук тестів і папок"
-            className="w-full h-9 rounded-xl border border-border/50 bg-card pl-9 pr-8 text-sm outline-none transition-colors placeholder:text-muted-foreground/70 hover:border-border focus:border-primary"
-          />
-          {search && (
-            <button
-              onClick={() => setSearch("")}
-              title="Очистити"
-              className="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted"
-            >
-              <X size={12} />
-            </button>
-          )}
-        </div>
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Пошук тестів і папок"
+          wrapperClassName="flex-1 min-w-48"
+          className="h-9"
+        />
         <button
           onClick={() => setNewFolder({})}
           className="flex items-center gap-1.5 h-9 px-3.5 rounded-xl border border-border/50 bg-card text-sm font-medium hover:bg-muted transition-all"
@@ -526,7 +517,7 @@ export default function AdminTestsPage() {
                 <div className="flex items-center gap-2 px-1 text-xs font-medium text-muted-foreground">
                   <Inbox size={13} />
                   <span>Без папки</span>
-                  <span className="text-muted-foreground/60">· {pluralTests(buckets[UNFILED].length)}</span>
+                  <span className="text-muted-foreground/60">· {pluralize(buckets[UNFILED].length, PLURAL.test)}</span>
                   <div className="flex-1 h-px bg-border/50 ml-1" />
                 </div>
               )}

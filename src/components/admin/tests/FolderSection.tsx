@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { pluralize, PLURAL } from "@/lib/format";
 import {
   ChevronRight,
   Folder,
@@ -12,17 +13,7 @@ import {
 } from "lucide-react";
 import { FolderNameInput } from "./FolderNameInput";
 import { Highlight } from "@/components/ui/highlight";
-
-const actionBtn =
-  "w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-all disabled:opacity-40";
-
-export function pluralTests(n: number) {
-  const mod10 = n % 10;
-  const mod100 = n % 100;
-  if (mod10 === 1 && mod100 !== 11) return `${n} тест`;
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return `${n} тести`;
-  return `${n} тестів`;
-}
+import { IconButton } from "@/components/ui/icon-button";
 
 interface FolderSectionProps {
   name: string;
@@ -163,7 +154,7 @@ export function FolderSection({
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {count === 0
                     ? "Порожня папка"
-                    : `${pluralTests(count)} · активних: ${publishedCount}`}
+                    : `${pluralize(count, PLURAL.test)} · активних: ${publishedCount}`}
                 </p>
               </>
             )}
@@ -177,37 +168,37 @@ export function FolderSection({
                 "[@media(hover:none)]:opacity-100 [@media(hover:none)]:scale-100",
               )}
             >
-              <button
+              <IconButton
+                label="Новий тест у цій папці"
+                disabled={creatingTest}
+                // Keep pointer events so a click on the disabled button doesn't toggle the folder.
+                className="disabled:pointer-events-auto disabled:cursor-default"
                 onClick={(e) => {
                   e.stopPropagation();
                   onAddTest();
                 }}
-                disabled={creatingTest}
-                title="Новий тест у цій папці"
-                className={actionBtn}
               >
                 <Plus size={14} />
-              </button>
-              <button
+              </IconButton>
+              <IconButton
+                label="Перейменувати"
                 onClick={(e) => {
                   e.stopPropagation();
                   onRenameStart();
                 }}
-                title="Перейменувати"
-                className={actionBtn}
               >
                 <Pencil size={13} />
-              </button>
-              <button
+              </IconButton>
+              <IconButton
+                label="Видалити папку"
+                tone="danger"
                 onClick={(e) => {
                   e.stopPropagation();
                   onDelete();
                 }}
-                title="Видалити папку"
-                className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-all"
               >
                 <Trash2 size={13} />
-              </button>
+              </IconButton>
             </div>
           )}
         </div>

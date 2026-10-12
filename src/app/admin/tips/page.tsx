@@ -2,15 +2,64 @@
 
 import { useEffect, useState } from "react";
 import { useDragReorder } from "@/hooks/useDragReorder";
-import { getTips, createTip, updateTip, deleteTip, Tip } from "@/lib/tips";
+import { getTips, createTip, updateTip, deleteTip, saveTipsOrder, Tip } from "@/lib/tips";
+import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/queryKeys";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 import { Trash2, Pencil, Plus, Check, X, GripVertical, Eye, EyeOff, ChevronUp, ChevronDown } from "lucide-react";
 import { getDayIndex } from "@/lib/format";
 import { SpinnerPage } from "@/components/ui/spinner";
+import { IconButton } from "@/components/ui/icon-button";
+import { Textarea } from "@/components/ui/text-field";
 
 const EMOJI_SUGGESTIONS = ["📐", "🔢", "📏", "🎯", "⏱️", "📊", "🔄", "📉", "🧮", "📌", "🔺", "💡", "📈", "🎲", "🔵", "🔁", "✏️", "🧠", "📋", "⭐"];
+
+function TipForm({
+  title,
+  initialEmoji,
+  initialText,
+  placeholder,
+  submitLabel,
+  submitIcon,
+  onSubmit,
+  onCancel,
+}: {
+  title?: string;
+  initialEmoji: string;
+  initialText: string;
+  placeholder?: string;
+  submitLabel: string;
+  submitIcon: React.ReactNode;
+  onSubmit: (emoji: string, text: string) => void;
+  onCancel: () => void;
+}) {
+  const [emoji, setEmoji] = useState(initialEmoji);
+  const [text, setText] = useState(initialText);
+
+  function submit() {
+    if (!text.trim()) return;
+    onSubmit(emoji, text.trim());
+  }
+
+  return (
+    <div className="rounded-2xl border border-primary/30 bg-card p-4 space-y-3">
+      {title && <p className="text-sm font-medium">{title}</p>}
+      <div className="flex gap-2 flex-wrap">
+        {EMOJI_SUGGESTIONS.map((e) => (
+          <button key={e} type="button" onClick={() => setEmoji(e)} className={cn("w-8 h-8 rounded-lg text-lg flex items-center justify-center transition-all", emoji === e ? "bg-primary/20 ring-2 ring-primary" : "hover:bg-muted")}>{e}</button>
+        ))}
+        <input value={emoji} onChange={(e) => setEmoji(e.target.value)} className="w-14 h-8 rounded-lg border border-border/60 bg-muted/30 text-center text-sm focus:outline-none focus:ring-2 focus:ring-primary" maxLength={4} placeholder="або" aria-label="Свій емодзі" />
+      </div>
+      <Textarea value={text} onChange={(e) => setText(e.target.value)} placeholder={placeholder} className="px-3 py-2 resize-none" rows={3} />
+      <div className="flex gap-2">
+        <Button size="sm" onClick={submit} className="gap-1">{submitIcon} {submitLabel}</Button>
+        <Button size="sm" variant="ghost" onClick={onCancel} className="gap-1"><X size={14} /> Скасувати</Button>
+      </div>
+    </div>
+  );
+}
 
 function TipRow({
   tip, badge, onSave, onDelete,
@@ -33,36 +82,20 @@ function TipRow({
   isLast: boolean;
 }) {
   const [editing, setEditing] = useState(false);
-  const [emoji, setEmoji] = useState(tip.emoji);
-  const [text, setText] = useState(tip.text);
-
-  function save() {
-    if (!text.trim()) return;
-    onSave(tip.id, { emoji, text: text.trim() });
-    setEditing(false);
-  }
-
-  function cancel() {
-    setEmoji(tip.emoji);
-    setText(tip.text);
-    setEditing(false);
-  }
 
   if (editing) {
     return (
-      <div className="rounded-2xl border border-primary/30 bg-card p-4 space-y-3">
-        <div className="flex gap-2 flex-wrap">
-          {EMOJI_SUGGESTIONS.map((e) => (
-            <button key={e} onClick={() => setEmoji(e)} className={cn("w-8 h-8 rounded-lg text-lg flex items-center justify-center transition-all", emoji === e ? "bg-primary/20 ring-2 ring-primary" : "hover:bg-muted")}>{e}</button>
-          ))}
-          <input value={emoji} onChange={(e) => setEmoji(e.target.value)} className="w-14 h-8 rounded-lg border border-border/60 bg-muted/30 text-center text-sm focus:outline-none focus:ring-2 focus:ring-primary" maxLength={4} placeholder="або" />
-        </div>
-        <textarea value={text} onChange={(e) => setText(e.target.value)} className="w-full rounded-xl border border-border/60 bg-muted/30 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none" rows={3} />
-        <div className="flex gap-2">
-          <Button size="sm" onClick={save} className="gap-1"><Check size={14} /> Зберегти</Button>
-          <Button size="sm" variant="ghost" onClick={cancel} className="gap-1"><X size={14} /> Скасувати</Button>
-        </div>
-      </div>
+      <TipForm
+        initialEmoji={tip.emoji}
+        initialText={tip.text}
+        submitLabel="Зберегти"
+        submitIcon={<Check size={14} />}
+        onSubmit={(emoji, text) => {
+          onSave(tip.id, { emoji, text });
+          setEditing(false);
+        }}
+        onCancel={() => setEditing(false)}
+      />
     );
   }
 
@@ -87,10 +120,10 @@ function TipRow({
           <GripVertical size={16} />
         </div>
         <div className="flex [@media(hover:hover)]:hidden flex-col shrink-0">
-          <button onClick={onMoveUp} disabled={isFirst} className="text-muted-foreground disabled:opacity-20 p-0.5">
+          <button onClick={onMoveUp} disabled={isFirst} aria-label="Вгору" className="text-muted-foreground disabled:opacity-20 p-0.5">
             <ChevronUp size={14} />
           </button>
-          <button onClick={onMoveDown} disabled={isLast} className="text-muted-foreground disabled:opacity-20 p-0.5">
+          <button onClick={onMoveDown} disabled={isLast} aria-label="Вниз" className="text-muted-foreground disabled:opacity-20 p-0.5">
             <ChevronDown size={14} />
           </button>
         </div>
@@ -118,15 +151,15 @@ function TipRow({
               ? "absolute right-0 opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100 [@media(hover:none)]:static [@media(hover:none)]:opacity-100 [@media(hover:none)]:scale-100"
               : "opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100",
           )}>
-            <button onClick={() => onSave(tip.id, { active: !tip.active })} title={tip.active ? "Деактивувати" : "Активувати"} className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-all">
+            <IconButton label={tip.active ? "Деактивувати" : "Активувати"} onClick={() => onSave(tip.id, { active: !tip.active })}>
               {tip.active ? <Eye size={13} /> : <EyeOff size={13} />}
-            </button>
-            <button onClick={() => setEditing(true)} className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-all">
+            </IconButton>
+            <IconButton label="Редагувати" onClick={() => setEditing(true)}>
               <Pencil size={13} />
-            </button>
-            <button onClick={() => onDelete(tip.id)} className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-all">
+            </IconButton>
+            <IconButton label="Видалити" tone="danger" onClick={() => onDelete(tip.id)}>
               <Trash2 size={13} />
-            </button>
+            </IconButton>
           </div>
         </div>
     </div>
@@ -135,14 +168,6 @@ function TipRow({
 
 function NewTipForm({ onAdd }: { onAdd: (data: Omit<Tip, "id">) => void }) {
   const [open, setOpen] = useState(false);
-  const [emoji, setEmoji] = useState("💡");
-  const [text, setText] = useState("");
-
-  function submit() {
-    if (!text.trim()) return;
-    onAdd({ emoji, text: text.trim(), active: true });
-    setText(""); setEmoji("💡"); setOpen(false);
-  }
 
   if (!open) {
     return (
@@ -153,20 +178,19 @@ function NewTipForm({ onAdd }: { onAdd: (data: Omit<Tip, "id">) => void }) {
   }
 
   return (
-    <div className="rounded-2xl border border-primary/30 bg-card p-4 space-y-3">
-      <p className="text-sm font-medium">Нова порада</p>
-      <div className="flex gap-2 flex-wrap">
-        {EMOJI_SUGGESTIONS.map((e) => (
-          <button key={e} onClick={() => setEmoji(e)} className={cn("w-8 h-8 rounded-lg text-lg flex items-center justify-center transition-all", emoji === e ? "bg-primary/20 ring-2 ring-primary" : "hover:bg-muted")}>{e}</button>
-        ))}
-        <input value={emoji} onChange={(e) => setEmoji(e.target.value)} className="w-14 h-8 rounded-lg border border-border/60 bg-muted/30 text-center text-sm focus:outline-none focus:ring-2 focus:ring-primary" maxLength={4} placeholder="або" />
-      </div>
-      <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="Текст поради..." className="w-full rounded-xl border border-border/60 bg-muted/30 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none" rows={3} />
-      <div className="flex gap-2">
-        <Button size="sm" onClick={submit} className="gap-1"><Plus size={14} /> Додати</Button>
-        <Button size="sm" variant="ghost" onClick={() => setOpen(false)} className="gap-1"><X size={14} /> Скасувати</Button>
-      </div>
-    </div>
+    <TipForm
+      title="Нова порада"
+      initialEmoji="💡"
+      initialText=""
+      placeholder="Текст поради..."
+      submitLabel="Додати"
+      submitIcon={<Plus size={14} />}
+      onSubmit={(emoji, text) => {
+        onAdd({ emoji, text, active: true });
+        setOpen(false);
+      }}
+      onCancel={() => setOpen(false)}
+    />
   );
 }
 
@@ -174,6 +198,9 @@ export default function AdminTipsPage() {
   const [tips, setTips] = useState<Tip[]>([]);
   const [loading, setLoading] = useState(true);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  // Student dashboard caches tips — refresh it after any change here.
+  const invalidateTips = () => queryClient.invalidateQueries({ queryKey: queryKeys.tips });
 
   useEffect(() => {
     getTips().then((t) => { setTips(t); setLoading(false); });
@@ -183,11 +210,13 @@ export default function AdminTipsPage() {
     const order = tips.length;
     const id = await createTip({ ...data, order });
     setTips((prev) => [...prev, { id, ...data, order }]);
+    invalidateTips();
   }
 
   async function handleSave(id: string, data: Partial<Tip>) {
     await updateTip(id, data);
     setTips((prev) => prev.map((t) => t.id === id ? { ...t, ...data } : t));
+    invalidateTips();
   }
 
   async function confirmDelete() {
@@ -196,15 +225,15 @@ export default function AdminTipsPage() {
     setConfirmDeleteId(null);
     await deleteTip(id);
     setTips((prev) => prev.filter((t) => t.id !== id));
+    invalidateTips();
   }
 
   function handleReorder(src: number, dst: number) {
     const next = [...tips];
     const [moved] = next.splice(src, 1);
     next.splice(dst, 0, moved);
-    const updated = next.map((t, idx) => ({ ...t, order: idx }));
-    setTips(updated);
-    Promise.all(updated.map((t, idx) => updateTip(t.id, { order: idx })));
+    setTips(next.map((t, idx) => ({ ...t, order: idx })));
+    saveTipsOrder(next).then(invalidateTips, invalidateTips);
   }
 
   const { isSrc: isDragSrc, isOver: isDragOver, handleDragStart, handleDragEnter, handleDrop, handleDragEnd } = useDragReorder(handleReorder);

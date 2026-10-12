@@ -14,9 +14,11 @@ import {
 import type { TestDoc, TestFolder } from "@/lib/tests";
 import { MoveToFolderMenu } from "./MoveToFolderMenu";
 import { Highlight } from "@/components/ui/highlight";
+import { IconButton } from "@/components/ui/icon-button";
 
-const actionBtn =
-  "w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-all";
+/** Matches IconButton (sm, neutral) — the menu trigger can't be an IconButton. */
+const menuTriggerCls =
+  "w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-all data-[popup-open]:bg-muted data-[popup-open]:text-foreground";
 
 interface TestRowProps {
   test: TestDoc;
@@ -103,6 +105,7 @@ export function TestRow({
                   onMoveUp();
                 }}
                 disabled={index === 0}
+                aria-label="Вгору"
                 className="text-muted-foreground disabled:opacity-20 p-0.5"
               >
                 <ChevronUp size={14} />
@@ -113,6 +116,7 @@ export function TestRow({
                   onMoveDown();
                 }}
                 disabled={index === total - 1}
+                aria-label="Вниз"
                 className="text-muted-foreground disabled:opacity-20 p-0.5"
               >
                 <ChevronDown size={14} />
@@ -168,49 +172,47 @@ export function TestRow({
               <span>{test.questions?.length ?? 0}</span>
             </div>
 
-            <button
+            <IconButton
+              label={test.published ? "Деактивувати" : "Активувати"}
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 onTogglePublished();
               }}
-              title={test.published ? "Деактивувати" : "Активувати"}
-              className={actionBtn}
             >
               {test.published ? <Eye size={13} /> : <EyeOff size={13} />}
-            </button>
+            </IconButton>
 
             <MoveToFolderMenu
               folders={folders}
               currentFolderId={currentFolderId}
               onMove={onMoveTo}
               onMoveToNewFolder={onMoveToNewFolder}
-              triggerClassName={cn(actionBtn, "data-[popup-open]:bg-muted data-[popup-open]:text-foreground")}
+              triggerClassName={menuTriggerCls}
             />
 
-            <button
+            <IconButton
+              label="Редагувати"
               onClick={(e) => {
                 e.stopPropagation();
                 onEdit();
               }}
-              title="Редагувати"
-              className={actionBtn}
             >
               <Pencil size={13} />
-            </button>
+            </IconButton>
 
-            <button
+            <IconButton
+              label="Видалити"
+              tone="danger"
+              disabled={deleting}
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 onDelete();
               }}
-              title="Видалити"
-              disabled={deleting}
-              className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-all disabled:opacity-40"
             >
               <Trash2 size={13} />
-            </button>
+            </IconButton>
           </div>
         </div>
       </div>

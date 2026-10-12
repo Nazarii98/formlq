@@ -1,5 +1,6 @@
 "use client";
 
+import { queryKeys } from "@/lib/queryKeys";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
@@ -16,6 +17,7 @@ import { uploadQuestionImage } from "@/lib/storage";
 import { useReferenceDrawer } from "@/context/ReferenceDrawerContext";
 import { formatDate } from "@/lib/format";
 import { CalendarClock, FileText } from "lucide-react";
+import { SpinnerScreen } from "@/components/ui/spinner";
 import {
   ExamRunner,
   RunnerConfig,
@@ -50,10 +52,15 @@ export default function HomeworkRunnerPage() {
       }
       setHomework(hw);
 
+      // Referenced test and (if completed) the saved result are independent → fetch together.
+      const [test, res] = await Promise.all([
+        hw.source === "test" && hw.testId ? getTest(hw.testId) : null,
+        hw.status === "completed" && hw.resultId ? getResult(hw.resultId) : null,
+      ]);
+
       // Build the runner config from a referenced test or the custom snapshot.
       let cfg: RunnerConfig;
       if (hw.source === "test" && hw.testId) {
-        const test = await getTest(hw.testId);
         if (!test) {
           router.replace("/dashboard/homework");
           return;
@@ -79,11 +86,8 @@ export default function HomeworkRunnerPage() {
       }
       setConfig(cfg);
 
-      // Completed → load result for review mode.
-      if (hw.status === "completed" && hw.resultId) {
-        const res = await getResult(hw.resultId);
-        if (res) setCompletedResult(res);
-      }
+      // Completed → review mode.
+      if (res) setCompletedResult(res);
       setLoading(false);
     })();
   }, [id, user, router]);
@@ -112,7 +116,8 @@ export default function HomeworkRunnerPage() {
       flaggedQuestions: payload.flaggedQuestions,
     });
     await updateHomework(homework.id, { status: "completed", resultId });
-    queryClient.invalidateQueries({ queryKey: ["results", user.uid] });
+    queryClient.invalidateQueries({ queryKey: queryKeys.results(user.uid) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.studentHomework(user.uid) });
     return resultId;
   }
 
@@ -134,13 +139,7 @@ export default function HomeworkRunnerPage() {
     });
   }
 
-  if (authLoading || loading || !config) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-      </div>
-    );
-  }
+  if (authLoading || loading || !config) return <SpinnerScreen />;
 
   const detailsCard = homework && (
     <div className="rounded-2xl border border-border/50 bg-card p-5 space-y-2">

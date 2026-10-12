@@ -3,26 +3,22 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { useHeader } from "@/context/HeaderContext";
+import { usePageHeader } from "@/context/HeaderContext";
 import { subscribeTutorStudents, TutorStudent } from "@/lib/tutor";
 import { SpinnerPage } from "@/components/ui/spinner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import { ClipboardPlus, ChevronRight } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { SectionLabel } from "@/components/ui/section-label";
 
 export default function TutorStudentsPage() {
   const { user } = useAuth();
-  const { setHeader } = useHeader();
   const router = useRouter();
 
   const [students, setStudents] = useState<TutorStudent[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    setHeader("Мої учні", "Домашні завдання та результати");
-    return () => setHeader("", "");
-  }, [setHeader]);
+  usePageHeader("Мої учні", "Домашні завдання та результати");
 
   useEffect(() => {
     if (!user) return;
@@ -44,17 +40,12 @@ export default function TutorStudentsPage() {
         />
       ) : (
         <div className="space-y-2">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-1">
-            Учні ({students.length})
-          </p>
+          <SectionLabel size="2xs">Учні ({students.length})</SectionLabel>
           {students.map((s) => (
             <div
               key={s.id}
               onClick={() => router.push(`/tutor/students/${s.studentId}`)}
-              className={cn(
-                "rounded-2xl border border-border/50 bg-card px-4 py-3 flex items-center gap-3 group transition-all cursor-pointer",
-                "hover:bg-muted/30 hover:border-border/80",
-              )}
+              className="rounded-2xl border border-border/50 bg-card px-4 py-3 flex items-center gap-3 group transition-all cursor-pointer hover:bg-muted/30 hover:border-border/80"
             >
               <div className="w-9 h-9 rounded-xl bg-muted text-muted-foreground flex items-center justify-center text-sm font-bold shrink-0">
                 {s.studentName?.[0]?.toUpperCase() ?? "?"}

@@ -6,9 +6,11 @@ import { ImagePlus, X as XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MathText } from "@/components/MathText";
 import Image from "next/image";
-import { uploadQuestionImage, deleteQuestionImage } from "@/lib/storage";
-import { QuestionOption } from "@/types";
-import { MatchingItem } from "@/lib/tests";
+import { IconButton } from "@/components/ui/icon-button";
+import { SectionLabel } from "@/components/ui/section-label";
+import { TextInput, Textarea } from "@/components/ui/text-field";
+import { uploadQuestionImage } from "@/lib/storage";
+import type { MatchingItem, QuestionOption } from "@/lib/tests";
 
 // Minimal interfaces — work with both TestQuestion and BankQuestion subtypes
 
@@ -23,6 +25,9 @@ type MatchingEditorQ = {
   rightOptions: MatchingItem[];
   correctPairs: Record<string, string>;
 };
+
+/** Single-row LaTeX-capable textarea (options, matching items). */
+const rowTextareaClass = "px-3 py-2 resize-none text-sm bg-background";
 
 // ── QuestionImageUpload ───────────────────────────────────────────────────────
 
@@ -55,17 +60,12 @@ export function QuestionImageUpload({
     }
   }
 
-  async function handleRemove() {
-    if (imageUrl) await deleteQuestionImage(imageUrl);
-    onRemoved();
-  }
-
   if (imageUrl) {
     return (
       <div className="space-y-1">
-        <label className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
+        <SectionLabel as="label">
           {label}
-        </label>
+        </SectionLabel>
         <div className="relative rounded-xl overflow-hidden border border-border/50 bg-muted/30 group">
           <Image
             src={imageUrl}
@@ -75,7 +75,9 @@ export function QuestionImageUpload({
             className="w-full h-48 object-contain"
           />
           <button
-            onClick={handleRemove}
+            type="button"
+            aria-label="Видалити зображення"
+            onClick={onRemoved}
             className="absolute top-2 right-2 w-7 h-7 rounded-lg bg-background/90 border border-border/60 flex items-center justify-center text-muted-foreground hover:text-destructive hover:border-destructive/40 transition-all"
           >
             <XIcon size={13} />
@@ -87,9 +89,9 @@ export function QuestionImageUpload({
 
   return (
     <div className="space-y-1">
-      <label className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
+      <SectionLabel as="label">
         {label} <span className="normal-case font-normal">(необов`язково)</span>
-      </label>
+      </SectionLabel>
       <input
         ref={inputRef}
         type="file"
@@ -117,7 +119,7 @@ export function QuestionImageUpload({
 
 // ── OptionImageSlot ───────────────────────────────────────────────────────────
 
-export function OptionImageSlot({
+function OptionImageSlot({
   contextId,
   questionId,
   optionId,
@@ -161,6 +163,8 @@ export function OptionImageSlot({
           className="w-full max-h-32 object-contain"
         />
         <button
+          type="button"
+          aria-label="Видалити зображення"
           onClick={onRemoved}
           className="absolute top-1 right-1 w-6 h-6 rounded-md bg-background/90 border border-border/60 flex items-center justify-center text-muted-foreground hover:text-destructive transition-all opacity-0 group-hover:opacity-100"
         >
@@ -214,9 +218,9 @@ export function MCQEditor({
 }) {
   return (
     <div className="space-y-2">
-      <label className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
+      <SectionLabel as="label">
         Варіанти відповіді
-      </label>
+      </SectionLabel>
       <div className="space-y-3">
         {question.options.map((opt) => (
           <div key={opt.id} className="flex items-start gap-3">
@@ -234,12 +238,13 @@ export function MCQEditor({
               {opt.id}
             </button>
             <div className="flex-1 space-y-1.5">
-              <textarea
+              <Textarea
+                mono
                 value={opt.text}
                 onChange={(e) => onOptionChange(opt.id, e.target.value)}
                 placeholder={`Варіант ${opt.id}... Використовуйте $...$ для math`}
                 rows={1}
-                className="w-full px-3 py-2 rounded-xl border border-border/50 bg-background focus:outline-none focus:border-primary text-sm transition-colors resize-none font-mono"
+                className={rowTextareaClass}
               />
               {opt.text && opt.text.includes("$") && (
                 <div className="px-3 py-1.5 rounded-lg border border-border/30 bg-muted/30 text-sm">
@@ -276,14 +281,14 @@ export function OpenEditor({
 }) {
   return (
     <div className="space-y-1">
-      <label className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
+      <SectionLabel as="label">
         Правильна відповідь
-      </label>
-      <input
+      </SectionLabel>
+      <TextInput
         value={question.correctAnswer}
         onChange={(e) => onChange(e.target.value)}
         placeholder="Числова або текстова відповідь..."
-        className="w-full px-4 py-2.5 rounded-xl border border-border/50 bg-background focus:outline-none focus:border-primary text-sm transition-colors"
+        className="bg-background"
       />
     </div>
   );
@@ -313,7 +318,10 @@ export function MatchingEditor({
     });
   }
   function addLeft() {
-    const nextId = String(question.leftItems.length + 1);
+    // max+1, not length+1: after deleting a middle row, length+1 can collide with an existing id.
+    const nextId = String(
+      Math.max(0, ...question.leftItems.map((i) => Number(i.id) || 0)) + 1,
+    );
     onChange({ leftItems: [...question.leftItems, { id: nextId, text: "" }] });
   }
   function removeLeft(id: string) {
@@ -331,21 +339,22 @@ export function MatchingEditor({
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <label className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
+        <SectionLabel as="label">
           Вирази / твердження (ліва колонка)
-        </label>
+        </SectionLabel>
         {question.leftItems.map((item) => (
           <div key={item.id} className="flex items-start gap-2">
             <span className="text-xs font-semibold w-5 text-center shrink-0 text-muted-foreground mt-2.5">
               {item.id}.
             </span>
             <div className="flex-1 space-y-1">
-              <textarea
+              <Textarea
+                mono
                 value={item.text}
                 onChange={(e) => updateLeft(item.id, e.target.value)}
                 placeholder={`Вираз ${item.id}... Використовуйте $...$ для math`}
                 rows={1}
-                className="w-full px-3 py-2 rounded-xl border border-border/50 bg-background focus:outline-none focus:border-primary text-sm transition-colors resize-none font-mono"
+                className={rowTextareaClass}
               />
               {item.text && item.text.includes("$") && (
                 <div className="px-3 py-1.5 rounded-lg border border-border/30 bg-muted/30 text-sm">
@@ -353,12 +362,14 @@ export function MatchingEditor({
                 </div>
               )}
             </div>
-            <button
+            <IconButton
+              label="Видалити рядок"
+              tone="danger"
+              className="text-xs mt-1"
               onClick={() => removeLeft(item.id)}
-              className="text-muted-foreground hover:text-destructive transition-colors text-xs px-1 mt-2.5"
             >
               ✕
-            </button>
+            </IconButton>
           </div>
         ))}
         <Button
@@ -372,21 +383,22 @@ export function MatchingEditor({
       </div>
 
       <div className="space-y-2">
-        <label className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
+        <SectionLabel as="label">
           Варіанти відповіді (права колонка)
-        </label>
+        </SectionLabel>
         {question.rightOptions.map((opt) => (
           <div key={opt.id} className="flex items-start gap-2">
             <span className="text-xs font-semibold w-5 text-center shrink-0 text-primary mt-2.5">
               {opt.id}.
             </span>
             <div className="flex-1 space-y-1">
-              <textarea
+              <Textarea
+                mono
                 value={opt.text}
                 onChange={(e) => updateRight(opt.id, e.target.value)}
                 placeholder={`Варіант ${opt.id}... Використовуйте $...$ для math`}
                 rows={1}
-                className="w-full px-3 py-2 rounded-xl border border-border/50 bg-background focus:outline-none focus:border-primary text-sm transition-colors resize-none font-mono"
+                className={rowTextareaClass}
               />
               {opt.text && opt.text.includes("$") && (
                 <div className="px-3 py-1.5 rounded-lg border border-border/30 bg-muted/30 text-sm">
@@ -399,9 +411,9 @@ export function MatchingEditor({
       </div>
 
       <div className="space-y-2">
-        <label className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
+        <SectionLabel as="label">
           Правильні пари
-        </label>
+        </SectionLabel>
         <div className="rounded-xl border border-border/50 overflow-hidden">
           {question.leftItems.map((item, i) => (
             <div

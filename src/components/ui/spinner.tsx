@@ -26,3 +26,12 @@ export function SpinnerPage({ size = "md" }: { size?: keyof typeof sizes }) {
     </div>
   );
 }
+
+/** Full-viewport loader (auth gates, route-level loading). */
+export function SpinnerScreen() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <Spinner size="lg" />
+    </div>
+  );
+}

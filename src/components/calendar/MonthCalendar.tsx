@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Lesson } from "@/lib/lessons";
+import { IconButton } from "@/components/ui/icon-button";
 
 const WEEKDAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Нд"];
 const MONTHS = [
@@ -29,10 +30,13 @@ function sameDay(a: Date, b: Date) {
   );
 }
 
-function timeLabel(ts: Lesson["start"]) {
-  return ts
-    .toDate()
-    .toLocaleTimeString("uk", { hour: "2-digit", minute: "2-digit" });
+function dayKey(d: Date) {
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
+/** "16:00" — lesson start time. */
+export function formatLessonTime(ts: Lesson["start"]) {
+  return ts.toDate().toLocaleTimeString("uk", { hour: "2-digit", minute: "2-digit" });
 }
 
 interface MonthCalendarProps {
@@ -63,29 +67,31 @@ export function MonthCalendar({
   for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(year, month, d));
   while (cells.length % 7 !== 0) cells.push(null);
 
-  function lessonsOn(date: Date) {
-    return lessons.filter((l) => sameDay(l.start.toDate(), date));
-  }
+  // Group once per lessons change instead of filtering all lessons for every cell.
+  const byDay = useMemo(() => {
+    const map = new Map<string, Lesson[]>();
+    for (const l of lessons) {
+      const key = dayKey(l.start.toDate());
+      const list = map.get(key);
+      if (list) list.push(l);
+      else map.set(key, [l]);
+    }
+    return map;
+  }, [lessons]);
 
   return (
     <div className="rounded-2xl border border-border/50 bg-card p-4 space-y-3">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <button
-          onClick={() => setView(new Date(year, month - 1, 1))}
-          className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
-        >
+        <IconButton size="md" label="Попередній місяць" onClick={() => setView(new Date(year, month - 1, 1))}>
           <ChevronLeft size={18} />
-        </button>
+        </IconButton>
         <p className="text-sm font-semibold">
           {MONTHS[month]} {year}
         </p>
-        <button
-          onClick={() => setView(new Date(year, month + 1, 1))}
-          className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
-        >
+        <IconButton size="md" label="Наступний місяць" onClick={() => setView(new Date(year, month + 1, 1))}>
           <ChevronRight size={18} />
-        </button>
+        </IconButton>
       </div>
 
       {/* Weekday row */}
@@ -104,7 +110,7 @@ export function MonthCalendar({
       <div className="grid grid-cols-7 gap-1">
         {cells.map((date, i) => {
           if (!date) return <div key={i} className="aspect-square" />;
-          const dayLessons = lessonsOn(date);
+          const dayLessons = byDay.get(dayKey(date)) ?? [];
           const isToday = sameDay(date, today);
           return (
             <button
@@ -141,9 +147,9 @@ export function MonthCalendar({
                       onSelectLesson &&
                         "cursor-pointer hover:bg-primary/30 transition-colors",
                     )}
-                    title={`${timeLabel(l.start)} ${l.title}`}
+                    title={`${formatLessonTime(l.start)} ${l.title}`}
                   >
-                    {timeLabel(l.start)} {l.title}
+                    {formatLessonTime(l.start)} {l.title}
                   </span>
                 ))}
                 {dayLessons.length > 2 && (

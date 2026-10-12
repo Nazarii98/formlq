@@ -1,5 +1,6 @@
 "use client";
 
+import { queryKeys, STALE } from "@/lib/queryKeys";
 import { useAuth } from "@/context/AuthContext";
 import { getUserResults } from "@/lib/tests";
 import { SpinnerPage } from "@/components/ui/spinner";
@@ -11,10 +12,10 @@ export default function HistoryPage() {
   const { user } = useAuth();
 
   const { data: results = [], isLoading } = useQuery({
-    queryKey: ["results", user?.uid],
+    queryKey: queryKeys.results(user?.uid),
     queryFn: () => getUserResults(user!.uid),
     enabled: !!user,
-    staleTime: 60 * 1000,
+    staleTime: STALE.short,
   });
 
   return (

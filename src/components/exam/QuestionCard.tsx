@@ -5,6 +5,7 @@ import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { QuestionResult } from "@/lib/tests";
 import { MathText } from "@/components/MathText";
+import { pluralize, PLURAL } from "@/lib/format";
 
 interface QuestionCardProps {
   q: QuestionResult;
@@ -86,7 +87,7 @@ export function QuestionCard({
           <p className="text-xs text-muted-foreground mb-1.5">
             Завдання {index + 1}
             <span className="mx-1.5 opacity-40">·</span>
-            {q.points} {q.points === 1 ? "бал" : "бали"}
+            {pluralize(q.points, PLURAL.point)}
           </p>
           <MathText text={q.text || "—"} className="text-sm leading-relaxed" />
           {q.imageUrl && (
@@ -104,6 +105,7 @@ export function QuestionCard({
         <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
           {onToggleFlag ? (
             <button
+              type="button"
               onClick={onToggleFlag}
               title={flagged ? "Прибрати позначку" : "Позначити для обговорення з учителем"}
               className={cn(

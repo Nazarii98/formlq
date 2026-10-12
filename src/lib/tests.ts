@@ -12,6 +12,7 @@ import {
   writeBatch,
   Timestamp,
 } from "firebase/firestore";
+import { docsOf } from "@/lib/firestore-helpers";
 import { db } from "@/lib/firebase";
 
 export interface QuestionOption {
@@ -266,13 +267,17 @@ export async function updateResult(
 export async function getUserResults(userId: string): Promise<TestResult[]> {
   const q = query(collection(db, "testResults"), where("userId", "==", userId));
   const snap = await getDocs(q);
-  return snap.docs
-    .map((d) => ({ id: d.id, ...d.data() }) as TestResult)
+  return docsOf<TestResult>(snap)
     .sort((a, b) => {
       const ta = a.completedAt?.toMillis() ?? 0;
       const tb = b.completedAt?.toMillis() ?? 0;
       return tb - ta;
     });
+}
+
+/** Open-answer comparison key: trimmed, "." and "," treated as the same decimal separator. */
+export function normalizeOpenAnswer(s: string): string {
+  return s.trim().replace(/\./g, ",");
 }
 
 export function calcRawScore(
@@ -283,7 +288,10 @@ export function calcRawScore(
     const answer = answers[q.id];
     if (!answer) return sum;
     if (q.type === "mcq" && answer === q.correctOptionId) return sum + q.points;
-    if (q.type === "open" && answer.trim() === q.correctAnswer.trim())
+    if (
+      q.type === "open" &&
+      normalizeOpenAnswer(answer) === normalizeOpenAnswer(q.correctAnswer)
+    )
       return sum + q.points;
     if (q.type === "matching") {
       try {
@@ -334,16 +342,17 @@ export function isExamFailed(
 }
 
 export async function getPublishedTests(): Promise<TestDoc[]> {
-  const snap = await getDocs(collection(db, "tests"));
-  return snap.docs
-    .map((d) => ({ id: d.id, ...d.data() }) as TestDoc)
-    .filter((t) => t.published)
+  // Server-side filter: drafts (with their full question arrays) are never downloaded.
+  const snap = await getDocs(
+    query(collection(db, "tests"), where("published", "==", true)),
+  );
+  return docsOf<TestDoc>(snap)
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 }
 
 export async function getAllTests(): Promise<TestDoc[]> {
   const snap = await getDocs(collection(db, "tests"));
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as TestDoc);
+  return docsOf<TestDoc>(snap);
 }
 
 export async function getTest(id: string): Promise<TestDoc | null> {
@@ -391,8 +400,7 @@ export async function deleteTest(id: string): Promise<void> {
 
 export async function getTestFolders(): Promise<TestFolder[]> {
   const snap = await getDocs(collection(db, "testFolders"));
-  return snap.docs
-    .map((d) => ({ id: d.id, ...d.data() }) as TestFolder)
+  return docsOf<TestFolder>(snap)
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 }
 

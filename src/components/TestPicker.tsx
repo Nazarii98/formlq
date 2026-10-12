@@ -8,12 +8,11 @@ import {
   Folder,
   FolderOpen,
   Inbox,
-  Search,
-  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { TestDoc, TestFolder } from "@/lib/tests";
 import { Highlight } from "@/components/ui/highlight";
+import { SearchInput } from "@/components/ui/search-input";
 
 const UNFILED = "__unfiled__";
 
@@ -189,34 +188,18 @@ export function TestPicker({
           onKeyDown={onKeyDown}
           className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 rounded-xl border border-border/50 bg-popover shadow-xl animate-in fade-in-0 zoom-in-95 duration-100 overflow-hidden"
         >
-          <div className="relative border-b border-border/50">
-            <Search
-              size={14}
-              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
-            />
-            <input
-              ref={inputRef}
-              value={query}
-              onChange={(e) => {
-                setQuery(e.target.value);
-                setActiveId(null);
-              }}
-              placeholder="Пошук тесту або папки"
-              className="w-full h-10 bg-transparent pl-9 pr-9 text-sm outline-none placeholder:text-muted-foreground/70"
-            />
-            {query && (
-              <button
-                type="button"
-                onClick={() => {
-                  setQuery("");
-                  inputRef.current?.focus();
-                }}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted"
-              >
-                <X size={12} />
-              </button>
-            )}
-          </div>
+          <SearchInput
+            ref={inputRef}
+            value={query}
+            onChange={(v) => {
+              setQuery(v);
+              setActiveId(null);
+            }}
+            placeholder="Пошук тесту або папки"
+            wrapperClassName="border-b border-border/50"
+            // Borderless variant: the popover itself is the frame.
+            className="h-10 rounded-none border-0 bg-transparent pr-9"
+          />
 
           <div ref={listRef} className="max-h-80 overflow-y-auto overscroll-contain p-1">
             {visibleGroups.length === 0 ? (

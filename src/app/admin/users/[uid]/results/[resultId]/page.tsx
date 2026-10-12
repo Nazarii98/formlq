@@ -7,13 +7,13 @@ import { ScoreHeader } from "@/components/exam/ScoreHeader";
 import { QuestionMap } from "@/components/exam/QuestionMap";
 import { QuestionCard } from "@/components/exam/QuestionCard";
 import { SpinnerPage } from "@/components/ui/spinner";
-import { useHeader } from "@/context/HeaderContext";
+import { usePageHeader } from "@/context/HeaderContext";
+import { EmptyState } from "@/components/ui/empty-state";
 import { ArrowLeft } from "lucide-react";
 
 export default function AdminResultPage() {
   const { uid, resultId } = useParams<{ uid: string; resultId: string }>();
   const router = useRouter();
-  const { setHeader } = useHeader();
   const [result, setResult] = useState<TestResult | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -24,19 +24,14 @@ export default function AdminResultPage() {
     });
   }, [resultId]);
 
-  useEffect(() => {
-    if (result) setHeader(result.testTitle || "Результат", "Перегляд адміном");
-    return () => setHeader("", "");
-  }, [result, setHeader]);
+  usePageHeader(
+    result ? result.testTitle || "Результат" : "",
+    result ? "Перегляд адміном" : "",
+  );
 
   if (loading) return <SpinnerPage />;
 
-  if (!result)
-    return (
-      <p className="text-center text-muted-foreground py-16">
-        Результат не знайдено
-      </p>
-    );
+  if (!result) return <EmptyState emoji="🔍" title="Результат не знайдено" />;
 
   const questions = result.questions ?? [];
 

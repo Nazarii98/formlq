@@ -59,16 +59,6 @@ export function scoreColor(score: number): { text: string; bg: string } {
   return { text: "text-red-500 dark:text-red-400", bg: "bg-red-500/10" };
 }
 
-/** NMT score → result emoji */
-export function nmtEmoji(score: number): string {
-  if (score >= 190) return "🏆";
-  if (score >= 175) return "🎉";
-  if (score >= 160) return "✨";
-  if (score >= 140) return "👍";
-  if (score >= 120) return "📚";
-  return "📖";
-}
-
 /** Percent of max (0–100) → color classes. Used for custom (non-NMT) scales. */
 export function scoreColorPct(pct: number): { text: string; bg: string } {
   if (pct >= 80)
@@ -84,16 +74,6 @@ export function scoreColorPct(pct: number): { text: string; bg: string } {
       bg: "bg-amber-500/10",
     };
   return { text: "text-red-500 dark:text-red-400", bg: "bg-red-500/10" };
-}
-
-/** Percent of max (0–100) → result emoji. Used for custom (non-NMT) scales. */
-export function emojiPct(pct: number): string {
-  if (pct >= 90) return "🏆";
-  if (pct >= 75) return "🎉";
-  if (pct >= 60) return "✨";
-  if (pct >= 40) return "👍";
-  if (pct >= 20) return "📚";
-  return "📖";
 }
 
 /** Relative time string: "5 хв тому", "щойно", etc. */
@@ -112,3 +92,28 @@ export function timeAgo(
   if (diff < 2592000) return `${Math.floor(diff / 86400)} дн тому`;
   return d.toLocaleDateString("uk");
 }
+
+/**
+ * Ukrainian plural form: plural(n, ["тест", "тести", "тестів"]).
+ * forms = [one (1, 21…), few (2–4, 22–24…), many (0, 5–20, 25…)].
+ */
+export function plural(n: number, forms: [string, string, string]): string {
+  const mod10 = Math.abs(n) % 10;
+  const mod100 = Math.abs(n) % 100;
+  if (mod10 === 1 && mod100 !== 11) return forms[0];
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return forms[1];
+  return forms[2];
+}
+
+/** "5 тестів" — number followed by the matching plural form. */
+export function pluralize(n: number, forms: [string, string, string]): string {
+  return `${n} ${plural(n, forms)}`;
+}
+
+export const PLURAL = {
+  test: ["тест", "тести", "тестів"],
+  question: ["питання", "питання", "питань"],
+  task: ["завдання", "завдання", "завдань"],
+  point: ["бал", "бали", "балів"],
+  student: ["учень", "учні", "учнів"],
+} as const satisfies Record<string, [string, string, string]>;
