@@ -14,7 +14,7 @@ import { MobileNav } from "@/components/MobileNav";
 import { ThemeSelector } from "@/components/ThemeSelector";
 import { IconButton } from "@/components/ui/icon-button";
 import { SpinnerScreen } from "@/components/ui/spinner";
-import { cn } from "@/lib/utils";
+import { cn, withNext } from "@/lib/utils";
 import type { UserProfile } from "@/types";
 
 const ReferenceDrawer = dynamic(
@@ -62,9 +62,11 @@ export function AppShell({
 
   useEffect(() => {
     if (loading || allowed) return;
-    if (redirectMode === "push") router.push(redirectTo);
-    else router.replace(redirectTo);
-  }, [allowed, loading, router, redirectTo, redirectMode]);
+    // Signed-out visitors come back to this page after logging in (e.g. from a test QR code).
+    const target = !user && redirectTo === "/login" ? withNext("/login", pathname) : redirectTo;
+    if (redirectMode === "push") router.push(target);
+    else router.replace(target);
+  }, [allowed, loading, router, redirectTo, redirectMode, user, pathname]);
 
   useEffect(() => {
     const handler = () => setScrolled(window.scrollY > 4);

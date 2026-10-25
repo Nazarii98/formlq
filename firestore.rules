@@ -48,9 +48,14 @@ service cloud.firestore {
       allow write: if (isOwner(uid) || isEditor()) && protectedRoleOk();
     }
 
-    // Tests — read by any auth user, write by editors only
+    // Tests — read by any auth user, write by editors only.
+    // A single published test with publicAccess may be fetched without an account (QR / public link);
+    // listing still requires sign-in.
     match /tests/{testId} {
-      allow read: if isAuth();
+      allow get: if isAuth() || (
+        resource.data.published == true && resource.data.get("publicAccess", false) == true
+      );
+      allow list: if isAuth();
       allow write: if isEditor();
     }
 
@@ -59,7 +64,7 @@ service cloud.firestore {
       allow read: if isAuth();
       allow write: if isEditor();
     }
-
+    
     // Test results
     match /testResults/{resultId} {
       allow read: if isAuth() && (
@@ -103,8 +108,8 @@ service cloud.firestore {
         || resource.data.studentId == request.auth.uid
         || isEditor()
       );
-      // Only an editor may assign a tutor to a student (create/remove links).
-      allow create, delete: if isEditor();
+      allow create: if isEditor() || (isTutor() && request.resource.data.tutorId == request.auth.uid);
+      allow delete: if isAuth() && (resource.data.tutorId == request.auth.uid || isEditor());
     }
 
     // Lessons (calendar)

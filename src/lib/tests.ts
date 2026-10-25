@@ -186,6 +186,17 @@ export interface TestDoc {
   durationMinutes?: number;
   order?: number;
   folderId?: string | null; // testFolders doc id; absent/null = not in a folder
+  publicAccess?: boolean; // published + publicAccess → anyone with the link can take it, no account
+}
+
+/** Where a signed-in student takes a test (result is saved to their history). */
+export function studentTestPath(id: string): string {
+  return `/dashboard/exam/${id}`;
+}
+
+/** Account-free attempt; works only when the test is published with publicAccess. */
+export function publicTestPath(id: string): string {
+  return `/t/${id}`;
 }
 
 export interface TestFolder {

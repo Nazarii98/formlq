@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { QrCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SpinnerScreen } from "@/components/ui/spinner";
@@ -23,6 +24,7 @@ import { ScoreTableEditor } from "@/components/admin/test-editor/ScoreTableEdito
 import { BankImportModal } from "@/components/admin/test-editor/BankImportModal";
 import { BankExportModal } from "@/components/admin/test-editor/BankExportModal";
 import { FileImportModal } from "@/components/admin/test-editor/FileImportModal";
+import { TestShareModal } from "@/components/admin/test-editor/TestShareModal";
 import { SegmentedControl } from "@/components/admin/test-editor/primitives";
 
 type Tab = "questions" | "scoring";
@@ -37,6 +39,7 @@ export default function TestEditorPage() {
   const [showBank, setShowBank] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [showFileImport, setShowFileImport] = useState(false);
+  const [showShare, setShowShare] = useState(false);
 
   if (draft.loading) return <SpinnerScreen />;
 
@@ -85,18 +88,27 @@ export default function TestEditorPage() {
               {draft.published ? "✓ Опубліковано" : "Чернетка"}
             </Badge>
           </div>
-          <Button
-            size="sm"
-            onClick={draft.save}
-            disabled={draft.saving || !draft.isDirty}
-            className="min-w-[100px]"
-          >
-            {draft.saving
-              ? "Збереження..."
-              : draft.saved && !draft.isDirty
-                ? "✓ Збережено"
-                : "Зберегти"}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowShare(true)}
+            >
+              <QrCode /> Поділитися
+            </Button>
+            <Button
+              size="sm"
+              onClick={draft.save}
+              disabled={draft.saving || !draft.isDirty}
+              className="min-w-[100px]"
+            >
+              {draft.saving
+                ? "Збереження..."
+                : draft.saved && !draft.isDirty
+                  ? "✓ Збережено"
+                  : "Зберегти"}
+            </Button>
+          </div>
         </div>
 
         <TestMetaCard
@@ -177,6 +189,19 @@ export default function TestEditorPage() {
         contextId={id}
         startOrder={questions.length}
         onImport={importFromFile}
+      />
+      <TestShareModal
+        open={showShare}
+        onClose={() => setShowShare(false)}
+        testId={id}
+        title={draft.title}
+        published={draft.published}
+        onPublish={() => draft.setPublished(true)}
+        publicAccess={draft.publicAccess}
+        onPublicAccessChange={draft.setPublicAccess}
+        isDirty={draft.isDirty}
+        saving={draft.saving}
+        onSave={draft.save}
       />
       <BankExportModal
         open={showExport}

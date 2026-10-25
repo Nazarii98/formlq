@@ -18,7 +18,8 @@ interface ExamIntroProps {
   introNote?: string;
   introEmoji: string;
   startLabel: string;
-  backHref: string;
+  /** null hides the "Назад" button (public attempts have nowhere to go back to). */
+  backHref: string | null;
   history: TestResult[];
   onStart: () => void;
 }
@@ -113,11 +114,13 @@ export function ExamIntro({
           <Button size="lg" className="w-full h-12 text-base" onClick={onStart}>
             {startLabel}
           </Button>
-          <Link href={backHref}>
-            <Button variant="ghost" className="w-full text-muted-foreground">
-              Назад
-            </Button>
-          </Link>
+          {backHref && (
+            <Link href={backHref}>
+              <Button variant="ghost" className="w-full text-muted-foreground">
+                Назад
+              </Button>
+            </Link>
+          )}
         </div>
 
         {history.length > 0 && (

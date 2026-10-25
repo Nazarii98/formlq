@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { Check, ChevronRight, Copy } from "lucide-react";
-import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
+import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { cn } from "@/lib/utils";
 
 const EXAMPLE = `### 1 | Вибір відповіді | 1
@@ -136,28 +136,13 @@ const FOLDER_TREE = `Варіант 1/
    ├─ q1.png
    └─ q2-solution.png`;
 
-/** Clipboard copy with a short-lived "copied" flag for the button label. */
-function useCopy() {
-  const [copied, setCopied] = useState(false);
-  async function copy(text: string) {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      toast.error("Не вдалося скопіювати");
-    }
-  }
-  return { copied, copy };
-}
-
 /** How to prepare an import file: AI-first steps, field reference, full example. */
 export function FileImportGuide({
   onGoToImport,
 }: {
   onGoToImport: () => void;
 }) {
-  const prompt = useCopy();
+  const prompt = useCopyToClipboard();
 
   return (
     <div className="space-y-8">
@@ -305,7 +290,7 @@ function Disclosure({
 }
 
 function Pre({ text, copyable }: { text: string; copyable?: boolean }) {
-  const { copied, copy } = useCopy();
+  const { copied, copy } = useCopyToClipboard();
   return (
     <div className="relative">
       {copyable && (

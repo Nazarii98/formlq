@@ -1,13 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { AuthCard } from "@/components/auth/AuthCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { cn } from "@/lib/utils";
+import { cn, safeNextPath, withNext } from "@/lib/utils";
 
 export default function RegisterPage() {
   const [name, setName] = useState("");
@@ -17,6 +17,9 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const { signUp, signInWithGoogle } = useAuth();
   const router = useRouter();
+  // Set when sent here from a protected page (e.g. a test QR code); return there after sign-in.
+  const nextParam = useSearchParams().get("next");
+  const next = safeNextPath(nextParam);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -28,7 +31,7 @@ export default function RegisterPage() {
     setLoading(true);
     try {
       await signUp(email, password, name);
-      router.push("/dashboard");
+      router.push(next);
     } catch {
       setError("Не вдалось зареєструватись. Перевірте дані.");
     } finally {
@@ -41,7 +44,7 @@ export default function RegisterPage() {
     setLoading(true);
     try {
       await signInWithGoogle();
-      router.push("/dashboard");
+      router.push(next);
     } catch {
       setError("Google sign-in error");
     } finally {
@@ -53,7 +56,7 @@ export default function RegisterPage() {
     <AuthCard
       title="Створити акаунт"
       footerText="Вже є акаунт?"
-      footerLinkHref="/login"
+      footerLinkHref={withNext("/login", nextParam ? next : null)}
       footerLinkLabel="Увійти"
     >
       <button

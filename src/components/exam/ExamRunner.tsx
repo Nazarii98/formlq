@@ -72,7 +72,8 @@ interface InitialResult {
 interface ExamRunnerProps {
   config: RunnerConfig;
   history?: TestResult[];
-  backHref?: string;
+  /** null hides the intro "Назад" button. */
+  backHref?: string | null;
   introNote?: string;
   /** Show photo-upload on open-answer questions (homework). */
   allowAnswerImages?: boolean;
@@ -250,7 +251,7 @@ export function ExamRunner({
     pendingProgressRef.current = null;
     onProgress?.(answers, answerImages);
     setGuarded(false);
-    router.push(backHref);
+    if (backHref) router.push(backHref);
   }
 
   const setAnswer = useCallback((questionId: string, answer: string) => {
