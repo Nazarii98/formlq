@@ -23,10 +23,7 @@ import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { useReferenceDrawer } from "@/context/ReferenceDrawerContext";
 import { useExamGuard } from "@/context/ExamGuardContext";
-import {
-  buildQuestionResults,
-  countUnanswered,
-} from "@/lib/exam-scoring";
+import { buildQuestionResults, countUnanswered } from "@/lib/exam-scoring";
 import {
   TestQuestion,
   ScoreRow,
@@ -156,7 +153,10 @@ export function ExamRunner({
     );
 
   const questions = useMemo(() => config.questions ?? [], [config.questions]);
-  const scoreTable = useMemo(() => config.scoreTable ?? [], [config.scoreTable]);
+  const scoreTable = useMemo(
+    () => config.scoreTable ?? [],
+    [config.scoreTable],
+  );
   const maxRaw = maxRawScore(questions);
   const examDuration = (config.durationMinutes ?? 150) * 60;
   const isNmt = (config.scaleType ?? "nmt") === "nmt";
@@ -187,6 +187,8 @@ export function ExamRunner({
   const startTimeRef = useRef<number>(0);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  /** Results: the big score header is out of view → show it in the sticky footer. */
+  const [scoreScrolledAway, setScoreScrolledAway] = useState(false);
   /** Last submit failed (network etc.) — answers are kept, offer a retry. */
   const [submitFailed, setSubmitFailed] = useState(false);
   const submittingRef = useRef(false);
@@ -223,6 +225,14 @@ export function ExamRunner({
     return () => window.removeEventListener("beforeunload", handler);
   }, [phase]);
 
+  useEffect(() => {
+    if (phase !== "results") return;
+    const onScroll = () => setScoreScrolledAway(window.scrollY > 280);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [phase]);
+
   // Elapsed time is recorded for every attempt (the countdown lives in ExamTimer).
   useEffect(() => {
     if (phase === "exam") startTimeRef.current = Date.now();
@@ -246,7 +256,8 @@ export function ExamRunner({
     return () => {
       const pending = pendingProgressRef.current;
       pendingProgressRef.current = null;
-      if (pending) onProgressRef.current?.(pending.answers, pending.answerImages);
+      if (pending)
+        onProgressRef.current?.(pending.answers, pending.answerImages);
     };
   }, []);
 
@@ -282,8 +293,7 @@ export function ExamRunner({
     });
   }
 
-  const unanswered =
-    phase === "exam" ? countUnanswered(questions, answers) : 0;
+  const unanswered = phase === "exam" ? countUnanswered(questions, answers) : 0;
 
   // Finishing is irreversible, so it always asks — even with every question answered.
   function handleSubmitClick() {
@@ -409,8 +419,20 @@ export function ExamRunner({
             : ["#64748b", "#94a3b8", "#cbd5e1", "#ffffff"];
       const frame = () => {
         if (cancelled) return;
-        confetti({ particleCount: 3, angle: 60, spread: 55, origin: { x: 0 }, colors });
-        confetti({ particleCount: 3, angle: 120, spread: 55, origin: { x: 1 }, colors });
+        confetti({
+          particleCount: 3,
+          angle: 60,
+          spread: 55,
+          origin: { x: 0 },
+          colors,
+        });
+        confetti({
+          particleCount: 3,
+          angle: 120,
+          spread: 55,
+          origin: { x: 1 },
+          colors,
+        });
         if (Date.now() < end) raf = requestAnimationFrame(frame);
       };
       frame();
@@ -444,10 +466,11 @@ export function ExamRunner({
 
   // ── RESULTS ────────────────────────────────────────────────────
   if (phase === "results") {
+    const maxScaled = isNmt ? 200 : maxScaledScore(scoreTable);
     if (!resultData) return null;
     return (
       <div className="min-h-screen bg-background">
-        <main className="max-w-2xl mx-auto px-4 py-8 space-y-6">
+        <main className="max-w-2xl mx-auto px-4 pt-8 pb-28 space-y-6">
           {headerSlot}
           <ResultsView
             result={resultData}
@@ -457,22 +480,48 @@ export function ExamRunner({
             tutorNote={tutorNote}
             tutorComments={tutorComments}
           />
-
-          <div className="flex gap-3 pb-4">
-            {allowRestart && (
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={handleRestart}
-              >
-                Ще раз
-              </Button>
-            )}
-            <Link href={resultsHref} className="flex-1">
-              <Button className="w-full">{resultsLabel}</Button>
-            </Link>
-          </div>
         </main>
+
+        {/* Bottom toolbar: spans the window (past the sidebar), content stays in the
+            reading column. The score slot is always reserved and only fades, so the
+            buttons never shift when it appears. */}
+        <div className="fixed bottom-0 right-0 left-[var(--app-sidebar-w,0px)] z-40 border-t border-border/50 bg-background/80 backdrop-blur-xl">
+          <div className="max-w-2xl mx-auto px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex items-center gap-3">
+            <div
+              aria-hidden={!scoreScrolledAway}
+              className={cn(
+                "w-20 shrink-0 tabular-nums leading-tight",
+                "motion-safe:transition-[opacity,transform] motion-safe:duration-200",
+                scoreScrolledAway
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 translate-y-1 pointer-events-none",
+              )}
+            >
+              <span className="text-lg font-bold">{resultData.nmtScore}</span>
+              <span className="text-sm text-muted-foreground">
+                {" "}
+                / {maxScaled}
+              </span>
+            </div>
+            <div className="flex flex-1 justify-end gap-3">
+              {allowRestart && (
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="flex-1 sm:flex-none sm:min-w-36"
+                  onClick={handleRestart}
+                >
+                  Ще раз
+                </Button>
+              )}
+              <Link href={resultsHref} className="flex-1 sm:flex-none">
+                <Button size="lg" className="w-full sm:min-w-48">
+                  {resultsLabel}
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -539,8 +588,8 @@ export function ExamRunner({
           >
             <AlertTriangle size={16} className="shrink-0" />
             <span className="flex-1">
-              Відповіді не надіслано — вони збережені на цій сторінці. Не закривайте
-              її і спробуйте ще раз.
+              Відповіді не надіслано — вони збережені на цій сторінці. Не
+              закривайте її і спробуйте ще раз.
             </span>
             <Button
               size="sm"
