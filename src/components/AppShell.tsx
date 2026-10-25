@@ -90,8 +90,8 @@ export function AppShell({
   return (
     <ReferenceDrawerProvider>
       <div
-        className="min-h-screen bg-background flex flex-col"
-        // Height of the sticky header below; sticky content (exam bar) offsets by it.
+        className="min-h-screen bg-background flex flex-col md:[--app-sidebar-w:4.5rem]"
+        // Header height / sidebar width, so sticky & fixed bars (exam) can offset by them.
         style={{ "--app-header-h": "4rem" } as React.CSSProperties}
       >
         <header
