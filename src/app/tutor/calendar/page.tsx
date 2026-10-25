@@ -21,6 +21,8 @@ import { Dialog } from "@/components/ui/dialog";
 import { IconButton } from "@/components/ui/icon-button";
 import { TextInput } from "@/components/ui/text-field";
 import { Plus, Trash2, X } from "lucide-react";
+import toast from "react-hot-toast";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 interface Draft {
   id?: string;
@@ -52,6 +54,8 @@ export default function TutorCalendarPage() {
   const { user } = useAuth();
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [draft, setDraft] = useState<Draft | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   usePageHeader("Календар занять", "Розклад уроків з учнями");
 
@@ -122,14 +126,31 @@ export default function TutorCalendarPage() {
       note: draft.note.trim() || undefined,
       meetingUrl: draft.meetingUrl.trim() || undefined,
     };
-    if (draft.id) await updateLesson(draft.id, payload);
-    else await createLesson(payload);
-    setDraft(null);
+    setBusy(true);
+    try {
+      if (draft.id) await updateLesson(draft.id, payload);
+      else await createLesson(payload);
+      setDraft(null);
+    } catch {
+      // Keep the form open with what was typed.
+      toast.error("Не вдалося зберегти урок. Спробуйте ще раз");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function remove() {
-    if (draft?.id) await deleteLesson(draft.id);
-    setDraft(null);
+    setConfirmDelete(false);
+    if (!draft?.id) return;
+    setBusy(true);
+    try {
+      await deleteLesson(draft.id);
+      setDraft(null);
+    } catch {
+      toast.error("Не вдалося видалити урок. Спробуйте ще раз");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -158,7 +179,15 @@ export default function TutorCalendarPage() {
       />
 
       {/* Lesson editor */}
-      <Dialog open={!!draft} onClose={() => setDraft(null)} size="sm" closeOnEscape={false} className="p-5 space-y-3">
+      <Dialog
+        open={!!draft}
+        onClose={() => setDraft(null)}
+        size="sm"
+        // A stray click/Escape must not discard a half-filled lesson.
+        closeOnEscape={false}
+        closeOnBackdrop={false}
+        className="p-5 space-y-3"
+      >
         {draft && (
           <>
             <div className="flex items-center justify-between">
@@ -241,7 +270,8 @@ export default function TutorCalendarPage() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={remove}
+                  onClick={() => setConfirmDelete(true)}
+                  disabled={busy}
                   className="text-red-500 gap-1.5"
                 >
                   <Trash2 size={14} /> Видалити
@@ -257,14 +287,22 @@ export default function TutorCalendarPage() {
                 >
                   Скасувати
                 </Button>
-                <Button size="sm" onClick={save} disabled={!draft.studentId || !!conflict}>
-                  Зберегти
+                <Button size="sm" onClick={save} disabled={busy || !draft.studentId || !!conflict}>
+                  {busy ? "Збереження…" : "Зберегти"}
                 </Button>
               </div>
             </div>
           </>
         )}
       </Dialog>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        title="Видалити урок?"
+        description="Урок зникне з календаря у вас і в учня."
+        onConfirm={remove}
+        onCancel={() => setConfirmDelete(false)}
+      />
     </div>
   );
 }

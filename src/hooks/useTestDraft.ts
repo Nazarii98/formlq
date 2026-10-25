@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
+import toast from "react-hot-toast";
+import { useExamGuard } from "@/context/ExamGuardContext";
 import { queryKeys } from "@/lib/queryKeys";
 import {
   getTest,
@@ -100,6 +102,7 @@ export function useTestDraft(id: string) {
   const isDirty = snapshot !== savedSnapshot;
 
   async function save() {
+    if (saving || !isDirty) return;
     setSaving(true);
     try {
       await updateTest(id, draft);
@@ -109,10 +112,48 @@ export function useTestDraft(id: string) {
       setSaved(true);
       clearTimeout(savedTimer.current);
       savedTimer.current = setTimeout(() => setSaved(false), 2000);
+    } catch {
+      // Draft stays dirty, so nothing is lost; the user can retry.
+      toast.error(
+        "Не вдалося зберегти тест. Перевірте з'єднання й спробуйте ще раз",
+      );
     } finally {
       setSaving(false);
     }
   }
+
+  // Unsaved edits: warn on tab close/reload, and on in-app navigation (sidebar, logout).
+  const { setGuarded } = useExamGuard();
+  useEffect(() => {
+    if (loading || !isDirty) return;
+    setGuarded(true, {
+      title: "Вийти без збереження?",
+      message: "Незбережені зміни в тесті буде втрачено.",
+      confirmLabel: "Вийти без збереження",
+    });
+    const onUnload = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener("beforeunload", onUnload);
+    return () => {
+      setGuarded(false);
+      window.removeEventListener("beforeunload", onUnload);
+    };
+  }, [loading, isDirty, setGuarded]);
+
+  // ⌘S / Ctrl+S saves instead of opening the browser's "Save page" dialog.
+  const saveRef = useRef(save);
+  useEffect(() => {
+    saveRef.current = save;
+  });
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        void saveRef.current();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   /** Appends an empty question of `type`; returns its id. */
   function addQuestion(type: QuestionType): string {
@@ -129,6 +170,15 @@ export function useTestDraft(id: string) {
 
   function appendQuestions(qs: TestQuestion[]) {
     setQuestions((prev) => [...prev, ...qs]);
+  }
+
+  /** Puts a question back at `index` (undo of deleteQuestion). */
+  function insertQuestion(q: TestQuestion, index: number) {
+    setQuestions((prev) => {
+      const next = [...prev];
+      next.splice(Math.min(index, next.length), 0, q);
+      return next.map((x, i) => ({ ...x, order: i }));
+    });
   }
 
   function deleteQuestion(qId: string) {
@@ -149,7 +199,9 @@ export function useTestDraft(id: string) {
 
   function updateQuestion(qId: string, patch: Partial<TestQuestion>) {
     setQuestions((prev) =>
-      prev.map((q) => (q.id === qId ? ({ ...q, ...patch } as TestQuestion) : q)),
+      prev.map((q) =>
+        q.id === qId ? ({ ...q, ...patch } as TestQuestion) : q,
+      ),
     );
   }
 
@@ -177,6 +229,7 @@ export function useTestDraft(id: string) {
     save,
     addQuestion,
     appendQuestions,
+    insertQuestion,
     deleteQuestion,
     moveQuestion,
     updateQuestion,

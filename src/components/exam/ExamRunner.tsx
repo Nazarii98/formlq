@@ -11,7 +11,8 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { BookOpen } from "lucide-react";
+import { AlertTriangle, BookOpen } from "lucide-react";
+import toast from "react-hot-toast";
 import { ResultsView } from "@/components/exam/ResultsView";
 import { ExamIntro } from "@/components/exam/ExamIntro";
 import { ExamTimer } from "@/components/exam/ExamTimer";
@@ -186,6 +187,8 @@ export function ExamRunner({
   const startTimeRef = useRef<number>(0);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  /** Last submit failed (network etc.) — answers are kept, offer a retry. */
+  const [submitFailed, setSubmitFailed] = useState(false);
   const submittingRef = useRef(false);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
 
@@ -264,6 +267,8 @@ export function ExamRunner({
     try {
       const url = await uploadImage(questionId, file);
       setAnswerImages((m) => ({ ...m, [questionId]: url }));
+    } catch {
+      toast.error("Не вдалося завантажити фото. Спробуйте ще раз");
     } finally {
       setUploadingId(null);
     }
@@ -280,12 +285,9 @@ export function ExamRunner({
   const unanswered =
     phase === "exam" ? countUnanswered(questions, answers) : 0;
 
+  // Finishing is irreversible, so it always asks — even with every question answered.
   function handleSubmitClick() {
-    if (unanswered > 0) {
-      setShowSubmitConfirm(true);
-      return;
-    }
-    void doSubmit();
+    setShowSubmitConfirm(true);
   }
 
   async function doSubmit() {
@@ -312,7 +314,11 @@ export function ExamRunner({
         questions: buildQuestionResults(questions, answers),
       });
       setResultId(id);
+      setSubmitFailed(false);
       setPhase("results");
+    } catch {
+      setSubmitFailed(true);
+      toast.error("Не вдалося надіслати відповіді. Перевірте з'єднання");
     } finally {
       submittingRef.current = false;
       setSubmitting(false);
@@ -479,7 +485,9 @@ export function ExamRunner({
   return (
     <div className="min-h-screen bg-background">
       <main className="max-w-3xl mx-auto px-4 py-5 space-y-4">
-        <div className="flex items-center justify-between gap-3">
+        {/* Sticky so the timer and "Завершити" stay in reach on long questions.
+            --app-header-h is set by AppShell; 0 on the header-less public page. */}
+        <div className="sticky top-[var(--app-header-h,0px)] z-40 -mx-4 px-4 py-2 flex items-center justify-between gap-3 bg-background/90 backdrop-blur-md">
           <span className="text-sm text-muted-foreground tabular-nums">
             {questions.length - unanswered} / {questions.length}
           </span>
@@ -523,6 +531,27 @@ export function ExamRunner({
             </Button>
           </div>
         </div>
+
+        {submitFailed && (
+          <div
+            role="alert"
+            className="flex items-center gap-3 rounded-xl border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive"
+          >
+            <AlertTriangle size={16} className="shrink-0" />
+            <span className="flex-1">
+              Відповіді не надіслано — вони збережені на цій сторінці. Не закривайте
+              її і спробуйте ще раз.
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => void doSubmit()}
+              disabled={submitting}
+            >
+              {submitting ? "Надсилаю…" : "Спробувати ще раз"}
+            </Button>
+          </div>
+        )}
 
         <QuestionNav
           questions={questions}
@@ -593,6 +622,7 @@ export function ExamRunner({
       <SubmitConfirmDialog
         open={showSubmitConfirm}
         unanswered={unanswered}
+        total={questions.length}
         onCancel={() => setShowSubmitConfirm(false)}
         onConfirm={() => void doSubmit()}
       />
