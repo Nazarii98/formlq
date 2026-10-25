@@ -1,3 +1,4 @@
+import { ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { IconButton } from "@/components/ui/icon-button";
 import { SectionLabel } from "@/components/ui/section-label";
@@ -43,10 +44,10 @@ export function TestQuestionEditor({
         </div>
         <div className="flex items-center gap-1">
           <IconButton label="Перемістити вгору" size="md" onClick={() => onMove(-1)}>
-            ↑
+            <ChevronUp size={16} />
           </IconButton>
           <IconButton label="Перемістити вниз" size="md" onClick={() => onMove(1)}>
-            ↓
+            <ChevronDown size={16} />
           </IconButton>
           <IconButton
             label="Видалити завдання"
@@ -55,7 +56,7 @@ export function TestQuestionEditor({
             className="text-destructive"
             onClick={onDelete}
           >
-            ✕
+            <Trash2 size={15} />
           </IconButton>
         </div>
       </div>

@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { QrCode } from "lucide-react";
+import toast from "react-hot-toast";
+import { useExamGuard } from "@/context/ExamGuardContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SpinnerScreen } from "@/components/ui/spinner";
@@ -32,6 +34,7 @@ type Tab = "questions" | "scoring";
 export default function TestEditorPage() {
   const { id } = useParams<{ id: string }>();
   const draft = useTestDraft(id);
+  const { requestNav } = useExamGuard();
   const { questions } = draft;
 
   const [activeQId, setActiveQId] = useState<string | null>(null);
@@ -58,6 +61,31 @@ export default function TestEditorPage() {
     setActiveQId(converted[0]?.id ?? null);
   }
 
+  /** Deletes right away and offers a few seconds to bring the question back. */
+  function deleteWithUndo(q: TestQuestion, index: number) {
+    draft.deleteQuestion(q.id);
+    setActiveQId(null);
+    toast(
+      (t) => (
+        <span className="flex items-center gap-3">
+          Завдання {index + 1} видалено
+          <button
+            type="button"
+            className="font-semibold text-primary hover:underline"
+            onClick={() => {
+              draft.insertQuestion(q, index);
+              setActiveQId(q.id);
+              toast.dismiss(t.id);
+            }}
+          >
+            Повернути
+          </button>
+        </span>
+      ),
+      { duration: 6000 },
+    );
+  }
+
   function importFromFile(imported: TestQuestion[]) {
     draft.appendQuestions(imported);
     setActiveQId(imported[0]?.id ?? null);
@@ -71,6 +99,11 @@ export default function TestEditorPage() {
           <div className="flex items-center gap-3">
             <Link
               href="/admin/tests"
+              // Through the guard, so unsaved edits prompt before leaving.
+              onClick={(e) => {
+                e.preventDefault();
+                requestNav("/admin/tests");
+              }}
               className="text-muted-foreground hover:text-foreground text-sm"
             >
               ← Тести
@@ -149,10 +182,7 @@ export default function TestEditorPage() {
                 index={activeIndex}
                 onChange={(patch) => draft.updateQuestion(activeQ.id, patch)}
                 onMove={(dir) => draft.moveQuestion(activeQ.id, dir)}
-                onDelete={() => {
-                  draft.deleteQuestion(activeQ.id);
-                  setActiveQId(null);
-                }}
+                onDelete={() => deleteWithUndo(activeQ, activeIndex)}
               />
             ) : (
               <div className="rounded-2xl border border-dashed border-border/50 flex items-center justify-center h-48 text-sm text-muted-foreground">
