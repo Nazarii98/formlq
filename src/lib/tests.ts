@@ -11,6 +11,7 @@ import {
   where,
   writeBatch,
   Timestamp,
+  deleteField,
 } from "firebase/firestore";
 import { docsOf } from "@/lib/firestore-helpers";
 import { db } from "@/lib/firebase";
@@ -186,7 +187,32 @@ export interface TestDoc {
   durationMinutes?: number;
   order?: number;
   folderId?: string | null; // testFolders doc id; absent/null = not in a folder
-  publicAccess?: boolean; // published + publicAccess → anyone with the link can take it, no account
+  linkAccess?: LinkAccess; // who can open it by link/QR, independent of `published`
+  /** @deprecated Early boolean form of linkAccess "anyone"; cleared on the next save. */
+  publicAccess?: boolean;
+}
+
+/**
+ * Who can open a test by its link/QR (like Google Docs link sharing):
+ * "off" — nobody beyond the catalog; "students" — any signed-in user;
+ * "anyone" — no account needed (the result isn't saved).
+ * `published` is separate: it only controls the student catalog.
+ */
+export type LinkAccess = "off" | "students" | "anyone";
+
+/** Stored link access, falling back to the legacy `publicAccess` flag. */
+export function getLinkAccess(
+  t: Pick<TestDoc, "linkAccess" | "publicAccess">,
+): LinkAccess {
+  return t.linkAccess ?? (t.publicAccess ? "anyone" : "off");
+}
+
+/** What actually works: a published test is always open to signed-in students. */
+export function effectiveLinkAccess(
+  t: Pick<TestDoc, "published" | "linkAccess" | "publicAccess">,
+): LinkAccess {
+  const stored = getLinkAccess(t);
+  return t.published && stored === "off" ? "students" : stored;
 }
 
 /** Where a signed-in student takes a test (result is saved to their history). */
@@ -194,7 +220,7 @@ export function studentTestPath(id: string): string {
   return `/dashboard/exam/${id}`;
 }
 
-/** Account-free attempt; works only when the test is published with publicAccess. */
+/** Account-free attempt; works only with linkAccess "anyone". */
 export function publicTestPath(id: string): string {
   return `/t/${id}`;
 }
@@ -397,6 +423,8 @@ export async function updateTest(
 ): Promise<void> {
   await updateDoc(doc(db, "tests", id), {
     ...data,
+    // linkAccess supersedes the legacy flag, which the rules would otherwise still honour.
+    ...("linkAccess" in data && { publicAccess: deleteField() }),
     updatedAt: serverTimestamp(),
   });
 }

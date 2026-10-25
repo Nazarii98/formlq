@@ -14,6 +14,7 @@ import {
   renameTestFolder,
   deleteTestFolder,
   saveTestLayout,
+  getLinkAccess,
   type TestDoc,
   type TestFolder,
 } from "@/lib/tests";
@@ -68,8 +69,11 @@ export default function AdminTestsPage() {
 
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [shareTestId, setShareTestId] = useState<string | null>(null);
-  const [confirmDeleteFolder, setConfirmDeleteFolder] = useState<TestFolder | null>(null);
-  const [newFolder, setNewFolder] = useState<{ forTestId?: string } | null>(null);
+  const [confirmDeleteFolder, setConfirmDeleteFolder] =
+    useState<TestFolder | null>(null);
+  const [newFolder, setNewFolder] = useState<{ forTestId?: string } | null>(
+    null,
+  );
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(loadCollapsed);
   const [search, setSearch] = useState("");
@@ -151,7 +155,9 @@ export default function AdminTestsPage() {
         folderId: t.folderId ?? null,
       })),
     )
-      .then(() => queryClient.invalidateQueries({ queryKey: queryKeys.tests.published }))
+      .then(() =>
+        queryClient.invalidateQueries({ queryKey: queryKeys.tests.published }),
+      )
       .catch(() => {
         queryClient.invalidateQueries({ queryKey: queryKeys.tests.all });
         queryClient.invalidateQueries({ queryKey: queryKeys.tests.folders });
@@ -258,8 +264,9 @@ export default function AdminTestsPage() {
 
   async function handleRenameFolder(id: string, name: string) {
     setRenamingId(null);
-    queryClient.setQueryData<TestFolder[]>(queryKeys.tests.folders, (prev = []) =>
-      prev.map((f) => (f.id === id ? { ...f, name } : f)),
+    queryClient.setQueryData<TestFolder[]>(
+      queryKeys.tests.folders,
+      (prev = []) => prev.map((f) => (f.id === id ? { ...f, name } : f)),
     );
     await renameTestFolder(id, name).catch(() =>
       queryClient.invalidateQueries({ queryKey: queryKeys.tests.folders }),
@@ -271,8 +278,9 @@ export default function AdminTestsPage() {
     setConfirmDeleteFolder(null);
     if (!folder) return;
     const ids = (buckets[folder.id] ?? []).map((t) => t.id);
-    queryClient.setQueryData<TestFolder[]>(queryKeys.tests.folders, (prev = []) =>
-      prev.filter((f) => f.id !== folder.id),
+    queryClient.setQueryData<TestFolder[]>(
+      queryKeys.tests.folders,
+      (prev = []) => prev.filter((f) => f.id !== folder.id),
     );
     await deleteTestFolder(folder.id, ids).finally(() => {
       queryClient.invalidateQueries({ queryKey: queryKeys.tests.all });
@@ -310,7 +318,9 @@ export default function AdminTestsPage() {
     e.preventDefault();
     e.stopPropagation();
     updateDrop(
-      drag.id === testId ? null : { kind: "test", id: testId, after: isLowerHalf(e) },
+      drag.id === testId
+        ? null
+        : { kind: "test", id: testId, after: isLowerHalf(e) },
     );
   }
 
@@ -345,10 +355,14 @@ export default function AdminTestsPage() {
 
     if (d.kind === "test") {
       const fromKey =
-        Object.keys(buckets).find((k) => buckets[k].some((x) => x.id === d.id)) ?? UNFILED;
+        Object.keys(buckets).find((k) =>
+          buckets[k].some((x) => x.id === d.id),
+        ) ?? UNFILED;
       if (t.kind === "test") {
         const toKey =
-          Object.keys(buckets).find((k) => buckets[k].some((x) => x.id === t.id)) ?? UNFILED;
+          Object.keys(buckets).find((k) =>
+            buckets[k].some((x) => x.id === t.id),
+          ) ?? UNFILED;
         moveTest(d.id, toKey, { id: t.id, after: t.after });
       } else if (t.kind === "into" && t.key !== fromKey) {
         moveTest(d.id, t.key, null);
@@ -361,7 +375,12 @@ export default function AdminTestsPage() {
   // Hovering a test over a collapsed folder opens it after a short pause.
   const hoverIntoKey = drop?.kind === "into" ? drop.key : null;
   useEffect(() => {
-    if (!hoverIntoKey || hoverIntoKey === UNFILED || !collapsed.has(hoverIntoKey)) return;
+    if (
+      !hoverIntoKey ||
+      hoverIntoKey === UNFILED ||
+      !collapsed.has(hoverIntoKey)
+    )
+      return;
     const timer = setTimeout(() => setFolderExpanded(hoverIntoKey, true), 650);
     return () => clearTimeout(timer);
   }, [hoverIntoKey, collapsed]);
@@ -395,11 +414,17 @@ export default function AdminTestsPage() {
           onDragOver={(e) => onTestDragOver(e, test.id)}
           onDrop={handleDrop}
           onDragEnd={endDrag}
-          onMoveUp={() => i > 0 && moveTest(test.id, key, { id: full[i - 1].id, after: false })}
-          onMoveDown={() =>
-            i < full.length - 1 && moveTest(test.id, key, { id: full[i + 1].id, after: true })
+          onMoveUp={() =>
+            i > 0 &&
+            moveTest(test.id, key, { id: full[i - 1].id, after: false })
           }
-          onTogglePublished={() => patchTest(test.id, { published: !test.published })}
+          onMoveDown={() =>
+            i < full.length - 1 &&
+            moveTest(test.id, key, { id: full[i + 1].id, after: true })
+          }
+          onTogglePublished={() =>
+            patchTest(test.id, { published: !test.published })
+          }
           onShare={() => setShareTestId(test.id)}
           onEdit={() => router.push(`/admin/tests/${test.id}`)}
           onDelete={() => setConfirmDeleteId(test.id)}
@@ -418,8 +443,12 @@ export default function AdminTestsPage() {
   const unfiled = visibleTests(UNFILED);
   const visibleFolders = folders
     .map((f) => ({ folder: f, list: visibleTests(f.id, f.name) }))
-    .filter(({ folder, list }) => !searching || list.length > 0 || folder.name.toLowerCase().includes(q));
-  const nothingFound = searching && unfiled.length === 0 && visibleFolders.length === 0;
+    .filter(
+      ({ folder, list }) =>
+        !searching || list.length > 0 || folder.name.toLowerCase().includes(q),
+    );
+  const nothingFound =
+    searching && unfiled.length === 0 && visibleFolders.length === 0;
   const draggingTestFromFolder =
     drag?.kind === "test" && !buckets[UNFILED].some((t) => t.id === drag.id);
 
@@ -454,9 +483,17 @@ export default function AdminTestsPage() {
       {isLoading ? (
         <SpinnerPage />
       ) : tests.length === 0 && !hasFolders && !newFolder ? (
-        <EmptyState emoji="📝" title="Тестів ще немає" description="Створіть перший тест" />
+        <EmptyState
+          emoji="📝"
+          title="Тестів ще немає"
+          description="Створіть перший тест"
+        />
       ) : nothingFound ? (
-        <EmptyState emoji="🔍" title="Нічого не знайдено" description={`За запитом «${search.trim()}»`} />
+        <EmptyState
+          emoji="🔍"
+          title="Нічого не знайдено"
+          description={`За запитом «${search.trim()}»`}
+        />
       ) : (
         <div className="space-y-2">
           {visibleFolders.map(({ folder, list }) => {
@@ -481,13 +518,17 @@ export default function AdminTestsPage() {
                 isDropInto={drop?.kind === "into" && drop.key === folder.id}
                 dropIndicator={folderDrop}
                 creatingTest={createMutation.isPending}
-                onToggle={() => setFolderExpanded(folder.id, collapsed.has(folder.id))}
+                onToggle={() =>
+                  setFolderExpanded(folder.id, collapsed.has(folder.id))
+                }
                 onRenameStart={() => setRenamingId(folder.id)}
                 onRename={(name) => handleRenameFolder(folder.id, name)}
                 onRenameCancel={() => setRenamingId(null)}
                 onAddTest={() => user && createMutation.mutate(folder.id)}
                 onDelete={() => setConfirmDeleteFolder(folder)}
-                onHeaderDragStart={(e) => startDrag(e, { kind: "folder", id: folder.id })}
+                onHeaderDragStart={(e) =>
+                  startDrag(e, { kind: "folder", id: folder.id })
+                }
                 onHeaderDragOver={(e) => onFolderHeaderDragOver(e, folder.id)}
                 onBodyDragOver={(e) => onAreaDragOver(e, folder.id)}
                 onDrop={handleDrop}
@@ -526,7 +567,9 @@ export default function AdminTestsPage() {
                 <div className="flex items-center gap-2 px-1 text-xs font-medium text-muted-foreground">
                   <Inbox size={13} />
                   <span>Без папки</span>
-                  <span className="text-muted-foreground/60">· {pluralize(buckets[UNFILED].length, PLURAL.test)}</span>
+                  <span className="text-muted-foreground/60">
+                    · {pluralize(buckets[UNFILED].length, PLURAL.test)}
+                  </span>
                   <div className="flex-1 h-px bg-border/50 ml-1" />
                 </div>
               )}
@@ -556,9 +599,8 @@ export default function AdminTestsPage() {
           testId={shareTest.id}
           title={shareTest.title}
           published={shareTest.published}
-          onPublish={() => patchTest(shareTest.id, { published: true })}
-          publicAccess={shareTest.publicAccess ?? false}
-          onPublicAccessChange={(v) => patchTest(shareTest.id, { publicAccess: v })}
+          linkAccess={getLinkAccess(shareTest)}
+          onLinkAccessChange={(v) => patchTest(shareTest.id, { linkAccess: v })}
         />
       )}
 

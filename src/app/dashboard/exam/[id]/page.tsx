@@ -9,6 +9,7 @@ import {
   getTest,
   TestDoc,
   saveTestResult,
+  effectiveLinkAccess,
   getUserResults,
 } from "@/lib/tests";
 import { isEditor } from "@/lib/roles";
@@ -37,8 +38,8 @@ export default function ExamPage() {
     // Wait for the profile (role) too, so drafts are gated correctly.
     if (authLoading || !user) return;
     getTest(id).then((t) => {
-      // Drafts are only reachable by editors (homework uses its own route).
-      if (!t || (!t.published && !canSeeDrafts)) {
+      // The catalog lists published tests; anything else needs link access (or an editor).
+      if (!t || (effectiveLinkAccess(t) === "off" && !canSeeDrafts)) {
         router.replace("/dashboard");
         return;
       }

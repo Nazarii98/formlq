@@ -11,6 +11,8 @@ import {
   makeEmptyOpen,
   makeEmptyMatching,
   NMT_2025_TABLE,
+  getLinkAccess,
+  type LinkAccess,
   type TestQuestion,
   type ScoreRow,
   type ScaleType,
@@ -29,7 +31,7 @@ export function useTestDraft(id: string) {
   const [title, setTitle] = useState("");
   const [subtitle, setSubtitle] = useState("");
   const [published, setPublished] = useState(false);
-  const [publicAccess, setPublicAccess] = useState(false);
+  const [linkAccess, setLinkAccess] = useState<LinkAccess>("off");
   const [durationMinutes, setDurationMinutes] = useState(150);
   const [questions, setQuestions] = useState<TestQuestion[]>([]);
   const [scoreTable, setScoreTable] = useState<ScoreRow[]>(NMT_2025_TABLE);
@@ -54,7 +56,7 @@ export function useTestDraft(id: string) {
         title: test.title,
         subtitle: test.subtitle,
         published: test.published,
-        publicAccess: test.publicAccess ?? false,
+        linkAccess: getLinkAccess(test),
         durationMinutes: test.durationMinutes ?? 150,
         questions: test.questions ?? [],
         scoreTable: test.scoreTable?.length ? test.scoreTable : NMT_2025_TABLE,
@@ -63,7 +65,7 @@ export function useTestDraft(id: string) {
       setTitle(data.title);
       setSubtitle(data.subtitle);
       setPublished(data.published);
-      setPublicAccess(data.publicAccess);
+      setLinkAccess(data.linkAccess);
       setDurationMinutes(data.durationMinutes);
       setQuestions(data.questions);
       setScoreTable(data.scoreTable);
@@ -81,7 +83,7 @@ export function useTestDraft(id: string) {
       title,
       subtitle,
       published,
-      publicAccess,
+      linkAccess,
       durationMinutes,
       questions,
       scoreTable,
@@ -91,7 +93,7 @@ export function useTestDraft(id: string) {
       title,
       subtitle,
       published,
-      publicAccess,
+      linkAccess,
       durationMinutes,
       questions,
       scoreTable,
@@ -213,8 +215,8 @@ export function useTestDraft(id: string) {
     setSubtitle,
     published,
     setPublished,
-    publicAccess,
-    setPublicAccess,
+    linkAccess,
+    setLinkAccess,
     durationMinutes,
     setDurationMinutes,
     questions,
