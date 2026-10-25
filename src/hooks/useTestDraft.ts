@@ -27,6 +27,7 @@ export function useTestDraft(id: string) {
   const [title, setTitle] = useState("");
   const [subtitle, setSubtitle] = useState("");
   const [published, setPublished] = useState(false);
+  const [publicAccess, setPublicAccess] = useState(false);
   const [durationMinutes, setDurationMinutes] = useState(150);
   const [questions, setQuestions] = useState<TestQuestion[]>([]);
   const [scoreTable, setScoreTable] = useState<ScoreRow[]>(NMT_2025_TABLE);
@@ -51,6 +52,7 @@ export function useTestDraft(id: string) {
         title: test.title,
         subtitle: test.subtitle,
         published: test.published,
+        publicAccess: test.publicAccess ?? false,
         durationMinutes: test.durationMinutes ?? 150,
         questions: test.questions ?? [],
         scoreTable: test.scoreTable?.length ? test.scoreTable : NMT_2025_TABLE,
@@ -59,6 +61,7 @@ export function useTestDraft(id: string) {
       setTitle(data.title);
       setSubtitle(data.subtitle);
       setPublished(data.published);
+      setPublicAccess(data.publicAccess);
       setDurationMinutes(data.durationMinutes);
       setQuestions(data.questions);
       setScoreTable(data.scoreTable);
@@ -76,12 +79,22 @@ export function useTestDraft(id: string) {
       title,
       subtitle,
       published,
+      publicAccess,
       durationMinutes,
       questions,
       scoreTable,
       scaleType,
     }),
-    [title, subtitle, published, durationMinutes, questions, scoreTable, scaleType],
+    [
+      title,
+      subtitle,
+      published,
+      publicAccess,
+      durationMinutes,
+      questions,
+      scoreTable,
+      scaleType,
+    ],
   );
   const snapshot = useMemo(() => JSON.stringify(draft), [draft]);
   const isDirty = snapshot !== savedSnapshot;
@@ -148,6 +161,8 @@ export function useTestDraft(id: string) {
     setSubtitle,
     published,
     setPublished,
+    publicAccess,
+    setPublicAccess,
     durationMinutes,
     setDurationMinutes,
     questions,

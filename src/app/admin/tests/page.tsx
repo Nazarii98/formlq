@@ -24,6 +24,7 @@ import { Plus, FolderPlus, Folder, Inbox } from "lucide-react";
 import { SearchInput } from "@/components/ui/search-input";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { TestRow } from "@/components/admin/tests/TestRow";
+import { TestShareModal } from "@/components/admin/test-editor/TestShareModal";
 import { FolderSection } from "@/components/admin/tests/FolderSection";
 import { pluralize, PLURAL } from "@/lib/format";
 import { FolderNameInput } from "@/components/admin/tests/FolderNameInput";
@@ -66,6 +67,7 @@ export default function AdminTestsPage() {
   const queryClient = useQueryClient();
 
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [shareTestId, setShareTestId] = useState<string | null>(null);
   const [confirmDeleteFolder, setConfirmDeleteFolder] = useState<TestFolder | null>(null);
   const [newFolder, setNewFolder] = useState<{ forTestId?: string } | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -229,11 +231,17 @@ export default function AdminTestsPage() {
     },
   });
 
-  async function handleTogglePublished(id: string, current: boolean) {
-    await updateTest(id, { published: !current });
+  /** Saves a field straight away (no draft here), updating the list optimistically. */
+  async function patchTest(id: string, patch: Partial<TestDoc>) {
+    queryClient.setQueryData<TestDoc[]>(queryKeys.tests.all, (prev) =>
+      prev?.map((t) => (t.id === id ? { ...t, ...patch } : t)),
+    );
+    await updateTest(id, patch);
     queryClient.invalidateQueries({ queryKey: queryKeys.tests.all });
     queryClient.invalidateQueries({ queryKey: queryKeys.tests.published });
   }
+
+  const shareTest = tests.find((t) => t.id === shareTestId);
 
   async function handleCreateFolder(name: string) {
     const forTestId = newFolder?.forTestId;
@@ -391,7 +399,8 @@ export default function AdminTestsPage() {
           onMoveDown={() =>
             i < full.length - 1 && moveTest(test.id, key, { id: full[i + 1].id, after: true })
           }
-          onTogglePublished={() => handleTogglePublished(test.id, test.published)}
+          onTogglePublished={() => patchTest(test.id, { published: !test.published })}
+          onShare={() => setShareTestId(test.id)}
           onEdit={() => router.push(`/admin/tests/${test.id}`)}
           onDelete={() => setConfirmDeleteId(test.id)}
           onMoveTo={(folderId) => {
@@ -538,6 +547,19 @@ export default function AdminTestsPage() {
             </div>
           )}
         </div>
+      )}
+
+      {shareTest && (
+        <TestShareModal
+          open
+          onClose={() => setShareTestId(null)}
+          testId={shareTest.id}
+          title={shareTest.title}
+          published={shareTest.published}
+          onPublish={() => patchTest(shareTest.id, { published: true })}
+          publicAccess={shareTest.publicAccess ?? false}
+          onPublicAccessChange={(v) => patchTest(shareTest.id, { publicAccess: v })}
+        />
       )}
 
       <ConfirmDialog

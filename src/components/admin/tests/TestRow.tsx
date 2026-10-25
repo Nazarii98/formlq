@@ -10,6 +10,7 @@ import {
   EyeOff,
   ChevronUp,
   ChevronDown,
+  QrCode,
 } from "lucide-react";
 import type { TestDoc, TestFolder } from "@/lib/tests";
 import { MoveToFolderMenu } from "./MoveToFolderMenu";
@@ -39,6 +40,7 @@ interface TestRowProps {
   onMoveUp: () => void;
   onMoveDown: () => void;
   onTogglePublished: () => void;
+  onShare: () => void;
   onEdit: () => void;
   onDelete: () => void;
   onMoveTo: (folderId: string | null) => void;
@@ -63,6 +65,7 @@ export function TestRow({
   onMoveUp,
   onMoveDown,
   onTogglePublished,
+  onShare,
   onEdit,
   onDelete,
   onMoveTo,
@@ -181,6 +184,17 @@ export function TestRow({
               }}
             >
               {test.published ? <Eye size={13} /> : <EyeOff size={13} />}
+            </IconButton>
+
+            <IconButton
+              label="Поділитися"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onShare();
+              }}
+            >
+              <QrCode size={13} />
             </IconButton>
 
             <MoveToFolderMenu

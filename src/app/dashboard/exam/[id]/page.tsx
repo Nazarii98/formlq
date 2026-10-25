@@ -34,10 +34,6 @@ export default function ExamPage() {
   const [loadingTest, setLoadingTest] = useState(true);
 
   useEffect(() => {
-    if (!authLoading && !user) router.push("/login");
-  }, [user, authLoading, router]);
-
-  useEffect(() => {
     // Wait for the profile (role) too, so drafts are gated correctly.
     if (authLoading || !user) return;
     getTest(id).then((t) => {

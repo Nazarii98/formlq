@@ -1,13 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { AuthCard } from "@/components/auth/AuthCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { cn } from "@/lib/utils";
+import { cn, safeNextPath, withNext } from "@/lib/utils";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -16,6 +16,9 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const { signIn, signInWithGoogle } = useAuth();
   const router = useRouter();
+  // Set when sent here from a protected page (e.g. a test QR code); return there after sign-in.
+  const nextParam = useSearchParams().get("next");
+  const next = safeNextPath(nextParam);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -23,7 +26,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await signIn(email, password);
-      router.push("/dashboard");
+      router.push(next);
     } catch {
       setError("Невірний email або пароль");
     } finally {
@@ -36,7 +39,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await signInWithGoogle();
-      router.push("/dashboard");
+      router.push(next);
     } catch (err: unknown) {
       console.error("Google auth error:", err);
       const code = (err as { code?: string })?.code ?? "unknown";
@@ -50,7 +53,7 @@ export default function LoginPage() {
     <AuthCard
       title="Увійти"
       footerText="Немає акаунту?"
-      footerLinkHref="/register"
+      footerLinkHref={withNext("/register", nextParam ? next : null)}
       footerLinkLabel="Зареєструватись"
     >
       <p className="text-sm text-muted-foreground -mt-3">
