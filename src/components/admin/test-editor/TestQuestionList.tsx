@@ -11,6 +11,7 @@ export function TestQuestionList({
   onSelect,
   onAdd,
   onImport,
+  onImportFile,
   onExport,
 }: {
   questions: TestQuestion[];
@@ -18,6 +19,7 @@ export function TestQuestionList({
   onSelect: (id: string | null) => void;
   onAdd: (type: QuestionType) => void;
   onImport: () => void;
+  onImportFile: () => void;
   onExport: () => void;
 }) {
   return (
@@ -73,6 +75,14 @@ export function TestQuestionList({
           onClick={onImport}
         >
           З банку
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex-1 text-xs border-primary/40 text-primary hover:bg-primary/5"
+          onClick={onImportFile}
+        >
+          З файлу
         </Button>
         <Button
           variant="outline"

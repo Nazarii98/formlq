@@ -22,6 +22,7 @@ import { TestQuestionEditor } from "@/components/admin/test-editor/TestQuestionE
 import { ScoreTableEditor } from "@/components/admin/test-editor/ScoreTableEditor";
 import { BankImportModal } from "@/components/admin/test-editor/BankImportModal";
 import { BankExportModal } from "@/components/admin/test-editor/BankExportModal";
+import { FileImportModal } from "@/components/admin/test-editor/FileImportModal";
 import { SegmentedControl } from "@/components/admin/test-editor/primitives";
 
 type Tab = "questions" | "scoring";
@@ -35,6 +36,7 @@ export default function TestEditorPage() {
   const [activeTab, setActiveTab] = useState<Tab>("questions");
   const [showBank, setShowBank] = useState(false);
   const [showExport, setShowExport] = useState(false);
+  const [showFileImport, setShowFileImport] = useState(false);
 
   if (draft.loading) return <SpinnerScreen />;
 
@@ -51,6 +53,11 @@ export default function TestEditorPage() {
     }));
     draft.appendQuestions(converted);
     setActiveQId(converted[0]?.id ?? null);
+  }
+
+  function importFromFile(imported: TestQuestion[]) {
+    draft.appendQuestions(imported);
+    setActiveQId(imported[0]?.id ?? null);
   }
 
   return (
@@ -119,6 +126,7 @@ export default function TestEditorPage() {
               onSelect={setActiveQId}
               onAdd={(type) => setActiveQId(draft.addQuestion(type))}
               onImport={() => setShowBank(true)}
+              onImportFile={() => setShowFileImport(true)}
               onExport={() => setShowExport(true)}
             />
 
@@ -162,6 +170,13 @@ export default function TestEditorPage() {
         open={showBank}
         onClose={() => setShowBank(false)}
         onImport={importFromBank}
+      />
+      <FileImportModal
+        open={showFileImport}
+        onClose={() => setShowFileImport(false)}
+        contextId={id}
+        startOrder={questions.length}
+        onImport={importFromFile}
       />
       <BankExportModal
         open={showExport}

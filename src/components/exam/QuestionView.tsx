@@ -126,7 +126,8 @@ export function QuestionView({
           </p>
           <input
             type="text"
-            inputMode="numeric"
+            // "decimal" so mobile keypads offer "," / "." (both accepted when scoring).
+            inputMode="decimal"
             value={answer ?? ""}
             onChange={(e) => onAnswer(question.id, e.target.value)}
             placeholder="Ваша відповідь..."
