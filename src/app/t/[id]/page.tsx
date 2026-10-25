@@ -3,10 +3,15 @@
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { ReferenceDrawerProvider } from "@/context/ReferenceDrawerContext";
-import { getTest, studentTestPath, type TestDoc } from "@/lib/tests";
+import {
+  getTest,
+  getLinkAccess,
+  studentTestPath,
+  type TestDoc,
+} from "@/lib/tests";
 import { ExamRunner } from "@/components/exam/ExamRunner";
 import { Button } from "@/components/ui/button";
 import { SpinnerScreen } from "@/components/ui/spinner";
@@ -26,19 +31,26 @@ const ReferenceDrawer = dynamic(
  */
 export default function PublicTestPage() {
   const { id } = useParams<{ id: string }>();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
   const [test, setTest] = useState<TestDoc | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "unavailable">(
     "loading",
   );
 
+  // Signed-in visitors take it in account mode, so their result is saved. One QR serves both.
   useEffect(() => {
+    if (!authLoading && user) router.replace(studentTestPath(id));
+  }, [authLoading, user, id, router]);
+
+  useEffect(() => {
+    if (authLoading || user) return;
     let cancelled = false;
-    // Firestore rules only allow this read for published tests with publicAccess.
+    // Firestore rules only allow this read for tests with link access "anyone".
     getTest(id)
       .then((t) => {
         if (cancelled) return;
-        if (t?.published && t.publicAccess) {
+        if (t && getLinkAccess(t) === "anyone") {
           setTest(t);
           setState("ready");
         } else setState("unavailable");
@@ -49,9 +61,9 @@ export default function PublicTestPage() {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, authLoading, user]);
 
-  if (state === "loading") return <SpinnerScreen />;
+  if (state === "loading" || authLoading || user) return <SpinnerScreen />;
 
   if (state === "unavailable" || !test)
     return (
@@ -60,12 +72,12 @@ export default function PublicTestPage() {
           <p className="text-4xl">🔒</p>
           <h1 className="text-lg font-semibold">Тест недоступний</h1>
           <p className="text-sm text-muted-foreground">
-            Посилання застаріло або вчитель закрив публічний доступ до цього
-            тесту.
+            Вчитель закрив доступ без акаунта. Якщо ви учень — увійдіть, щоб
+            відкрити тест.
           </p>
-          <Link href={user ? "/dashboard" : "/login"}>
+          <Link href={withNext("/login", studentTestPath(id))}>
             <Button variant="outline" className="mt-2">
-              {user ? "На головну" : "Увійти"}
+              Увійти
             </Button>
           </Link>
         </div>
@@ -90,13 +102,9 @@ export default function PublicTestPage() {
         // Public attempts are never persisted.
         onSubmit={async () => ""}
         allowRestart
-        // Signed-in students can retake it with history; others are invited to sign up.
-        resultsHref={
-          user
-            ? studentTestPath(test.id)
-            : withNext("/register", studentTestPath(test.id))
-        }
-        resultsLabel={user ? "Пройти з акаунтом" : "Зберігати результати"}
+        // Invite to sign up and come back to this test with results saved.
+        resultsHref={withNext("/register", studentTestPath(test.id))}
+        resultsLabel="Зберігати результати"
         startLabel="Почати тест →"
       />
     </ReferenceDrawerProvider>

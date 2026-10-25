@@ -2,35 +2,62 @@
 
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
-import { AlertTriangle, Check, Copy, Download, X } from "lucide-react";
+import {
+  AlertTriangle,
+  Check,
+  Copy,
+  Download,
+  Globe,
+  Lock,
+  Users,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { IconButton } from "@/components/ui/icon-button";
-import { Switch } from "@/components/ui/switch";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { cn } from "@/lib/utils";
-import { publicTestPath, studentTestPath } from "@/lib/tests";
-import { SegmentedControl } from "./primitives";
+import {
+  effectiveLinkAccess,
+  publicTestPath,
+  studentTestPath,
+  type LinkAccess,
+} from "@/lib/tests";
 
-type Mode = "student" | "public";
-
-const MODE_INFO: Record<
-  Mode,
-  { label: string; caption: string; description: string }
-> = {
-  student: {
-    label: "Для учнів",
-    caption: "Вхід в акаунт",
-    description:
-      "Учень входить в акаунт і проходить тест. Результат зберігається в його історії, ви бачите його в профілі учня.",
-  },
-  public: {
-    label: "Публічний",
-    caption: "Без акаунта",
-    description:
-      "Будь-хто з посиланням проходить тест без входу. Бал і розбір видно одразу, але результат ніде не зберігається.",
-  },
+type Option = {
+  value: LinkAccess;
+  icon: LucideIcon;
+  label: string;
+  description: string;
+  /** Under the QR in the printable PNG. */
+  caption: string;
 };
+
+const OPTIONS: Option[] = [
+  {
+    value: "off",
+    icon: Lock,
+    label: "Вимкнено",
+    description: "За посиланням тест не відкривається.",
+    caption: "",
+  },
+  {
+    value: "students",
+    icon: Users,
+    label: "Учні з акаунтом",
+    description: "Потрібно увійти. Результат зберігається в історії учня.",
+    caption: "Увійдіть в акаунт formlq",
+  },
+  {
+    value: "anyone",
+    icon: Globe,
+    label: "Будь-хто з посиланням",
+    description:
+      "Без входу; бал видно одразу, але не зберігається. Учні з акаунтом проходять у звичайному режимі.",
+    caption: "Без реєстрації",
+  },
+];
 
 // QR stays dark-on-white in both themes: scanners need the contrast.
 const QR_OPTIONS = {
@@ -39,7 +66,7 @@ const QR_OPTIONS = {
   color: { dark: "#000000", light: "#ffffff" },
 };
 
-/** Printable PNG: the QR code with the test title and mode caption underneath. */
+/** Printable PNG: the QR code with the test title and access caption underneath. */
 async function renderPrintable(
   url: string,
   title: string,
@@ -66,16 +93,18 @@ async function renderPrintable(
   return canvas.toDataURL("image/png");
 }
 
-/** QR code + link for a test, in student (signed-in) or public (no account) mode. */
+/**
+ * Link sharing for a test, Google Docs style: who can open it by link/QR.
+ * Independent of `published`, which only controls the student catalog.
+ */
 export function TestShareModal({
   open,
   onClose,
   testId,
   title,
   published,
-  onPublish,
-  publicAccess,
-  onPublicAccessChange,
+  linkAccess,
+  onLinkAccessChange,
   isDirty = false,
   saving = false,
   onSave,
@@ -85,25 +114,26 @@ export function TestShareModal({
   testId: string;
   title: string;
   published: boolean;
-  onPublish: () => void;
-  publicAccess: boolean;
-  onPublicAccessChange: (v: boolean) => void;
+  linkAccess: LinkAccess;
+  onLinkAccessChange: (v: LinkAccess) => void;
   /** Editor only: unsaved edits don't reach people using the link until saved. */
   isDirty?: boolean;
   saving?: boolean;
   onSave?: () => void;
 }) {
-  const [mode, setMode] = useState<Mode>("student");
   const [qr, setQr] = useState<{ url: string; image: string } | null>(null);
   const { copied, copy } = useCopyToClipboard();
 
+  const access = effectiveLinkAccess({ published, linkAccess });
+  const option = OPTIONS.find((o) => o.value === access)!;
+  const path =
+    access === "anyone"
+      ? publicTestPath(testId)
+      : access === "students"
+        ? studentTestPath(testId)
+        : null;
   const url =
-    typeof window === "undefined"
-      ? ""
-      : window.location.origin +
-        (mode === "student" ? studentTestPath(testId) : publicTestPath(testId));
-  const info = MODE_INFO[mode];
-  const inactive = !published || (mode === "public" && !publicAccess);
+    path && typeof window !== "undefined" ? window.location.origin + path : "";
 
   useEffect(() => {
     if (!open || !url) return;
@@ -119,8 +149,8 @@ export function TestShareModal({
   async function download() {
     const name = title.trim() || "Тест";
     const a = document.createElement("a");
-    a.href = await renderPrintable(url, name, info.caption);
-    a.download = `QR — ${name} (${info.label.toLowerCase()}).png`;
+    a.href = await renderPrintable(url, name, option.caption);
+    a.download = `QR — ${name}.png`;
     a.click();
   }
 
@@ -134,81 +164,108 @@ export function TestShareModal({
       </div>
 
       <div className="px-5 pb-5 space-y-5">
-        <SegmentedControl
-          value={mode}
-          onChange={setMode}
-          options={[
-            { value: "student", label: MODE_INFO.student.label },
-            { value: "public", label: MODE_INFO.public.label },
-          ]}
-        />
-
-        <div className="grid grid-cols-1 sm:grid-cols-[13rem_1fr] gap-5 items-start">
-          <div className="relative mx-auto w-52 sm:w-full aspect-square rounded-2xl border border-border/50 bg-white p-2">
-            {qr?.url === url && (
-              // eslint-disable-next-line @next/next/no-img-element -- data URL, nothing to optimise
-              <img
-                src={qr.image}
-                alt={`QR-код: ${info.label.toLowerCase()} — ${title}`}
-                className={cn(
-                  "size-full transition-opacity",
-                  inactive && "opacity-15",
-                )}
-              />
-            )}
-            {inactive && (
-              <div className="absolute inset-0 flex items-center justify-center p-4 text-center text-xs font-medium text-neutral-700">
-                Посилання поки не працює
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-4 min-w-0">
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              {info.description}
-            </p>
-
-            {mode === "public" && (
-              <label className="flex items-center justify-between gap-3 rounded-xl border border-border/50 px-4 py-3 cursor-pointer">
-                <span className="text-sm">
-                  Дозволити проходження без акаунта
-                </span>
-                <Switch
-                  checked={publicAccess}
-                  onChange={onPublicAccessChange}
-                />
-              </label>
-            )}
-
-            <div className="flex gap-2">
-              <input
-                readOnly
-                value={url}
-                aria-label="Посилання на тест"
-                onFocus={(e) => e.target.select()}
-                className="min-w-0 flex-1 h-8 rounded-lg border border-border/50 bg-muted/40 px-3 text-xs font-mono text-muted-foreground"
-              />
-              <Button variant="outline" onClick={() => copy(url)}>
-                {copied ? <Check /> : <Copy />}
-                {copied ? "Скопійовано" : "Копіювати"}
-              </Button>
-            </div>
-
-            <Button variant="outline" onClick={download} disabled={!url}>
-              <Download /> Завантажити PNG для друку
-            </Button>
+        <div className="space-y-2">
+          <p id="link-access-label" className="text-sm font-medium">
+            Хто може відкрити за посиланням
+          </p>
+          <div
+            role="radiogroup"
+            aria-labelledby="link-access-label"
+            className="rounded-xl border border-border/50 divide-y divide-border/50 overflow-hidden"
+          >
+            {OPTIONS.map((o) => {
+              // A published test is in the catalog anyway, so the link can't be "off".
+              const disabled = o.value === "off" && published;
+              const checked = access === o.value;
+              return (
+                <button
+                  key={o.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={checked}
+                  disabled={disabled}
+                  onClick={() => onLinkAccessChange(o.value)}
+                  className={cn(
+                    "w-full flex items-start gap-3 px-4 py-3 text-left transition-colors",
+                    checked ? "bg-primary/5" : "hover:bg-muted/50",
+                    disabled &&
+                      "opacity-50 cursor-not-allowed hover:bg-transparent",
+                  )}
+                >
+                  <o.icon
+                    size={18}
+                    className={cn(
+                      "mt-0.5 shrink-0",
+                      checked ? "text-primary" : "text-muted-foreground",
+                    )}
+                  />
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-sm font-medium">{o.label}</span>
+                    <span className="block text-xs text-muted-foreground leading-relaxed">
+                      {disabled
+                        ? "Тест опублікований — учні з акаунтом відкривають його з каталогу."
+                        : o.description}
+                    </span>
+                  </span>
+                  <span
+                    aria-hidden
+                    className={cn(
+                      "mt-0.5 size-4 shrink-0 rounded-full border-2 transition-colors",
+                      checked
+                        ? "border-primary bg-primary shadow-[inset_0_0_0_2px_var(--background)]"
+                        : "border-muted-foreground/40",
+                    )}
+                  />
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        {!published ? (
-          <Banner
-            text="Тест — чернетка. За посиланням його поки ніхто не відкриє."
-            action="Опублікувати"
-            onAction={onPublish}
-          />
-        ) : mode === "public" && !publicAccess ? (
-          <Banner text="Публічний доступ вимкнено. Увімкніть перемикач вище." />
-        ) : null}
+        {url ? (
+          <div className="grid grid-cols-1 sm:grid-cols-[10rem_1fr] gap-5 items-center">
+            <div className="mx-auto w-40 sm:w-full aspect-square rounded-2xl border border-border/50 bg-white p-2">
+              {qr?.url === url && (
+                // eslint-disable-next-line @next/next/no-img-element -- data URL, nothing to optimise
+                <img
+                  src={qr.image}
+                  alt={`QR-код тесту «${title}»`}
+                  className="size-full"
+                />
+              )}
+            </div>
+            <div className="space-y-3 min-w-0">
+              <div className="flex gap-2">
+                <input
+                  readOnly
+                  value={url}
+                  aria-label="Посилання на тест"
+                  onFocus={(e) => e.target.select()}
+                  className="min-w-0 flex-1 h-8 rounded-lg border border-border/50 bg-muted/40 px-3 text-xs font-mono text-muted-foreground"
+                />
+                <Button variant="outline" onClick={() => copy(url)}>
+                  {copied ? <Check /> : <Copy />}
+                  {copied ? "Скопійовано" : "Копіювати"}
+                </Button>
+              </div>
+              <Button variant="outline" onClick={download}>
+                <Download /> Завантажити PNG для друку
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3 rounded-xl bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+            <Lock size={16} className="shrink-0" />
+            Оберіть, хто може відкрити тест, щоб отримати посилання і QR-код.
+          </div>
+        )}
+
+        <p className="text-xs text-muted-foreground">
+          {published
+            ? "Тест опублікований: учні бачать його в каталозі «Тести»."
+            : "Тест у чернетці: у каталозі учнів його не видно."}
+        </p>
+
         {isDirty && (
           <Banner
             text="Є незбережені зміни — за посиланням діє остання збережена версія."

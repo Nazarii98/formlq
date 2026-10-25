@@ -49,12 +49,12 @@ service cloud.firestore {
     }
 
     // Tests — read by any auth user, write by editors only.
-    // A single published test with publicAccess may be fetched without an account (QR / public link);
-    // listing still requires sign-in.
+    // A single test with link access "anyone" may be fetched without an account (QR / public link),
+    // published or not; publicAccess is the legacy form of the same. Listing still requires sign-in.
     match /tests/{testId} {
-      allow get: if isAuth() || (
-        resource.data.published == true && resource.data.get("publicAccess", false) == true
-      );
+      allow get: if isAuth()
+        || resource.data.get("linkAccess", "off") == "anyone"
+        || resource.data.get("publicAccess", false) == true;
       allow list: if isAuth();
       allow write: if isEditor();
     }

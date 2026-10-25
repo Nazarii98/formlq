@@ -226,9 +226,8 @@ export default function TestEditorPage() {
         testId={id}
         title={draft.title}
         published={draft.published}
-        onPublish={() => draft.setPublished(true)}
-        publicAccess={draft.publicAccess}
-        onPublicAccessChange={draft.setPublicAccess}
+        linkAccess={draft.linkAccess}
+        onLinkAccessChange={draft.setLinkAccess}
         isDirty={draft.isDirty}
         saving={draft.saving}
         onSave={draft.save}
